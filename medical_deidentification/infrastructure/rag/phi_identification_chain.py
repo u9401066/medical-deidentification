@@ -162,6 +162,14 @@ class PHIIdentificationResult(BaseModel):
                 '設備識別碼': PHIType.DEVICE_ID,
                 '證書': PHIType.CERTIFICATE,
                 '證書號碼': PHIType.CERTIFICATE,
+                '醫療保險ID': PHIType.INSURANCE_NUMBER,
+                '醫療保險 ID': PHIType.INSURANCE_NUMBER,
+                '醫師姓名': PHIType.NAME,  # 醫師也是姓名
+                '醫療機構名稱': PHIType.HOSPITAL_NAME,
+                '識別資訊': PHIType.ID,
+                '職業': PHIType.CUSTOM,  # 職業信息視為 CUSTOM
+                '治療': PHIType.CUSTOM,  # 治療信息視為 CUSTOM
+                '年齡': PHIType.AGE_OVER_89,  # 所有年齡都映射到 AGE_OVER_89
             }
             
             # Try Chinese mapping first
@@ -182,8 +190,14 @@ class PHIIdentificationResult(BaseModel):
             # Default to CUSTOM for unknown types, store original name
             logger.warning(f"Unknown PHI type: {v}, treating as CUSTOM")
             # Store original Chinese type name in custom_type_name if not set
-            if 'custom_type_name' not in info.data or not info.data.get('custom_type_name'):
-                info.data['custom_type_name'] = v
+            # Handle empty string case
+            if v and v.strip():  # Only use non-empty strings
+                if 'custom_type_name' not in info.data or not info.data.get('custom_type_name'):
+                    info.data['custom_type_name'] = v
+            else:
+                # For empty PHI type, use a default
+                if 'custom_type_name' not in info.data or not info.data.get('custom_type_name'):
+                    info.data['custom_type_name'] = 'Unknown PHI Type'
             return PHIType.CUSTOM
         
         raise ValueError(f"Invalid phi_type: {v}")

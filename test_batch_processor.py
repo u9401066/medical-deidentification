@@ -4,7 +4,13 @@ Simplified batch PHI identification test using the new BatchPHIProcessor module
 """
 
 from pathlib import Path
+from datetime import datetime
 from loguru import logger
+
+# Configure log file
+log_filename = f"test_batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+logger.add(log_filename, rotation="10 MB", retention="10 days", level="DEBUG")
+logger.info(f"Log file created: {log_filename}")
 
 from medical_deidentification.infrastructure.llm.config import LLMConfig
 from medical_deidentification.infrastructure.rag.phi_identification_chain import (
