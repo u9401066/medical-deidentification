@@ -139,6 +139,24 @@ class LLMConfig(BaseModel):
         description="Enable verbose logging"
     )
     
+    # GPU/Hardware Acceleration Settings (for Ollama and local models)
+    use_gpu: bool = Field(
+        default=True,
+        description="Enable GPU acceleration (for Ollama and local models)"
+    )
+    
+    num_gpu: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description="Number of GPUs to use (None = auto-detect all, 0 = CPU only, 1+ = specific count)"
+    )
+    
+    gpu_layers: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description="Number of model layers to offload to GPU (None = all layers, 0 = CPU only)"
+    )
+    
     def validate_model(self) -> None:
         """
         Validate model name matches provider
@@ -203,6 +221,14 @@ class LLMConfig(BaseModel):
         elif self.provider == "ollama":
             # Default Ollama base URL
             kwargs["base_url"] = "http://localhost:11434"
+        
+        # Add GPU configuration for Ollama
+        if self.provider == "ollama":
+            kwargs["use_gpu"] = self.use_gpu
+            if self.num_gpu is not None:
+                kwargs["num_gpu"] = self.num_gpu
+            if self.gpu_layers is not None:
+                kwargs["gpu_layers"] = self.gpu_layers
         
         return kwargs
     

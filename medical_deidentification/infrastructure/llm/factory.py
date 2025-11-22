@@ -162,8 +162,36 @@ def _create_ollama_llm(kwargs: dict) -> 'ChatOllama':
     kwargs.setdefault('timeout', 120)  # 2 minutes
     kwargs.setdefault('request_timeout', 120.0)  # 2 minutes for requests
     
+    # GPU Configuration
+    # Extract GPU settings before creating ChatOllama (these are not ChatOllama params)
+    use_gpu = kwargs.pop('use_gpu', True)
+    num_gpu = kwargs.pop('num_gpu', None)
+    gpu_layers = kwargs.pop('gpu_layers', None)
+    
+    # Configure Ollama GPU usage via environment variables
+    # Ollama automatically uses GPU if available, but we can control it
+    import os
+    if not use_gpu or num_gpu == 0:
+        # Force CPU-only mode
+        os.environ['OLLAMA_NUM_GPU'] = '0'
+        logger.info("Ollama configured for CPU-only mode")
+        gpu_status = "CPU-only"
+    elif num_gpu is not None and num_gpu > 0:
+        # Specify number of GPUs
+        os.environ['OLLAMA_NUM_GPU'] = str(num_gpu)
+        logger.info(f"Ollama configured to use {num_gpu} GPU(s)")
+        gpu_status = f"GPU×{num_gpu}"
+    else:
+        # Let Ollama auto-detect and use all available GPUs (default)
+        logger.info("Ollama will auto-detect and use all available GPUs")
+        gpu_status = "GPU (auto)"
+    
     llm = ChatOllama(**kwargs)
-    logger.success(f"Created ChatOllama: {kwargs.get('model', 'unknown')} (timeout={kwargs.get('timeout')}s)")
+    
+    logger.success(
+        f"Created ChatOllama: {kwargs.get('model', 'unknown')} "
+        f"(timeout={kwargs.get('timeout')}s, processor={gpu_status})"
+    )
     return llm
 
 

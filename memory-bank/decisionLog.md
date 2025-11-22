@@ -280,3 +280,19 @@ Verification:
 - BatchPHIProcessor loads successfully
 
 This follows the principle: "Each module should export once, at the highest appropriate level." |
+| 2025-11-22 | 使用 Ollama native structured output 而非 LangChain wrapper | 用戶提供的 Ollama native API 範例顯示直接使用 ollama.chat() 配合 model_json_schema() 可以更好地控制超時和錯誤處理。相比 LangChain 的 with_structured_output，native API 提供：
+1. 明確的 timeout 控制（Client(timeout=120)）
+2. 更直接的錯誤處理
+3. 可能的性能改進（減少 LangChain 抽象層開銷）
+4. 更符合 Ollama 官方推薦用法
+
+實現時保留 LangChain fallback 確保相容性。 |
+| 2025-11-22 | Prompt 年齡規則從 "especially >89" 改為 "ONLY if >90" | 原始 Prompt 中 "Ages (especially >89 years)" 語意不明確，LLM 會理解為「所有年齡都要識別，但特別注意 >89」，導致 28歲、55歲等年輕人被誤判。
+
+改為 "Ages ONLY if >90 years (ages 90 and below should NOT be identified)" 後：
+1. 明確指出只有超過 90 歲才需要去識別化
+2. 加上否定句強調 90 歲以下不識別
+3. 符合 HIPAA 安全港規則對高齡的定義
+4. 減少 false positives
+
+測試結果：92 歲正確識別為 AGE_OVER_90，28 歲不再被誤判。 |

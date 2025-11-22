@@ -37,13 +37,16 @@ def main():
     test_file = Path("data/test/test_complex_phi_cases.xlsx")
     output_file = Path("test_results_batch_processor.xlsx")
     
-    # Ollama配置（使用本地llama3.1:8b模型）
+    # Ollama配置（使用本地llama3.1:8b模型，啟用GPU加速）
     llm_config = LLMConfig(
         provider="ollama",
         model_name="llama3.1:8b",
         temperature=0.0,
         max_tokens=8192,
         timeout=120,
+        use_gpu=True,  # ✅ 啟用 GPU 加速（默認使用所有可用 GPU）
+        # num_gpu=1,    # 可選：指定使用的 GPU 數量（None=自動檢測所有GPU）
+        # gpu_layers=33, # 可選：指定卸載到 GPU 的層數（None=全部）
     )
     
     # PHI識別配置
