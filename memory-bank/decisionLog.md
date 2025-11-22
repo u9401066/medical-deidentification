@@ -353,3 +353,4 @@ This follows the principle: "Each module should export once, at the highest appr
 - 更清晰的套件組織
 
 這確保了系統使用最新、穩定的 LangChain 生態系統，避免未來的兼容性問題。 |
+| 2025-11-22 | 升級 langchain 生態系統到新版本 (1.0+) | 舊版 langchain 0.1.x 與新安裝的套件版本衝突，導致 ImportError。升級到 langchain 1.0+, langchain-core 1.1+, anthropic 0.40+ 以解決依賴衝突。同時新增 langchain-huggingface 支援 embeddings。 |
