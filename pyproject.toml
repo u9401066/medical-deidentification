@@ -22,21 +22,32 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
+
+# Deep Learning Framework | 深度學習框架
+# IMPORTANT: torch 2.2.0+cpu required for Windows compatibility
+# Install from: pip install torch==2.2.0 --index-url https://download.pytorch.org/whl/cpu
+torch = "2.2.0"
+numpy = "^1.26.0,<2.0"  # torch 2.2.0 requires numpy < 2.0
+
 # LLM Integration | LLM 整合
-langchain = "^0.3.0"
-langchain-community = "^0.3.0"
-langchain-core = "^0.3.0"
-langchain-anthropic = "^0.3.0"
-langchain-openai = "^0.2.0"
-langchain-ollama = "^0.2.0"
-langchain-huggingface = "^0.1.0"
+langchain = "^1.0.0"
+langchain-community = "^0.4.0"
+langchain-core = "^1.0.0"
+langchain-anthropic = "^1.0.0"
+langchain-openai = "^1.0.0"
+langchain-ollama = "^1.0.0"
+langchain-huggingface = "^1.0.0"
+langchain-text-splitters = "^1.0.0"
 openai = "^1.12.0"
-anthropic = "^0.40.0"
+anthropic = "^0.74.0"
 
 # RAG & Vector Store | RAG 與向量儲存
 chromadb = "^0.4.22"
 sentence-transformers = "^2.3.1"
 faiss-cpu = "^1.7.4"
+transformers = "^4.57.0"
+tokenizers = "^0.22.0"
+huggingface-hub = "^0.36.0"
 
 # Data Processing | 資料處理
 pydantic = "^2.6.0"
