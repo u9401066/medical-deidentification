@@ -22,7 +22,7 @@ Design Principles:
 """
 
 from typing import List, Optional, Any
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from loguru import logger
 
 from .phi_types import PHIType, CustomPHIType
@@ -209,24 +209,37 @@ class PHIDetectionResponse(BaseModel):
         default_factory=list,
         description="List of detected PHI entities"
     )
-    total_entities: int = Field(
+    total_entities: Optional[int] = Field(
+        default=None,
         ge=0,
-        description="Total number of entities detected"
+        description="Total number of entities detected (optional, will be auto-calculated)"
     )
     has_phi: bool = Field(
         description="Whether any PHI was detected"
     )
     
-    @field_validator('total_entities')
-    @classmethod
-    def validate_total(cls, v: int, info) -> int:
+    @model_validator(mode='after')
+    def validate_and_fix_total(self) -> 'PHIDetectionResponse':
         """
-        Ensure total_entities matches entities count
-        確保 total_entities 與實體列表長度匹配
+        Auto-calculate total_entities and remove duplicates
+        自動計算 total_entities 並移除重複
         """
-        if 'entities' in info.data and v != len(info.data['entities']):
-            raise ValueError('total_entities must match entities list length')
-        return v
+        # Remove duplicate entities (same text at same position)
+        seen = set()
+        unique_entities = []
+        for entity in self.entities:
+            key = (entity.entity_text, entity.start_position, entity.end_position)
+            if key not in seen:
+                seen.add(key)
+                unique_entities.append(entity)
+        
+        self.entities = unique_entities
+        # Auto-calculate total_entities from actual list length
+        self.total_entities = len(self.entities)
+        # Update has_phi based on actual entities
+        self.has_phi = len(self.entities) > 0
+        
+        return self
 
 
 class PHIIdentificationConfig(BaseModel):

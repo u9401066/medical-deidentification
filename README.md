@@ -33,10 +33,12 @@ pip install medical-deidentification
 Or install from source:
 
 ```bash
-git clone https://github.com/yourusername/medical-deidentification.git
+git clone https://github.com/YOUR_USERNAME/medical-deidentification.git
 cd medical-deidentification
 poetry install
 ```
+
+> **Note**: Replace `YOUR_USERNAME` with your GitHub username
 
 ## Quick Start | 快速開始
 
@@ -60,11 +62,28 @@ print(result.detected_entities)
 
 ## Project Status | 專案狀態
 
-🚧 **Under Active Development** - Currently in MVP Phase 1
+🚧 **Beta Version** - Active Development
+
+**Version**: 0.1.0-beta  
+**Status**: Research & Development (Not Production Ready)
 
 This project follows MVP (Minimum Viable Product) principles and DDD (Domain-Driven Design) architecture.
 
 本專案遵循 MVP 最小可行產品原則與 DDD 領域驅動設計架構。
+
+### Performance Benchmarks | 效能基準
+
+Current performance using Ollama llama3.1:8b (GPU mode):
+- **Processing Speed**: ~27 seconds per document
+- **Throughput**: ~3-4 documents per minute
+- **PHI Detection**: Average 95% confidence
+- **Supported Document Length**: Up to 2000 characters (auto-chunking for longer texts)
+
+Note: Performance varies based on:
+- Document complexity
+- LLM provider (Ollama vs OpenAI)
+- Hardware specifications (GPU/CPU)
+- PHI density in text
 
 ## Documentation | 文件
 
@@ -85,7 +104,7 @@ This project follows MVP (Minimum Viable Product) principles and DDD (Domain-Dri
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/medical-deidentification.git
+git clone https://github.com/YOUR_USERNAME/medical-deidentification.git
 cd medical-deidentification
 
 # Install dependencies

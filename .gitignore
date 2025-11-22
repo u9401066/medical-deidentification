@@ -57,6 +57,11 @@ htmlcov/
 *.log
 logs/
 
+# Test outputs
+test_batch_*.log
+test_results_*.xlsx
+test_phi_model_fix.py
+
 # Medical data (never commit real PHI!)
 data/raw/*
 data/test/*

@@ -1,21 +1,21 @@
 [tool.poetry]
 name = "medical-deidentification"
-version = "0.1.0"
+version = "0.1.0-beta"
 description = "LLM-powered medical text de-identification toolkit with RAG-enhanced regulation retrieval | 基於 LLM 與 RAG 的醫療文本去識別化工具套件"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Medical De-identification Contributors"]
 readme = "README.md"
 license = "MIT"
-homepage = "https://github.com/yourusername/medical-deidentification"
-repository = "https://github.com/yourusername/medical-deidentification"
-documentation = "https://medical-deidentification.readthedocs.io"
+homepage = "https://github.com/YOUR_USERNAME/medical-deidentification"
+repository = "https://github.com/YOUR_USERNAME/medical-deidentification"
 keywords = ["medical", "deidentification", "phi", "hipaa", "nlp", "llm", "rag"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Healthcare Industry",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
     "Topic :: Text Processing :: Linguistic",
     "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
