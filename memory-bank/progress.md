@@ -3,24 +3,21 @@
 ## Done
 
 - 完成 6 個核心模組架構設計
-- 更新 Architect.md 包含 RAG 創新設計
-- 更新 systemPatterns.md 記錄模組化架構模式
-- 建立 Poetry 專案結構 (pyproject.toml)
-- 建立完整 DDD 目錄結構
-- 實作核心領域模型 (MedicalDocument, PHIEntity, RegulationContext)
-- 建立完整測試框架 (unit, integration, e2e)
-- 實作領域模型單元測試
-- 添加多語言支援 (10 種語言,可擴充)
-- 實作可擴充 PHI 類型系統 (20+ 類型 + 自定義類型)
+- 實作核心領域模型
+- 添加多語言支援 (10 種語言)
+- 實作可擴充 PHI 類型系統 (20+ 類型)
+- 建立虛擬環境 (.venv)
+- 定義依賴管理策略 (MEM + requirements.txt 同步)
+- 建立 requirements.txt
 
 ## Doing
 
-- 準備提交 Git 與 MEM 同步
+- 建立虛擬環境與依賴管理
+- 準備建立測試病歷檔案
 
 ## Next
 
-- 驗證測試能否執行
+- 安裝專案依賴
+- 建立測試病歷檔案 (XLSX, TXT, DOCX)
 - 實作 Module 1: Document Loader
-- 實作 Module 2: RAG Regulation Engine (創新核心)
-- 實作 Module 4: LLM Integration Layer
-- 建立 GitHub repository
+- 實作 Module 2: RAG Engine
