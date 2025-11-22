@@ -296,3 +296,26 @@ This follows the principle: "Each module should export once, at the highest appr
 4. 減少 false positives
 
 測試結果：92 歲正確識別為 AGE_OVER_90，28 歲不再被誤判。 |
+| 2025-11-22 | 實現 GPU 硬體加速支援（方案 D） | 用戶要求「方案 D: Hardware Acceleration有GPU應該要去支援使用」。
+
+實現方式：
+1. 在 LLMConfig 添加 GPU 參數：
+   - use_gpu: bool (預設 True) - 啟用/停用 GPU
+   - num_gpu: Optional[int] - 指定 GPU 數量（None=自動檢測所有，0=CPU only）
+   - gpu_layers: Optional[int] - 控制層數卸載（None=全部，0=CPU only）
+
+2. 在 factory.py 通過環境變數控制 Ollama：
+   - 設定 OLLAMA_NUM_GPU 環境變數
+   - 自動檢測並使用所有可用 GPU（預設行為）
+   - 支援強制 CPU-only 模式（測試用）
+
+3. 驗證 GPU 正在使用：
+   - `ollama ps` 顯示 "100% GPU"
+   - 日誌顯示 "processor=GPU (auto)"
+
+預期性能提升：
+- CPU-only: 30-50 秒/行
+- GPU (auto): 5-15 秒/行
+- 加速比: 3-5x
+
+這是最直接且有效的速度優化方案，無需犧牲準確度，也不需要修改 Prompt 或更換模型。用戶的 GPU 已經在使用中，現在程式碼層面也正式支援配置。 |

@@ -150,12 +150,12 @@ def _create_ollama_llm(kwargs: dict) -> 'ChatOllama':
         ImportError: If langchain_community is not installed
     """
     try:
-        from langchain_community.chat_models import ChatOllama
+        from langchain_ollama import ChatOllama
     except ImportError as e:
-        logger.error("langchain_community not installed. Run: pip install langchain-community")
+        logger.error("langchain-ollama not installed. Run: pip install langchain-ollama")
         raise ImportError(
-            "langchain_community is required for Ollama models. "
-            "Install with: pip install langchain-community"
+            "langchain-ollama is required for Ollama models. "
+            "Install with: pip install langchain-ollama"
         ) from e
     
     # Add Ollama-specific timeout settings

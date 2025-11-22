@@ -13,13 +13,16 @@
 - 更新測試配置 use_structured_output=True
 - 驗證 Ollama API 基本功能
 - Git 提交所有修復 (commit 0cb36a5)
+- 添加 GPU 加速支援 (use_gpu, num_gpu, gpu_layers)
+- 創建 GPU 配置文檔 (GPU_CONFIGURATION.md)
+- Git 提交 GPU 功能 (commit 63c39fb)
 
 ## Doing
 
-- Memory Bank 記錄問題診斷和解決方案
+
 
 ## Next
 
-- 討論速度優化策略
-- 執行完整批次測試驗證所有修復
-- 分析 Ollama structured output 性能改進
+- 執行完整批次測試驗證所有改進
+- 分析實際性能提升 (GPU vs CPU)
+- 討論其他速度優化方案 (Prompt簡化、模型選擇、批次處理)

@@ -7,7 +7,7 @@ Manages embedding models for semantic similarity search in RAG system.
 """
 
 from typing import Optional, List
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from pydantic import BaseModel, Field
 
 
