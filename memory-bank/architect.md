@@ -84,7 +84,16 @@ The system is organized into **6 core modules** aligned with DDD principles:
 
 ### Module 2: RAG Regulation Engine | RAG 規範引擎 (創新核心)
 **Purpose**: Retrieve relevant de-identification rules using RAG
+**Status**: ✅ Core Implementation Complete | 核心實作完成
 **技術選型**: LangChain + In-Memory Vector Store (無持久化病歷)
+
+**Implemented Files**:
+- `infrastructure/rag/embeddings.py` (190 lines) - EmbeddingsManager with multilingual presets
+- `infrastructure/rag/regulation_store.py` (470 lines) - RegulationVectorStore + InMemoryDocumentProcessor
+- `infrastructure/rag/retriever.py` (350 lines) - RegulationRetriever with MMR
+- `infrastructure/rag/regulation_chain.py` (450 lines) - RegulationRAGChain with LLM
+- `examples/rag_usage_examples.py` (450 lines) - 8 usage scenarios
+- `docs/RAG_USAGE_GUIDE.md` (600+ lines) - Comprehensive documentation
 
 #### 核心概念
 - **Key Innovation**: RAG retrieves "what to mask" not "what to preserve"

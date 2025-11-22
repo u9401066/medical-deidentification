@@ -2,26 +2,24 @@
 
 ## Done
 
-- Git repository initialized with 3 commits
-- Memory Bank architecture complete (all 6 files)
-- DDD domain models implemented (20+ PHI types, 10 languages)
-- Multi-language support with extensible PHI type system
-- Virtual environment setup (.venv)
-- Dependency management strategy (MEM + requirements.txt)
-- Test data generation: XLSX with 50 patients (>1024 token narratives)
-- Complex PHI test cases: 15 scenarios with mixed columns
-- All HIPAA identifiers + extended PHI types covered
+- Git repository initialized
+- Memory Bank structure complete
+- DDD domain models with 20+ PHI types
+- Virtual environment setup
+- Test data: 50 patients with >1024 token narratives
+- Complex PHI test: 15 scenarios with mixed columns
+- RAG architecture decision (LangChain)
+- RAG core modules implementation (embeddings, vector store, retriever, chain)
+- RAG usage examples and documentation
 
 ## Doing
 
-- Designing RAG architecture for regulation retrieval
-- Evaluating RAG frameworks: LightRAG vs LangChain
-- Planning no-persistence vector store strategy
+- Preparing regulation document templates
 
 ## Next
 
-- Implement RAG Regulation Engine (Module 2)
+- Install dependencies and test RAG system
+- Create regulation documents (HIPAA, GDPR, Taiwan)
 - Implement Document Loader (Module 1)
+- Implement Core Processing Engine (Module 3)
 - Implement LLM Integration (Module 4)
-- Create regulation document corpus
-- Install RAG dependencies

@@ -14,19 +14,58 @@ Architecture:
 - In-memory processing for medical documents (no persistence)
 
 Components:
-- RegulationVectorStore: Persistent storage for regulation documents
-- RegulationRetriever: Semantic search and retrieval
 - EmbeddingsManager: Embedding model management
-- InMemoryProcessor: Ephemeral medical document processing
+- RegulationVectorStore: Persistent storage for regulation documents
+- RegulationRetriever: Semantic search with MMR for diversity
+- RegulationRAGChain: Full RAG chain for PHI identification
+- InMemoryDocumentProcessor: Ephemeral medical document processing
 """
 
-from .embeddings import EmbeddingsManager
-from .regulation_store import RegulationVectorStore
-from .retriever import RegulationRetriever
+from .embeddings import (
+    EmbeddingsManager,
+    EmbeddingsConfig,
+    PretrainedModels,
+    create_embeddings_manager
+)
+
+from .regulation_store import (
+    RegulationVectorStore,
+    RegulationStoreConfig,
+    InMemoryDocumentProcessor
+)
+
+from .retriever import (
+    RegulationRetriever,
+    RetrieverConfig,
+    create_regulation_retriever
+)
+
+from .regulation_chain import (
+    RegulationRAGChain,
+    RAGChainConfig,
+    create_regulation_rag_chain
+)
 
 __all__ = [
+    # Embeddings
     "EmbeddingsManager",
+    "EmbeddingsConfig",
+    "PretrainedModels",
+    "create_embeddings_manager",
+    
+    # Vector Store
     "RegulationVectorStore",
+    "RegulationStoreConfig",
+    "InMemoryDocumentProcessor",
+    
+    # Retriever
     "RegulationRetriever",
+    "RetrieverConfig",
+    "create_regulation_retriever",
+    
+    # RAG Chain
+    "RegulationRAGChain",
+    "RAGChainConfig",
+    "create_regulation_rag_chain",
 ]
 

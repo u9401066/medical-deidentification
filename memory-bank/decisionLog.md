@@ -18,3 +18,4 @@
 3. 隱私要求：不持久化 vector store 以避免儲存個資（regulations 可持久化，但病歷文本僅在記憶體處理）
 4. 實作策略：LangChain + FAISS (in-memory) / Chroma (ephemeral mode) 作為 vector store
 5. RAG 目標：從 regulation documents 檢索「需要遮罩的個資類型」，而非傳統「保留資訊」的 RAG 模式 |
+| 2025-11-22 | RAG 基礎設施實作完成：實作 regulation_store.py (RegulationVectorStore + InMemoryDocumentProcessor), retriever.py (RegulationRetriever with MMR), regulation_chain.py (RegulationRAGChain with LLM integration) | 完成 RAG 基礎設施核心模組，提供：1) 持久化法規向量庫（FAISS）+ 臨時病歷處理（in-memory），確保隱私設計；2) MMR 檢索器，平衡相關性與多樣性；3) LangChain RetrievalQA 鏈，整合 OpenAI/Anthropic LLM 進行 PHI 識別；4) 完整使用範例（8個場景）和詳細文檔（RAG_USAGE_GUIDE.md），提供雙語說明和最佳實踐。系統已具備完整 RAG 功能框架，待安裝依賴後可測試。 |
