@@ -53,6 +53,86 @@ This document outlines the architectural design for the Medical Text De-identifi
 - Supports concurrent processing
 - 支援並行處理
 
+### 5. RAG-based Regulation Retrieval | 基於 RAG 的規範檢索
+
+**Decision**: Implement RAG (Retrieval-Augmented Generation) to retrieve relevant de-identification regulations and guidelines.
+
+**Rationale**:
+- Dynamically retrieve applicable PHI detection rules from regulation documents
+- 動態檢索適用的個資檢測規則
+- Generate precise masking instructions while preserving unaffected content
+- 生成精準的遮蔽指令,同時保留不受影響的內容
+- Enable context-aware de-identification based on regulatory requirements
+- 基於法規要求進行上下文感知的去識別化
+- Maintain regulation knowledge base separate from code logic
+- 將法規知識庫與程式邏輯分離
+
+## Core Module Architecture | 核心模組架構
+
+The system is organized into **6 core modules** aligned with DDD principles:
+
+本系統組織為 **6 個核心模組**,符合 DDD 原則:
+
+### Module 1: Document Loader | 文本載入模組
+**Purpose**: Handle various input formats and document structures
+- Support multiple formats (TXT, JSON, CSV, FHIR)
+- 支援多種格式
+- Normalize document structure for processing
+- 標準化文件結構
+- Extract metadata and context
+- 提取元數據與上下文
+
+### Module 2: RAG Regulation Engine | RAG 規範引擎 (創新核心)
+**Purpose**: Retrieve relevant de-identification rules using RAG
+- Vector database of regulation documents (HIPAA, GDPR, local regulations)
+- 法規文件向量資料庫
+- Semantic search for applicable PHI detection rules
+- 語義搜尋適用的個資檢測規則
+- Generate context-specific masking instructions
+- 生成上下文特定的遮蔽指令
+- **Key Innovation**: RAG retrieves "what to mask" not "what to preserve"
+- **關鍵創新**: RAG 檢索「要遮蔽什麼」而非「要保留什麼」
+
+### Module 3: Core Processing Engine | 核心處理引擎
+**Purpose**: Orchestrate the de-identification workflow
+- PHI detection using LLM + RAG-retrieved rules
+- 使用 LLM + RAG 檢索規則進行個資檢測
+- Apply de-identification strategies
+- 應用去識別化策略
+- Maintain processing context and state
+- 維護處理上下文與狀態
+
+### Module 4: LLM Integration Layer | LLM 串接層
+**Purpose**: Abstract and manage LLM provider interactions
+- Provider abstraction (OpenAI, Anthropic, local models)
+- 提供者抽象化
+- Prompt engineering and management
+- 提示詞工程與管理
+- Response parsing and validation
+- 回應解析與驗證
+- Rate limiting and retry logic
+- 速率限制與重試邏輯
+
+### Module 5: Output Module | 輸出模組
+**Purpose**: Format and export de-identified results
+- Multiple output formats (JSON, CSV, TXT, FHIR)
+- 多種輸出格式
+- Generate audit logs and reports
+- 生成審計日誌與報告
+- Maintain original-to-deidentified mapping (optional, encrypted)
+- 維護原始到去識別化的映射（可選,加密）
+
+### Module 6: Validation & Quality Assurance | 檢核模組
+**Purpose**: Ensure de-identification quality and completeness
+- Verify no PHI remains in output
+- 驗證輸出中無殘留個資
+- Calculate quality metrics (precision, recall, F1)
+- 計算品質指標
+- Compliance checking against regulations
+- 法規合規性檢查
+- Generate validation reports
+- 生成驗證報告
+
 ## System Components | 系統組件
 
 ### 1. De-identification Context | 去識別化上下文
@@ -130,15 +210,114 @@ This document outlines the architectural design for the Medical Text De-identifi
 
 ## Domain Model | 領域模型
 
+### Enhanced Domain Model with RAG Integration
+
 ```
-┌─────────────────────────────────────────┐
-│      MedicalDocument (Aggregate)        │
-├─────────────────────────────────────────┤
-│ - id: DocumentId                        │
-│ - originalText: str                     │
-│ - detectedEntities: List[PHIEntity]     │
-│ - deidentifiedText: str                 │
-│ - metadata: DocumentMetadata            │
+┌─────────────────────────────────────────────────┐
+│      MedicalDocument (Aggregate Root)           │
+├─────────────────────────────────────────────────┤
+│ - id: DocumentId                                │
+│ - originalText: str                             │
+│ - detectedEntities: List[PHIEntity]             │
+│ - deidentifiedText: str                         │
+│ - metadata: DocumentMetadata                    │
+│ - regulationContext: RegulationContext          │
+├─────────────────────────────────────────────────┤
+│ + loadDocument(loader: DocumentLoader)          │
+│ + detectPHI(detector: PHIDetector, rag: RAG)    │
+│ + applyStrategy(strategy: Strategy)             │
+│ + validate(validator: Validator): ValidationResult│
+│ + export(exporter: OutputExporter)              │
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│       PHIEntity (Value Object)                  │
+├─────────────────────────────────────────────────┤
+│ - type: PHIType (NAME, DATE, LOCATION, etc.)   │
+│ - text: str                                     │
+│ - startPos: int                                 │
+│ - endPos: int                                   │
+│ - confidence: float                             │
+│ - regulationSource: str (which rule detected it)│
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│  RegulationContext (Value Object) - NEW         │
+├─────────────────────────────────────────────────┤
+│ - applicableRegulations: List[str]              │
+│ - retrievedRules: List[RegulationRule]          │
+│ - maskingInstructions: List[MaskingInstruction] │
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│  DeidentificationStrategy (Interface)           │
+├─────────────────────────────────────────────────┤
+│ + apply(entity: PHIEntity, context: str) -> str │
+└─────────────────────────────────────────────────┘
+         ▲
+         │
+    ┌────┴────┬──────────┬──────────┬──────────┐
+    │         │          │          │          │
+Redaction  Masking  Generalization Custom  RAGGuided
+ 遮蔽      遮罩       泛化        自定義   RAG引導
+```
+
+### Module Interaction Flow | 模組互動流程
+
+```
+┌──────────────┐
+│   Input      │
+│  Document    │
+└──────┬───────┘
+       │
+       ↓
+┌──────────────────────────────────────┐
+│  Module 1: Document Loader           │
+│  - Parse format                      │
+│  - Extract text & metadata           │
+└──────┬───────────────────────────────┘
+       │
+       ↓
+┌──────────────────────────────────────┐
+│  Module 2: RAG Regulation Engine     │◄──── Vector DB
+│  - Query regulation knowledge base   │      (HIPAA, GDPR)
+│  - Retrieve masking rules            │
+│  - Generate context instructions     │
+└──────┬───────────────────────────────┘
+       │
+       ↓
+┌──────────────────────────────────────┐
+│  Module 3: Core Processing Engine    │
+│  ┌────────────────────────────────┐  │
+│  │ Module 4: LLM Integration      │  │
+│  │ - Send text + RAG instructions │  │
+│  │ - Detect PHI entities          │  │
+│  └────────────────────────────────┘  │
+│  - Apply de-identification strategy  │
+└──────┬───────────────────────────────┘
+       │
+       ↓
+┌──────────────────────────────────────┐
+│  Module 6: Validation Module         │
+│  - Check for remaining PHI           │
+│  - Calculate quality metrics         │
+│  - Verify compliance                 │
+└──────┬───────────────────────────────┘
+       │
+       ↓
+┌──────────────────────────────────────┐
+│  Module 5: Output Module             │
+│  - Format results                    │
+│  - Generate reports                  │
+│  - Export in desired format          │
+└──────┬───────────────────────────────┘
+       │
+       ↓
+┌──────────────┐
+│ De-identified│
+│   Document   │
+└──────────────┘
+```
 ├─────────────────────────────────────────┤
 │ + detectPHI(detector: PHIDetector)      │
 │ + applyStrategy(strategy: Strategy)     │

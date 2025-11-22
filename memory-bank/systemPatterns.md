@@ -30,7 +30,122 @@
 
 ## Architectural Patterns
 
-- Pattern 1: Description
+### 1. Modular Architecture | 模組化架構
+
+The system is designed with **6 core modules** for clear separation of concerns:
+
+系統設計採用 **6 個核心模組**,實現清晰的關注點分離:
+
+#### Module 1: Document Loader | 文本載入模組
+- **Pattern**: Adapter Pattern
+- **Purpose**: Adapt various document formats to unified internal representation
+- 適配多種文件格式到統一內部表示
+- **Responsibilities**: 
+  - Format parsing (TXT, JSON, CSV, FHIR)
+  - Text extraction and normalization
+  - Metadata extraction
+
+#### Module 2: RAG Regulation Engine | RAG 規範引擎 ⭐ 創新核心
+- **Pattern**: Strategy Pattern + Repository Pattern
+- **Purpose**: Retrieve regulation rules dynamically using RAG
+- 使用 RAG 動態檢索法規規則
+- **Key Innovation**: RAG retrieves "what to mask" instead of "what to preserve"
+- **關鍵創新**: RAG 檢索「需要遮蔽的內容」而非「需要保留的內容」
+- **Responsibilities**:
+  - Query vector database of regulations (HIPAA, GDPR)
+  - Semantic search for applicable PHI detection rules
+  - Generate context-specific masking instructions
+  - Preserve non-PHI content integrity
+
+#### Module 3: Core Processing Engine | 核心處理引擎
+- **Pattern**: Facade Pattern + Chain of Responsibility
+- **Purpose**: Orchestrate the complete de-identification workflow
+- 協調完整的去識別化工作流程
+- **Responsibilities**:
+  - Coordinate between all modules
+  - Manage processing pipeline
+  - Handle state transitions
+  - Error recovery and retry logic
+
+#### Module 4: LLM Integration Layer | LLM 串接層
+- **Pattern**: Adapter Pattern + Factory Pattern
+- **Purpose**: Abstract LLM provider differences
+- 抽象化不同 LLM 提供者的差異
+- **Responsibilities**:
+  - Provider abstraction (OpenAI, Anthropic, local models)
+  - Prompt template management
+  - Response parsing and validation
+  - Rate limiting and retry mechanisms
+
+#### Module 5: Output Module | 輸出模組
+- **Pattern**: Builder Pattern + Template Method
+- **Purpose**: Format and export processing results
+- 格式化並匯出處理結果
+- **Responsibilities**:
+  - Multiple format support (JSON, CSV, TXT, FHIR)
+  - Audit log generation
+  - Report creation
+  - Optional encryption for sensitive mappings
+
+#### Module 6: Validation & Quality Assurance | 檢核模組
+- **Pattern**: Observer Pattern + Specification Pattern
+- **Purpose**: Ensure de-identification quality and compliance
+- 確保去識別化品質與合規性
+- **Responsibilities**:
+  - Residual PHI detection
+  - Quality metrics calculation (precision, recall, F1)
+  - Compliance validation (HIPAA, GDPR)
+  - Validation report generation
+
+### 2. RAG-Enhanced De-identification Pattern | RAG 增強去識別化模式
+
+**Problem**: Traditional de-identification may over-mask content or miss context-specific PHI.
+**問題**: 傳統去識別化可能過度遮蔽或遺漏上下文特定的個資。
+
+**Solution**: Use RAG to retrieve precise masking rules from regulation knowledge base.
+**解決方案**: 使用 RAG 從法規知識庫檢索精確的遮蔽規則。
+
+**Benefits**:
+- Context-aware PHI detection based on actual regulations
+- 基於實際法規的上下文感知個資檢測
+- Minimize false positives (unnecessary masking)
+- 最小化誤檢（不必要的遮蔽）
+- Maintain document readability and utility
+- 維持文件可讀性與實用性
+- Easy to update regulations without code changes
+- 易於更新法規而無需更改程式碼
+
+**Implementation**:
+```python
+# Pseudocode
+regulation_context = rag_engine.retrieve_rules(document_context)
+masking_instructions = regulation_context.generate_instructions()
+detected_phi = llm.detect_phi(text, masking_instructions)
+deidentified = apply_strategy(detected_phi, preserve_non_phi=True)
+```
+
+### 3. Testing Strategy Pattern | 測試策略模式
+
+**Principle**: Comprehensive testing at all levels
+**原則**: 各層級的全面測試
+
+**Test Levels**:
+1. **Unit Tests**: Individual module functions
+   - 單元測試: 個別模組功能
+2. **Integration Tests**: Module interactions
+   - 整合測試: 模組互動
+3. **End-to-End Tests**: Complete workflows
+   - 端到端測試: 完整工作流程
+4. **Quality Tests**: PHI detection accuracy
+   - 品質測試: 個資檢測準確度
+5. **Compliance Tests**: Regulation adherence
+   - 合規測試: 法規遵循
+
+**Test Data**:
+- Synthetic medical records (never real PHI)
+- 合成醫療記錄（絕不使用真實個資）
+- Known PHI entity test cases
+- Edge cases and boundary conditions
 
 ## Design Patterns
 
