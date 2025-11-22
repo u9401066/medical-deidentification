@@ -43,6 +43,8 @@ from .retriever import (
 from .regulation_chain import (
     RegulationRAGChain,
     RAGChainConfig,
+    PHIIdentificationResult,
+    PHIDetectionResponse,
     create_regulation_rag_chain
 )
 
@@ -66,6 +68,8 @@ __all__ = [
     # RAG Chain
     "RegulationRAGChain",
     "RAGChainConfig",
+    "PHIIdentificationResult",
+    "PHIDetectionResponse",
     "create_regulation_rag_chain",
 ]
 
