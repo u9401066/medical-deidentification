@@ -13,6 +13,7 @@ from medical_deidentification.domain.models import (
     DocumentMetadata,
     PHIEntity,
     PHIType,
+    SupportedLanguage,
 )
 
 
@@ -48,7 +49,7 @@ def sample_document(sample_medical_text: str) -> MedicalDocument:
     metadata = DocumentMetadata(
         document_type="clinical_note",
         source="test_suite",
-        language="zh-TW"
+        language=SupportedLanguage.TRADITIONAL_CHINESE
     )
     return MedicalDocument(
         original_text=sample_medical_text,

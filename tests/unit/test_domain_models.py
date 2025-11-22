@@ -16,6 +16,7 @@ from medical_deidentification.domain.models import (
     RegulationContext,
     DocumentMetadata,
     ValidationResult,
+    SupportedLanguage,
 )
 
 
@@ -161,6 +162,46 @@ class TestMedicalDocument:
         assert doc.validation_result.f1_score == 0.935
 
 
+class TestSupportedLanguage:
+    """Test Supported Language enum | 測試支援語言枚舉"""
+    
+    def test_supported_languages_count(self):
+        """Test that at least 8 languages are supported | 測試至少支援 8 種語言"""
+        assert len(SupportedLanguage) >= 8
+    
+    def test_default_language(self):
+        """Test default language is Traditional Chinese | 測試預設語言為繁體中文"""
+        assert SupportedLanguage.get_default() == SupportedLanguage.TRADITIONAL_CHINESE
+    
+    def test_is_supported_valid_language(self):
+        """Test checking valid language | 測試檢查有效語言"""
+        assert SupportedLanguage.is_supported("zh-TW")
+        assert SupportedLanguage.is_supported("en")
+        assert SupportedLanguage.is_supported("ja")
+    
+    def test_is_supported_invalid_language(self):
+        """Test checking invalid language | 測試檢查無效語言"""
+        assert not SupportedLanguage.is_supported("invalid")
+        assert not SupportedLanguage.is_supported("xx")
+    
+    def test_all_supported_languages(self):
+        """Test all supported languages | 測試所有支援的語言"""
+        expected_languages = {
+            "zh-TW",  # Traditional Chinese
+            "zh-CN",  # Simplified Chinese
+            "en",     # English
+            "ja",     # Japanese
+            "ko",     # Korean
+            "es",     # Spanish
+            "fr",     # French
+            "de",     # German
+            "th",     # Thai
+            "vi",     # Vietnamese
+        }
+        actual_languages = {lang.value for lang in SupportedLanguage}
+        assert expected_languages.issubset(actual_languages)
+
+
 class TestDocumentMetadata:
     """Test Document Metadata | 測試文件元數據"""
     
@@ -169,8 +210,16 @@ class TestDocumentMetadata:
         metadata = DocumentMetadata(document_type="clinical_note")
         
         assert metadata.document_type == "clinical_note"
-        assert metadata.language == "zh-TW"
+        assert metadata.language == SupportedLanguage.TRADITIONAL_CHINESE
         assert isinstance(metadata.created_at, datetime)
+    
+    def test_create_metadata_with_custom_language(self):
+        """Test creating metadata with custom language | 測試使用自定義語言建立元數據"""
+        metadata = DocumentMetadata(
+            document_type="clinical_note",
+            language=SupportedLanguage.ENGLISH
+        )
+        assert metadata.language == SupportedLanguage.ENGLISH
     
     def test_create_metadata_with_custom_fields(self):
         """Test creating metadata with custom fields | 測試使用自定義欄位建立元數據"""

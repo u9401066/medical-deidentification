@@ -12,6 +12,31 @@ from typing import List, Optional
 from uuid import UUID, uuid4
 
 
+class SupportedLanguage(str, Enum):
+    """Supported Languages for De-identification | 支援的去識別化語言"""
+    
+    TRADITIONAL_CHINESE = "zh-TW"  # 繁體中文 (Traditional Chinese)
+    SIMPLIFIED_CHINESE = "zh-CN"   # 简体中文 (Simplified Chinese)
+    ENGLISH = "en"                 # English
+    JAPANESE = "ja"                # 日本語 (Japanese)
+    KOREAN = "ko"                  # 한국어 (Korean)
+    SPANISH = "es"                 # Español (Spanish)
+    FRENCH = "fr"                  # Français (French)
+    GERMAN = "de"                  # Deutsch (German)
+    THAI = "th"                    # ไทย (Thai)
+    VIETNAMESE = "vi"              # Tiếng Việt (Vietnamese)
+    
+    @classmethod
+    def get_default(cls) -> "SupportedLanguage":
+        """Get default language | 獲取預設語言"""
+        return cls.TRADITIONAL_CHINESE
+    
+    @classmethod
+    def is_supported(cls, lang_code: str) -> bool:
+        """Check if language is supported | 檢查語言是否支援"""
+        return lang_code in [lang.value for lang in cls]
+
+
 class PHIType(str, Enum):
     """Protected Health Information Types | 個人健康資訊類型"""
     
@@ -75,7 +100,7 @@ class DocumentMetadata:
     document_type: str
     source: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.now)
-    language: str = "zh-TW"  # Default to Traditional Chinese
+    language: SupportedLanguage = field(default_factory=SupportedLanguage.get_default)
     custom_fields: dict = field(default_factory=dict)
 
 

@@ -15,6 +15,15 @@ A Python-based medical text de-identification toolkit that leverages LLM/Agent t
   - LLM-powered entity recognition
   - 基於 LLM 的實體識別
 
+- **Multi-language Support | 多語言支援**
+  - 10+ supported languages (extensible)
+  - 支援 10+ 種語言（可擴充）
+  - Languages: Traditional Chinese (繁體中文), Simplified Chinese (简体中文), 
+    English, Japanese (日本語), Korean (한국어), Spanish (Español), 
+    French (Français), German (Deutsch), Thai (ไทย), Vietnamese (Tiếng Việt)
+  - Language-aware PHI detection rules
+  - 語言感知的個資檢測規則
+
 - **De-identification Strategies | 去識別化策略**
   - Redaction (removal) | 移除
   - Masking (replacement with placeholder) | 遮罩

@@ -10,10 +10,11 @@
 - 實作核心領域模型 (MedicalDocument, PHIEntity, RegulationContext)
 - 建立完整測試框架 (unit, integration, e2e)
 - 實作領域模型單元測試
+- 添加多語言支援 (10 種語言,可擴充)
 
 ## Doing
 
-- 準備提交 Git 並更新 MEM 進度
+- 準備提交 Git 與 MEM 同步
 
 ## Next
 
