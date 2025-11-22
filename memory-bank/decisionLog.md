@@ -319,3 +319,37 @@ This follows the principle: "Each module should export once, at the highest appr
 - 加速比: 3-5x
 
 這是最直接且有效的速度優化方案，無需犧牲準確度，也不需要修改 Prompt 或更換模型。用戶的 GPU 已經在使用中，現在程式碼層面也正式支援配置。 |
+| 2025-11-22 | 遷移到新的 LangChain 套件結構並清理依賴 | 用戶要求「一個一個file去檢查import有無正確」並「整理完也要更新requirement.txt」。
+
+**問題診斷**：
+- LangChainDeprecationWarning: ChatOllama 在 LangChain 0.3.1 已棄用
+- 舊導入：from langchain_community.chat_models import ChatOllama
+- 舊導入：from langchain_community.embeddings import HuggingFaceEmbeddings
+
+**解決方案**：
+1. 遷移到新套件：
+   - langchain-ollama==1.0.0 (ChatOllama)
+   - langchain-huggingface==1.0.1 (HuggingFaceEmbeddings)
+   - ollama==0.6.1 (native structured output support)
+
+2. 保持正確的導入：
+   - langchain_community.vectorstores.FAISS (仍然正確)
+   - langchain_community.document_loaders (仍然正確)
+
+3. 清理 requirements.txt：
+   - 移除未使用的套件：python-dotenv, typer, rich, tqdm, pyyaml, pandas
+   - 只包含代碼中實際導入的 26 個套件
+   - 所有版本號與安裝版本匹配
+
+**驗證結果**：
+- ✅ 無 LangChain deprecation warnings
+- ✅ 所有導入成功
+- ✅ check_dependencies.py 通過 (26/26 packages)
+
+**遷移好處**：
+- 符合 LangChain 1.0+ 結構
+- 更快的導入速度（更小的套件）
+- 未來兼容性（deprecated 套件將在未來版本移除）
+- 更清晰的套件組織
+
+這確保了系統使用最新、穩定的 LangChain 生態系統，避免未來的兼容性問題。 |

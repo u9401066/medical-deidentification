@@ -21,6 +21,7 @@ from medical_deidentification.infrastructure.rag.regulation_retrieval_chain impo
     create_regulation_retrieval_chain
 )
 from medical_deidentification.infrastructure.rag.embeddings import EmbeddingsManager
+from medical_deidentification.infrastructure.utils.token_counter import TokenCounter
 from medical_deidentification.application.processing.batch_processor import (
     BatchPHIProcessor,
     BatchProcessingConfig,
@@ -82,6 +83,10 @@ def main():
     logger.info("Initializing Batch PHI Processor...")
     processor = BatchPHIProcessor(phi_chain, batch_config)
     
+    # Initialize token counter
+    token_counter = TokenCounter(model_name=llm_config.model_name)
+    logger.info(f"Token counter initialized for model: {llm_config.model_name}")
+    
     # ============= 處理 =============
     
     if not test_file.exists():
@@ -102,6 +107,24 @@ def main():
     # 儲存詳細結果到Excel
     save_batch_results([result], str(output_file))
     
+    # 計算 token 統計
+    # 估算總輸入 tokens（所有處理的文本）
+    total_input_tokens = 0
+    total_output_tokens = 0
+    
+    # 從結果中計算
+    for row_result in result.row_results:
+        # 使用 text_length 來估算輸入 tokens
+        # 假設平均 3 字符 = 1 token
+        estimated_tokens = row_result.text_length / 3
+        total_input_tokens += int(estimated_tokens)
+        
+        # 估算輸出 tokens（每個實體的識別結果約 50 tokens）
+        total_output_tokens += len(row_result.entities) * 50
+    
+    total_tokens = total_input_tokens + total_output_tokens
+    tokens_per_second = total_tokens / result.total_time if result.total_time > 0 else 0
+    
     # 顯示摘要
     print(f"\n{'='*80}")
     print("Processing Complete!")
@@ -111,6 +134,16 @@ def main():
     print(f"Total PHI entities: {result.total_entities}")
     print(f"Total time: {result.total_time:.2f}s ({result.total_time/60:.1f} minutes)")
     print(f"Average time per row: {result.average_time_per_row:.2f}s")
+    
+    # Token 處理速度
+    print(f"\n{'='*80}")
+    print("Token Processing Statistics:")
+    print(f"{'='*80}")
+    print(f"Total tokens (estimated):     {total_tokens:>10,}")
+    print(f"  - Input tokens:             {total_input_tokens:>10,}")
+    print(f"  - Output tokens:            {total_output_tokens:>10,}")
+    print(f"Token processing rate:        {tokens_per_second:>10.1f} tokens/sec")
+    print(f"Average tokens per row:       {total_tokens/result.processed_rows if result.processed_rows > 0 else 0:>10.1f}")
     
     # PHI類型分布
     print(f"\n{'='*80}")
