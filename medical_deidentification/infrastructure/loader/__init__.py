@@ -1,6 +1,76 @@
 """
-Module 1: Document Loader | 文本載入模組
+Module 1: Document Loader | 文件載入模組
 
-Handles loading and parsing of various document formats.
-處理各種文件格式的載入與解析。
+Multi-format document loader for medical records with metadata extraction.
+多格式醫療文件載入器，支援元數據提取。
+
+Supported Formats:
+- TXT: Plain text files
+- CSV: Comma-separated values
+- XLSX/XLS: Excel spreadsheets (multi-sheet support)
+- DOCX: Microsoft Word documents
+- JSON: Structured JSON medical records
+- PDF: Portable Document Format (with text extraction)
+- HTML: Web-based medical records
+- XML: Structured XML data
+- FHIR: FHIR R4 JSON resources
+
+Features:
+- Automatic format detection
+- Metadata extraction (filename, date, format, etc.)
+- Multi-sheet Excel support
+- Batch loading from directories
+- Error handling and validation
 """
+
+from .base import (
+    DocumentLoader,
+    LoadedDocument,
+    DocumentMetadata,
+    LoaderConfig
+)
+
+from .loaders import (
+    TextLoader,
+    CSVLoader,
+    ExcelLoader,
+    WordLoader,
+    JSONLoader,
+    PDFLoader,
+    HTMLLoader,
+    XMLLoader,
+    FHIRLoader
+)
+
+from .factory import (
+    DocumentLoaderFactory,
+    create_loader,
+    load_document,
+    load_documents_from_directory
+)
+
+__all__ = [
+    # Base classes
+    "DocumentLoader",
+    "LoadedDocument",
+    "DocumentMetadata",
+    "LoaderConfig",
+    
+    # Format-specific loaders
+    "TextLoader",
+    "CSVLoader",
+    "ExcelLoader",
+    "WordLoader",
+    "JSONLoader",
+    "PDFLoader",
+    "HTMLLoader",
+    "XMLLoader",
+    "FHIRLoader",
+    
+    # Factory and utilities
+    "DocumentLoaderFactory",
+    "create_loader",
+    "load_document",
+    "load_documents_from_directory",
+]
+

@@ -9,17 +9,18 @@
 - Test data: 50 patients with >1024 token narratives
 - Complex PHI test: 15 scenarios with mixed columns
 - RAG architecture decision (LangChain)
-- RAG core modules implementation (embeddings, vector store, retriever, chain)
+- RAG core modules implementation
 - RAG usage examples and documentation
+- Document Loader implementation (TXT/CSV/XLSX/XLS/DOCX/JSON/PDF/HTML/XML/FHIR)
 
 ## Doing
 
-- Preparing regulation document templates
+- Documenting Document Loader module
 
 ## Next
 
-- Install dependencies and test RAG system
 - Create regulation documents (HIPAA, GDPR, Taiwan)
-- Implement Document Loader (Module 1)
+- Install dependencies and test systems
 - Implement Core Processing Engine (Module 3)
 - Implement LLM Integration (Module 4)
+- Implement Masking Strategies (Module 5)

@@ -75,6 +75,86 @@ The system is organized into **6 core modules** aligned with DDD principles:
 
 ### Module 1: Document Loader | 文本載入模組
 **Purpose**: Handle various input formats and document structures
+**Status**: ✅ Implementation Complete | 實作完成
+
+**Implemented Files**:
+- `infrastructure/loader/base.py` (400 lines) - Abstract base classes and data models
+- `infrastructure/loader/loaders.py` (750 lines) - 10 format-specific loaders
+- `infrastructure/loader/factory.py` (320 lines) - Factory pattern and utilities
+- `infrastructure/loader/__init__.py` - Module exports
+- `examples/loader_usage_examples.py` (550 lines) - 18 usage scenarios
+
+**Supported Formats**:
+- TXT: Plain text files with encoding detection
+- CSV: Comma-separated values with header support
+- XLSX: Excel 2007+ with multi-sheet support (openpyxl)
+- XLS: Excel legacy format (xlrd)
+- DOCX: Microsoft Word documents (python-docx)
+- JSON: Structured JSON with data preservation
+- PDF: Portable Document Format (pdfplumber/PyPDF2)
+- HTML: Web documents with text extraction (BeautifulSoup)
+- XML: Structured XML with dict conversion
+- FHIR: Healthcare interoperability standard (FHIR R4 JSON)
+
+**Key Features**:
+- Automatic format detection from file extension
+- Metadata extraction (filename, size, dates, encoding)
+- Multi-sheet Excel support with sheet selection
+- CSV with header/delimiter configuration
+- PDF page range extraction
+- HTML text-only extraction with script removal
+- XML to dictionary conversion
+- FHIR resource validation
+- Batch loading from directories (recursive support)
+- Error handling with detailed logging
+- Factory pattern for loader creation
+- Unified LoadedDocument return format
+
+**Architecture**:
+```python
+DocumentLoader (ABC)
+  ├── BaseTextLoader
+  │     ├── TextLoader
+  │     ├── CSVLoader
+  │     ├── JSONLoader
+  │     ├── HTMLLoader
+  │     ├── XMLLoader
+  │     └── FHIRLoader (extends JSONLoader)
+  └── BaseBinaryLoader
+        ├── ExcelLoader (XLSX/XLS)
+        ├── WordLoader (DOCX)
+        └── PDFLoader
+
+DocumentLoaderFactory
+  ├── create_loader() - Factory method
+  ├── load() - Convenience method
+  └── load_directory() - Batch loading
+```
+
+**Data Models**:
+- `DocumentFormat`: Enum of supported formats
+- `DocumentMetadata`: File metadata (path, size, dates, encoding, custom)
+- `LoadedDocument`: Unified document with content + metadata + structured_data + records
+- `LoaderConfig`: Configuration (encoding, Excel sheets, CSV delimiter, PDF pages)
+
+**Usage Example**:
+```python
+from medical_deidentification.infrastructure.loader import load_document
+
+# Simple loading
+doc = load_document("patient_records.xlsx")
+
+# Access content
+print(doc.content)  # Text representation
+
+# Access structured data
+print(doc.records[0])  # First record as dict
+
+# Access metadata
+print(doc.metadata.filename)
+print(doc.metadata.file_size)
+```
+
 - Support multiple formats (TXT, JSON, CSV, FHIR)
 - 支援多種格式
 - Normalize document structure for processing

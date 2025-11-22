@@ -31,8 +31,13 @@ tqdm>=4.66.1
 pyyaml>=6.0.1
 python-dotenv>=1.0.0
 pandas>=2.2.0
-openpyxl>=3.1.2
-python-docx>=1.1.0
+openpyxl>=3.1.2        # Excel XLSX support
+xlrd>=2.0.1            # Excel XLS support (legacy)
+python-docx>=1.1.0     # Word DOCX support
+PyPDF2>=3.0.1          # PDF support (fallback)
+pdfplumber>=0.10.3     # PDF support (better extraction)
+beautifulsoup4>=4.12.3 # HTML parsing
+lxml>=5.1.0            # XML parsing (faster)
 
 # Utilities
 tenacity>=8.2.3
