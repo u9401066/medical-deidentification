@@ -9,17 +9,19 @@ Demonstrates using BatchPHIProcessor for detailed control and statistics.
 import sys
 from pathlib import Path
 from datetime import datetime
+
+# Import and configure logging from package
+from medical_deidentification.infrastructure.utils import configure_logging
 from loguru import logger
 
-# Configure logging to logs directory
-logs_dir = Path(__file__).parent.parent / "logs"
-logs_dir.mkdir(exist_ok=True)
-
-log_filename = logs_dir / f"batch_processing_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-logger.remove()  # Remove default handler
-logger.add(sys.stderr, level="INFO")  # Console output
-logger.add(log_filename, rotation="10 MB", retention="10 days", level="DEBUG")  # File output
-logger.info(f"Log file created: {log_filename}")
+# Configure logging using package's built-in function
+log_file = configure_logging(
+    console_level="INFO",
+    file_level="DEBUG",
+    rotation="10 MB",
+    retention="10 days"
+)
+logger.info(f"Logging configured: {log_file}")
 
 from medical_deidentification.infrastructure.llm.config import LLMConfig
 from medical_deidentification.infrastructure.rag.phi_identification_chain import (

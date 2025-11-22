@@ -45,6 +45,10 @@ poetry install
 ```python
 from medical_deidentification import DeidentificationPipeline
 from medical_deidentification.strategies import RedactionStrategy
+from medical_deidentification.infrastructure.utils import configure_logging
+
+# Configure logging (optional - default logging is already set up)
+configure_logging(console_level="INFO", file_level="DEBUG")
 
 # Initialize pipeline
 pipeline = DeidentificationPipeline(
@@ -58,6 +62,33 @@ result = pipeline.process(text)
 
 print(result.deidentified_text)
 print(result.detected_entities)
+```
+
+### Logging | 日誌記錄
+
+The package includes built-in logging configuration:
+
+```python
+from medical_deidentification.infrastructure.utils import configure_logging
+
+# Default configuration (logs to ./logs directory)
+log_file = configure_logging()
+
+# Custom configuration
+log_file = configure_logging(
+    log_dir=Path("my_logs"),
+    console_level="INFO",      # Console output level
+    file_level="DEBUG",        # File output level
+    rotation="50 MB",          # Rotate when file reaches 50 MB
+    retention="30 days"        # Keep logs for 30 days
+)
+
+# Disable console, only file
+log_file = configure_logging(enable_console=False)
+
+# Change log level at runtime
+from medical_deidentification.infrastructure.utils import set_log_level
+set_log_level("DEBUG")
 ```
 
 ## Project Status | 專案狀態
