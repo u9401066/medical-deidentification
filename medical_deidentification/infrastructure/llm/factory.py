@@ -158,8 +158,12 @@ def _create_ollama_llm(kwargs: dict) -> 'ChatOllama':
             "Install with: pip install langchain-community"
         ) from e
     
+    # Add Ollama-specific timeout settings
+    kwargs.setdefault('timeout', 120)  # 2 minutes
+    kwargs.setdefault('request_timeout', 120.0)  # 2 minutes for requests
+    
     llm = ChatOllama(**kwargs)
-    logger.success(f"Created ChatOllama: {kwargs.get('model', 'unknown')}")
+    logger.success(f"Created ChatOllama: {kwargs.get('model', 'unknown')} (timeout={kwargs.get('timeout')}s)")
     return llm
 
 

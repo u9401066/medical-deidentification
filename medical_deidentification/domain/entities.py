@@ -28,6 +28,7 @@ class PHIEntity:
     start_pos: int  # Start position in document
     end_pos: int  # End position in document
     confidence: float  # Detection confidence (0.0-1.0)
+    reason: str = ""  # Why this is considered PHI according to regulations
     regulation_source: Optional[str] = None  # Which regulation rule detected it
     custom_type: Optional[CustomPHIType] = None  # Custom PHI type if applicable
     

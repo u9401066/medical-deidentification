@@ -1,0 +1,125 @@
+"""
+使用 BatchPHIProcessor 進行批次識別測試
+Simplified batch PHI identification test using the new BatchPHIProcessor module
+"""
+
+from pathlib import Path
+from loguru import logger
+
+from medical_deidentification.infrastructure.llm.config import LLMConfig
+from medical_deidentification.infrastructure.rag.phi_identification_chain import (
+    PHIIdentificationConfig,
+    PHIIdentificationChain
+)
+from medical_deidentification.infrastructure.rag.regulation_retrieval_chain import (
+    create_regulation_retrieval_chain
+)
+from medical_deidentification.infrastructure.rag.embeddings import EmbeddingsManager
+from medical_deidentification.application.processing.batch_processor import (
+    BatchPHIProcessor,
+    BatchProcessingConfig,
+    save_batch_results,
+)
+
+
+def main():
+    """主函數 - 使用新的批次處理器"""
+    
+    # ============= 配置 =============
+    
+    # 測試文件路徑
+    test_file = Path("data/case_details.xlsx")
+    output_file = Path("test_results_ollama_batch.xlsx")
+    
+    # Ollama配置（使用本地llama3.1:8b模型）
+    llm_config = LLMConfig(
+        provider="ollama",
+        model_name="llama3.1:8b",
+        temperature=0.0,
+        max_tokens=8192,
+        timeout=120,
+    )
+    
+    # PHI識別配置
+    phi_config = PHIIdentificationConfig(
+        llm_config=llm_config,
+        retrieve_regulation_context=False,  # 不使用FAISS（避免維度問題）
+        use_structured_output=False,  # Ollama不支援structured output
+    )
+    
+    # 批次處理配置
+    batch_config = BatchProcessingConfig(
+        max_rows=None,  # 處理所有行（可改為數字限制測試）
+        language="zh-TW",
+        skip_empty_rows=True,
+        combine_columns=True,
+        log_progress_interval=1,  # 每行都記錄
+    )
+    
+    # ============= 初始化 =============
+    
+    logger.info("Initializing PHI Identification Chain with Ollama...")
+    logger.info("Note: retrieve_regulation_context=False, will use default HIPAA rules")
+    
+    # Since retrieve_regulation_context=False, regulation_chain won't be called
+    # We pass None and PHIIdentificationChain will use default rules
+    phi_chain = PHIIdentificationChain(
+        regulation_chain=None,  # Not needed when retrieve_regulation_context=False
+        config=phi_config
+    )
+    
+    logger.info("Initializing Batch PHI Processor...")
+    processor = BatchPHIProcessor(phi_chain, batch_config)
+    
+    # ============= 處理 =============
+    
+    if not test_file.exists():
+        logger.error(f"Test file not found: {test_file}")
+        logger.info("Please ensure data/case_details.xlsx exists")
+        return
+    
+    logger.info(f"Processing file: {test_file}")
+    
+    # 使用批次處理器處理文件
+    result = processor.process_excel_file(
+        str(test_file),
+        case_id_column="案例編號"  # 指定Case ID欄位
+    )
+    
+    # ============= 輸出結果 =============
+    
+    # 儲存詳細結果到Excel
+    save_batch_results([result], str(output_file))
+    
+    # 顯示摘要
+    print(f"\n{'='*80}")
+    print("Processing Complete!")
+    print(f"{'='*80}")
+    print(f"Total rows: {result.total_rows}")
+    print(f"Processed rows: {result.processed_rows}")
+    print(f"Total PHI entities: {result.total_entities}")
+    print(f"Total time: {result.total_time:.2f}s ({result.total_time/60:.1f} minutes)")
+    print(f"Average time per row: {result.average_time_per_row:.2f}s")
+    
+    # PHI類型分布
+    print(f"\n{'='*80}")
+    print("PHI Type Distribution:")
+    print(f"{'='*80}")
+    distribution = result.get_phi_type_distribution()
+    for phi_type, count in sorted(distribution.items(), key=lambda x: -x[1]):
+        print(f"{phi_type:30s}: {count:3d}")
+    
+    # 信心度統計
+    print(f"\n{'='*80}")
+    print("Confidence Statistics:")
+    print(f"{'='*80}")
+    confidence_stats = result.get_confidence_statistics()
+    print(f"Mean: {confidence_stats['mean']:.2%}")
+    print(f"Min:  {confidence_stats['min']:.2%}")
+    print(f"Max:  {confidence_stats['max']:.2%}")
+    
+    print(f"\nResults saved to: {output_file}")
+
+
+if __name__ == "__main__":
+    main()

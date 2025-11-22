@@ -2,7 +2,7 @@
 
 ## Current Goals
 
-- 準備增加 Ollama 本地 LLM 支援。因 OpenAI API 極度緩慢（>5分鐘/請求），需要本地替代方案提升效率和隱私性。將修改 LLMProvider 加入 "ollama"，新增 OLLAMA_MODELS list，實現 _create_ollama_llm() 函數。
+- Ollama本地LLM整合已完成，包含config擴展、factory實現、測試腳本準備。測試時發現Ollama服務未安裝(404錯誤)。當前等待用戶安裝Ollama並下載llama3.1:8b模型後，即可執行PHI批次識別測試處理test_complex_phi_cases.xlsx和test_medical_records_multilang.xlsx兩個檔案。
 
 ## Current Blockers
 

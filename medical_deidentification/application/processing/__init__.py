@@ -48,6 +48,14 @@ from .strategies import (
     get_default_strategy_for_phi_type
 )
 
+from .batch_processor import (
+    BatchPHIProcessor,
+    BatchProcessingConfig,
+    BatchProcessingResult,
+    RowProcessingResult,
+    save_batch_results
+)
+
 __all__ = [
     # Engine
     "DeidentificationEngine",
@@ -76,4 +84,11 @@ __all__ = [
     "SuppressionStrategy",
     "create_masking_strategy",
     "get_default_strategy_for_phi_type",
+    
+    # Batch Processing
+    "BatchPHIProcessor",
+    "BatchProcessingConfig",
+    "BatchProcessingResult",
+    "RowProcessingResult",
+    "save_batch_results",
 ]

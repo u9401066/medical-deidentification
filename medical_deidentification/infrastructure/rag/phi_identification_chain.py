@@ -98,25 +98,92 @@ class PHIIdentificationResult(BaseModel):
         """Ensure CUSTOM type has custom_type_name"""
         if 'phi_type' in info.data and info.data['phi_type'] == PHIType.CUSTOM:
             if not v:
+                # Try to get from entity_text as fallback
+                if 'entity_text' in info.data:
+                    logger.warning(f"CUSTOM type missing custom_type_name, using entity_text as fallback")
+                    return f"Custom PHI: {info.data['entity_text'][:50]}"
                 raise ValueError('custom_type_name required when phi_type is CUSTOM')
         return v
     
     @field_validator('phi_type', mode='before')
     @classmethod
-    def normalize_phi_type(cls, v) -> PHIType:
-        """Convert string to PHIType enum"""
+    def normalize_phi_type(cls, v, info) -> PHIType:
+        """Convert string to PHIType enum with Chinese mapping"""
         if isinstance(v, PHIType):
             return v
         
         if isinstance(v, str):
+            # Chinese to English PHI type mapping (only use existing PHIType values)
+            chinese_mapping = {
+                '姓名': PHIType.NAME,
+                '年齡': PHIType.AGE_OVER_89,  # Map general age to AGE_OVER_89
+                '年齡超過89歲': PHIType.AGE_OVER_89,
+                '年齡超過90歲': PHIType.AGE_OVER_90,
+                '出生日期': PHIType.DATE,
+                '日期': PHIType.DATE,
+                '電話': PHIType.PHONE,
+                '電話號碼': PHIType.PHONE,
+                '聯絡電話': PHIType.PHONE,
+                '聯絡資訊': PHIType.CONTACT,
+                '地址': PHIType.LOCATION,
+                '小型地理區域': PHIType.LOCATION,
+                '地理區域': PHIType.LOCATION,
+                '地理位置': PHIType.LOCATION,
+                '身份證號碼': PHIType.ID,
+                '身分證字號': PHIType.ID,
+                '醫療機構': PHIType.HOSPITAL_NAME,
+                '醫院': PHIType.HOSPITAL_NAME,
+                '組織名稱': PHIType.HOSPITAL_NAME,
+                '組織資訊': PHIType.HOSPITAL_NAME,
+                '醫師': PHIType.CUSTOM,  # No direct mapping, use CUSTOM
+                '醫師資訊': PHIType.CUSTOM,
+                '罕見疾病': PHIType.RARE_DISEASE,
+                '診斷': PHIType.RARE_DISEASE,
+                '醫療資訊': PHIType.MEDICAL_RECORD_NUMBER,
+                '治療資訊': PHIType.CUSTOM,
+                '遺傳資訊': PHIType.GENETIC_INFO,
+                '病歷號': PHIType.MEDICAL_RECORD_NUMBER,
+                '病房號': PHIType.WARD_NUMBER,
+                '床號': PHIType.BED_NUMBER,
+                '科室': PHIType.DEPARTMENT_NAME,
+                '科室名稱': PHIType.DEPARTMENT_NAME,
+                '基因資訊': PHIType.GENETIC_INFO,
+                '照片': PHIType.PHOTO,
+                '生物特徵': PHIType.BIOMETRIC,
+                '郵件': PHIType.EMAIL,
+                '電子郵件': PHIType.EMAIL,
+                '網址': PHIType.URL,
+                'IP位址': PHIType.IP_ADDRESS,
+                '傳真': PHIType.FAX,
+                '傳真號碼': PHIType.FAX,
+                '帳號': PHIType.ACCOUNT_NUMBER,
+                '保險號碼': PHIType.INSURANCE_NUMBER,
+                '社會安全號碼': PHIType.SSN,
+                '設備識別碼': PHIType.DEVICE_ID,
+                '證書': PHIType.CERTIFICATE,
+                '證書號碼': PHIType.CERTIFICATE,
+            }
+            
+            # Try Chinese mapping first
+            if v in chinese_mapping:
+                mapped_type = chinese_mapping[v]
+                # If mapped to CUSTOM, store original name
+                if mapped_type == PHIType.CUSTOM:
+                    if 'custom_type_name' not in info.data or not info.data.get('custom_type_name'):
+                        info.data['custom_type_name'] = v
+                return mapped_type
+            
             # Try direct enum match
             try:
                 return PHIType(v.upper())
             except ValueError:
                 pass
             
-            # Default to CUSTOM for unknown types
+            # Default to CUSTOM for unknown types, store original name
             logger.warning(f"Unknown PHI type: {v}, treating as CUSTOM")
+            # Store original Chinese type name in custom_type_name if not set
+            if 'custom_type_name' not in info.data or not info.data.get('custom_type_name'):
+                info.data['custom_type_name'] = v
             return PHIType.CUSTOM
         
         raise ValueError(f"Invalid phi_type: {v}")
@@ -140,6 +207,7 @@ class PHIIdentificationResult(BaseModel):
             start_pos=self.start_position,
             end_pos=self.end_position,
             confidence=self.confidence,
+            reason=self.reason,  # Pass reason to PHIEntity
             regulation_source=self.regulation_source,
             custom_type=custom_type,
         )
@@ -227,7 +295,7 @@ class PHIIdentificationChain:
     
     def __init__(
         self,
-        regulation_chain: RegulationRetrievalChain,
+        regulation_chain: Optional[RegulationRetrievalChain] = None,
         config: Optional[PHIIdentificationConfig] = None
     ):
         """
@@ -235,10 +303,17 @@ class PHIIdentificationChain:
         
         Args:
             regulation_chain: RegulationRetrievalChain for retrieving regulation context
+                             (Optional when retrieve_regulation_context=False)
             config: Chain configuration
         """
         self.regulation_chain = regulation_chain
         self.config = config or PHIIdentificationConfig()
+        
+        # Validate: if retrieve_regulation_context=True, regulation_chain must be provided
+        if self.config.retrieve_regulation_context and regulation_chain is None:
+            raise ValueError(
+                "regulation_chain is required when retrieve_regulation_context=True"
+            )
         
         # Initialize LLM
         self.llm = create_llm(self.config.llm_config)
@@ -277,7 +352,7 @@ class PHIIdentificationChain:
         regulation_docs = []
         context = ""
         
-        if self.config.retrieve_regulation_context:
+        if self.config.retrieve_regulation_context and self.regulation_chain:
             # Use first 500 chars for context query
             query_context = text[:500]
             if language:
@@ -293,6 +368,32 @@ class PHIIdentificationChain:
                 f"[{doc.metadata.get('source', 'Unknown')}]\n{doc.page_content}"
                 for doc in regulation_docs
             ])
+        else:
+            # Provide default regulations when not retrieving from vector store
+            context = """Standard HIPAA Safe Harbor PHI Identifiers:
+1. Names (姓名)
+2. All geographic subdivisions smaller than state (地理位置)
+3. All elements of dates (except year) related to an individual (日期)
+4. Telephone numbers (電話)
+5. Fax numbers (傳真)
+6. Email addresses (電子郵件)
+7. Social security numbers (身份證字號)
+8. Medical record numbers (病歷號)
+9. Account numbers (帳號)
+10. Certificate/license numbers (證書號碼)
+11. Vehicle identifiers (車輛識別碼)
+12. Device identifiers (設備識別碼)
+13. Web URLs (網址)
+14. IP addresses (IP位址)
+15. Biometric identifiers (生物特徵)
+16. Full face photos (照片)
+17. Any other unique identifying number or code (其他識別碼)
+18. Ages over 89 years (年齡超過89歲)
+
+Additional Considerations:
+- Rare diseases that could identify individuals (罕見疾病)
+- Genetic information (基因資訊)
+- Hospital/clinic names in small areas (小型醫療機構名稱)"""
         
         # Step 2: Identify PHI using LLM
         if self.config.use_structured_output:
@@ -382,13 +483,29 @@ class PHIIdentificationChain:
         prompt_template = get_phi_identification_prompt(language=language or "en")
         prompt = prompt_template.format(context=context, question=text)
         
+        response_text = ""  # Initialize for error logging
         try:
             # Use invoke() for compatibility with all LangChain chat models
             response = self.llm.invoke(prompt)
             # Get content from response (handles both old and new LangChain versions)
             response_text = response.content if hasattr(response, 'content') else str(response)
             
-            json_data = json.loads(response_text)
+            # Clean markdown code blocks (```json ... ``` or ``` ... ```)
+            import re
+            response_text = re.sub(r'^```(?:json)?\s*', '', response_text.strip())
+            response_text = re.sub(r'\s*```$', '', response_text.strip())
+            
+            # Try to extract JSON from response text if it contains extra text
+            # Look for JSON array pattern [...]
+            json_match = re.search(r'\[[\s\S]*\]', response_text)
+            if json_match:
+                json_str = json_match.group(0)
+                logger.debug(f"Extracted JSON from response: {json_str[:200]}...")
+            else:
+                json_str = response_text
+                logger.debug(f"Using full response as JSON: {response_text[:200]}...")
+            
+            json_data = json.loads(json_str)
             
             raw_results = [PHIIdentificationResult(**item) for item in json_data]
             entities = [result.to_phi_entity() for result in raw_results]
@@ -397,6 +514,7 @@ class PHIIdentificationChain:
             
         except (json.JSONDecodeError, ValueError) as e:
             logger.error(f"JSON parsing failed: {e}")
+            logger.error(f"Response text (first 500 chars): {response_text[:500]}")
             return [], []
     
     def validate_entity(
@@ -426,7 +544,7 @@ class PHIIdentificationChain:
             "evidence": []
         }
         
-        if retrieve_evidence:
+        if retrieve_evidence and self.regulation_chain:
             # Retrieve relevant regulations
             regulation_docs = self.regulation_chain.get_phi_definitions([phi_type])
             
@@ -490,7 +608,7 @@ class PHIIdentificationChain:
         return {
             "llm_config": self.config.llm_config.model_dump(),
             "use_structured_output": self.config.use_structured_output,
-            "regulation_chain_stats": self.regulation_chain.get_chain_stats()
+            "regulation_chain_stats": self.regulation_chain.get_chain_stats() if self.regulation_chain else {}
         }
     
     def __repr__(self) -> str:

@@ -84,7 +84,7 @@ def initialize_phi_chain_ollama():
     # Create PHI identification config
     phi_config = PHIIdentificationConfig(
         llm_config=llm_config,
-        retrieve_regulation_context=False,  # Disable for speed
+        retrieve_regulation_context=False,  # ⚠️ Disable to avoid FAISS dimension mismatch
         use_structured_output=False,  # ⚠️ Ollama may not support structured output
     )
     

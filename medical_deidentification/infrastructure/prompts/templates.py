@@ -44,32 +44,33 @@ class PromptLanguage(str, Enum):
 # PHI Identification Prompts | PHI 識別 Prompts
 # ============================================================================
 
-PHI_IDENTIFICATION_PROMPT_V1 = """You are a medical de-identification expert. Based on the provided regulations, identify all PHI (Protected Health Information) in the given medical text.
+PHI_IDENTIFICATION_PROMPT_V1 = """You are a data redaction assistant. Extract identifiable information from medical text for data anonymization purposes.
 
-Regulations (retrieved from vector store):
+Privacy Protection Guidelines:
 {context}
 
-Medical Text:
+Medical Text to Analyze:
 {question}
 
-Instructions:
-1. Identify ALL PHI entities according to the regulations
-2. For each entity, provide:
-   - entity_text: The exact text from the document
-   - phi_type: Type according to regulations (e.g., NAME, AGE_OVER_89, RARE_DISEASE)
-   - start_position: Character position where entity starts
-   - end_position: Character position where entity ends
-   - confidence: Your confidence level (0.0-1.0)
-   - reason: Why this is considered PHI according to regulations
+Task: Extract ALL identifiable information that should be redacted, including:
+1. Personal names
+2. Ages (especially >89 years)
+3. Geographic locations smaller than state level
+4. Contact information (phone, email, address)
+5. ID numbers and account numbers
+6. Rare medical conditions
+7. Genetic information
+8. Dates related to individuals
 
-3. Special attention to:
-   - Ages over 89 (HIPAA Safe Harbor)
-   - Ages over 90 (Taiwan regulations)
-   - Rare diseases that could identify individuals
-   - Genetic information
-   - Small geographic areas
-   
-4. Return results as JSON array:
+For each item found, provide:
+- entity_text: Exact text from document
+- phi_type: Category (NAME, AGE_OVER_89, LOCATION, PHONE, EMAIL, RARE_DISEASE, GENETIC_INFO, etc.)
+- start_position: Character position where it starts
+- end_position: Character position where it ends
+- confidence: 0.0-1.0
+- reason: Why this needs redaction
+
+Return as JSON array:
 [
   {{
     "entity_text": "...",
@@ -82,7 +83,7 @@ Instructions:
   ...
 ]
 
-If no PHI found, return empty array: []
+If nothing needs redaction, return: []
 
 Answer:"""
 
