@@ -14,6 +14,12 @@ An open-source Python toolkit for automated de-identification of medical records
 - 🤖 **LLM-Powered**: Leverages state-of-the-art language models for accurate PHI detection
 - ⚡ **Batch Processing**: Efficiently process large volumes of medical texts
 - 🎯 **Customizable**: Define your own de-identification rules and strategies
+- 🌍 **Multi-language**: Support for 10+ languages including Traditional Chinese, English, Japanese, Korean, and more
+- 🔧 **Extensible PHI Types**: 20+ standard PHI types plus custom type definitions
+  - Standard types: Name, Date, Location, Medical Record Number, etc.
+  - Extended types: Hospital Name, Ward Number, Age >90, Rare Diseases, etc.
+  - Custom types: Define institution-specific identifiers
+- 🎚️ **Strictness Levels**: Choose between standard and strict de-identification modes
 - 🔒 **Privacy-First**: HIPAA and GDPR compliant design
 - 🐍 **Pure Python**: Easy integration with existing Python workflows
 - 📦 **Open Source**: MIT licensed, community-driven development
