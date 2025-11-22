@@ -1,15 +1,24 @@
 """
-使用 BatchPHIProcessor 進行批次識別測試
-Simplified batch PHI identification test using the new BatchPHIProcessor module
+Batch Processing Example - Low Level API
+批次處理範例 - 低階 API
+
+Demonstrates using BatchPHIProcessor for detailed control and statistics.
+示範使用 BatchPHIProcessor 進行詳細控制和統計。
 """
 
+import sys
 from pathlib import Path
 from datetime import datetime
 from loguru import logger
 
-# Configure log file
-log_filename = f"test_batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-logger.add(log_filename, rotation="10 MB", retention="10 days", level="DEBUG")
+# Configure logging to logs directory
+logs_dir = Path(__file__).parent.parent / "logs"
+logs_dir.mkdir(exist_ok=True)
+
+log_filename = logs_dir / f"batch_processing_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+logger.remove()  # Remove default handler
+logger.add(sys.stderr, level="INFO")  # Console output
+logger.add(log_filename, rotation="10 MB", retention="10 days", level="DEBUG")  # File output
 logger.info(f"Log file created: {log_filename}")
 
 from medical_deidentification.infrastructure.llm.config import LLMConfig
