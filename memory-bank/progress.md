@@ -2,23 +2,25 @@
 
 ## Done
 
-- 刪除舊檔案 (regulation_chain.py, retriever.py, 3個examples)
-- Engine模組化重構 (6個模組, 1219 lines)
-- PHI識別測試腳本創建 (4個版本)
-- 批次處理優化 (85% API call 減少)
-- RAG structured output 架構驗證
-- Ollama本地LLM整合 (config, factory, presets)
-- Ollama PHI批次測試腳本創建
-- 修復Ollama相容性問題 (validate_model, invoke)
-- Git commits: 5ec3195, 2b99bc3, 0cf2659, eee07fd
+- Ollama LLM完整整合
+- 中文PHI類型映射支援
+- JSON解析修復
+- FAISS問題繞過
+- Ollama安全機制繞過
+- PHIEntity.reason屬性支援
+- 成功測試10個PHI實體
+- 創建BatchPHIProcessor模組
+- 整合批次處理進pipeline架構
+- 清理臨時測試腳本
+- 制定測試腳本管理規則
 
 ## Doing
 
-- 等待Ollama安裝完成以執行測試
+- 測試新的BatchPHIProcessor功能
 
 ## Next
 
-- 安裝Ollama並下載llama3.1:8b模型
-- 執行test_phi_batch_ollama.py測試兩個Excel檔案
-- 分析PHI識別結果並優化
-- 撰寫完整測試報告
+- 執行完整15行數據測試
+- 性能分析與優化
+- 添加進度條視覺化
+- 考慮並行處理優化

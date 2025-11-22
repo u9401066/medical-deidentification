@@ -28,8 +28,8 @@ def main():
     # ============= 配置 =============
     
     # 測試文件路徑
-    test_file = Path("data/case_details.xlsx")
-    output_file = Path("test_results_ollama_batch.xlsx")
+    test_file = Path("data/test/test_complex_phi_cases.xlsx")
+    output_file = Path("test_results_batch_processor.xlsx")
     
     # Ollama配置（使用本地llama3.1:8b模型）
     llm_config = LLMConfig(
