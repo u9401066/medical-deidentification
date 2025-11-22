@@ -41,9 +41,11 @@ from ...infrastructure.loader import (
 from ...infrastructure.rag import (
     EmbeddingsManager,
     RegulationVectorStore,
-    RegulationRAGChain,
+    RegulationRetrievalChain,
+    PHIIdentificationChain,
     create_embeddings_manager,
-    create_regulation_rag_chain
+    create_regulation_retrieval_chain,
+    create_phi_identification_chain
 )
 
 
@@ -213,7 +215,8 @@ class DeidentificationEngine:
         # Initialize RAG components (lazy loading)
         self._embeddings_manager: Optional[EmbeddingsManager] = None
         self._vector_store: Optional[RegulationVectorStore] = None
-        self._rag_chain: Optional[RegulationRAGChain] = None
+        self._regulation_chain: Optional[RegulationRetrievalChain] = None
+        self._phi_chain: Optional[PHIIdentificationChain] = None
         
         # Initialize pipeline
         self.pipeline = DeidentificationPipeline()
@@ -294,7 +297,7 @@ class DeidentificationEngine:
         if not self.config.use_rag:
             return
         
-        if self._rag_chain is not None:
+        if self._regulation_chain is not None and self._phi_chain is not None:
             return  # Already initialized
         
         logger.info("Initializing RAG components...")
@@ -317,9 +320,14 @@ class DeidentificationEngine:
             )
             return
         
-        # Create RAG chain
-        self._rag_chain = create_regulation_rag_chain(
-            vector_store=self._vector_store,
+        # Create regulation retrieval chain
+        self._regulation_chain = create_regulation_retrieval_chain(
+            vector_store=self._vector_store
+        )
+        
+        # Create PHI identification chain
+        self._phi_chain = create_phi_identification_chain(
+            regulation_chain=self._regulation_chain,
             llm_provider=self.config.llm_provider,
             model_name=self.config.llm_model
         )
@@ -451,7 +459,7 @@ class DeidentificationEngine:
             result = StageResult(stage=PipelineStage.REGULATION_RETRIEVAL)
             
             try:
-                if not self.config.use_rag or self._rag_chain is None:
+                if not self.config.use_rag or self._regulation_chain is None:
                     logger.info("RAG disabled or not available, skipping")
                     result.output["skipped"] = True
                     result.mark_completed(success=True)
@@ -485,11 +493,11 @@ class DeidentificationEngine:
                     text = doc_context.document.content
                     language = doc_context.detected_language
                     
-                    if self.config.use_rag and self._rag_chain:
+                    if self.config.use_rag and self._phi_chain:
                         # Use RAG for PHI identification with structured output
                         logger.info(f"Identifying PHI using RAG for {doc_context.document_id}")
                         
-                        rag_response = self._rag_chain.identify_phi(
+                        rag_response = self._phi_chain.identify_phi(
                             text=text,
                             language=language.value if language else None,
                             return_entities=True  # Get structured PHIEntity list

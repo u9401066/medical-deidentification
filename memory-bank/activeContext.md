@@ -2,7 +2,15 @@
 
 ## Current Goals
 
-- 發現 regulation_chain.py 架構問題：混淆了法規檢索 (RegulationRetriever) 和醫療文本 PHI 識別 (MedicalTextRetriever) 兩個不同職責。需要重構拆分為兩個獨立 Chain，共用 LLM 和 Prompts 模組。716 行代碼太長難以維護。
+- ✅ 完成專案重構與清理：
+- - LLM 模組集中化（805 lines）
+- - Prompts 模組集中化（560 lines）
+- - RAG Chain 職責分離（710 lines）
+- - 預設模型改為 gpt-4o-mini
+- - 清理 31 個臨時文件
+- - Git commits: 297efbc (refactor) + 92f96ea (docs)
+- - Working tree clean
+- 下一步：更新 engine.py 使用新 chains、修復 vector store、創建 pytest 測試套件
 
 ## Current Blockers
 

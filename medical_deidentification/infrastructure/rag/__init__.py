@@ -16,9 +16,10 @@ Architecture:
 Components:
 - EmbeddingsManager: Embedding model management
 - RegulationVectorStore: Persistent storage for regulation documents
-- RegulationRetriever: Semantic search with MMR for diversity
-- RegulationRAGChain: Full RAG chain for PHI identification
-- InMemoryDocumentProcessor: Ephemeral medical document processing
+- RegulationRetriever: Semantic search for regulations
+- RegulationRetrievalChain: Retrieve PHI definitions from regulations
+- PHIIdentificationChain: Identify PHI in medical text
+- MedicalTextRetriever: Ephemeral medical document processing
 """
 
 from .embeddings import (
@@ -61,13 +62,6 @@ from .phi_identification_chain import (
     create_phi_identification_chain
 )
 
-# Legacy combined chain (deprecated, use separate chains instead)
-from .regulation_chain import (
-    RegulationRAGChain,
-    RAGChainConfig,
-    create_regulation_rag_chain
-)
-
 __all__ = [
     # Embeddings
     "EmbeddingsManager",
@@ -99,10 +93,5 @@ __all__ = [
     "PHIIdentificationResult",
     "PHIDetectionResponse",
     "create_phi_identification_chain",
-    
-    # Legacy Combined Chain (deprecated)
-    "RegulationRAGChain",
-    "RAGChainConfig",
-    "create_regulation_rag_chain",
 ]
 
