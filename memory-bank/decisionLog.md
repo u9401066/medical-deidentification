@@ -355,3 +355,5 @@ This follows the principle: "Each module should export once, at the highest appr
 這確保了系統使用最新、穩定的 LangChain 生態系統，避免未來的兼容性問題。 |
 | 2025-11-22 | 升級 langchain 生態系統到新版本 (1.0+) | 舊版 langchain 0.1.x 與新安裝的套件版本衝突，導致 ImportError。升級到 langchain 1.0+, langchain-core 1.1+, anthropic 0.40+ 以解決依賴衝突。同時新增 langchain-huggingface 支援 embeddings。 |
 | 2025-11-22 | 修正 llm_config 類型處理：factory.py 和 phi_identification_chain.py 現在可以處理 dict 或 LLMConfig 對象 | PHIIdentificationConfig 的 llm_config 被設計為 Any 類型（可接受 dict 或對象）以避免循環依賴，但下游代碼期望 LLMConfig 對象。修改了 factory.py 在創建 LLM 時自動轉換 dict 為 LLMConfig，並修改 phi_identification_chain.py 在日誌記錄時處理兩種類型 |
+| 2025-11-22 | 固定 torch 版本為 2.2.0+cpu 並限制 numpy < 2.0 | torch 2.9.1 在 Windows 上有 c10.dll 載入失敗問題，降級到 2.2.0+cpu 可正常運作。torch 2.2.0 需要 numpy 1.x，因此將 numpy 限制在 <2.0。這些版本約束已記錄在 pyproject.toml 和 PACKAGE_VERSIONS.md 中 |
+| 2025-11-22 | 升級整個 langchain 生態系統到 1.0.x 並新增專用提供商套件 | langchain 0.1.0 與 langchain-core 1.1.0 有嚴重的 API 不相容問題。升級到 langchain 1.0+ 並新增 langchain-anthropic, langchain-openai, langchain-ollama, langchain-huggingface 等專用套件，解決了 ImportError 並提供更好的模組化架構 |
