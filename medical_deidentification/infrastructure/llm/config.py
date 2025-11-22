@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 
 # Supported LLM providers
-LLMProvider = Literal["openai", "anthropic"]
+LLMProvider = Literal["openai", "anthropic", "ollama"]
 
 # Supported models
 OPENAI_MODELS = [
@@ -31,6 +31,20 @@ ANTHROPIC_MODELS = [
     "claude-3-haiku-20240307",
     "claude-2.1",
     "claude-2.0",
+]
+
+# Ollama local models (commonly available)
+OLLAMA_MODELS = [
+    "qwen2.5:7b",
+    "qwen2.5:14b",
+    "qwen2.5:32b",
+    "llama3.1:8b",
+    "llama3.1:70b",
+    "llama3.2:3b",
+    "mistral:7b",
+    "mixtral:8x7b",
+    "gemma2:9b",
+    "gemma2:27b",
 ]
 
 
@@ -153,7 +167,7 @@ class LLMConfig(BaseModel):
         Get provider-specific kwargs for LangChain
         
         Returns:
-            Dictionary of kwargs for ChatOpenAI or ChatAnthropic
+            Dictionary of kwargs for ChatOpenAI, ChatAnthropic, or ChatOllama
         """
         kwargs = {
             "model": self.model_name,
@@ -165,18 +179,28 @@ class LLMConfig(BaseModel):
         }
         
         if self.max_tokens is not None:
-            kwargs["max_tokens"] = self.max_tokens
+            kwargs["max_tokens"] = self.max_tokens if self.provider != "ollama" else self.max_tokens
+            # Ollama uses num_predict instead of max_tokens
+            if self.provider == "ollama":
+                kwargs["num_predict"] = self.max_tokens
+                del kwargs["max_tokens"]
         
         if self.api_key is not None:
             if self.provider == "openai":
                 kwargs["openai_api_key"] = self.api_key
             elif self.provider == "anthropic":
                 kwargs["anthropic_api_key"] = self.api_key
+            # Ollama doesn't require API key
         
         if self.api_base is not None:
             if self.provider == "openai":
                 kwargs["openai_api_base"] = self.api_base
+            elif self.provider == "ollama":
+                kwargs["base_url"] = self.api_base
             # Anthropic doesn't support custom base URL in the same way
+        elif self.provider == "ollama":
+            # Default Ollama base URL
+            kwargs["base_url"] = "http://localhost:11434"
         
         return kwargs
     
@@ -271,4 +295,30 @@ class LLMPresets:
             model_name="gpt-3.5-turbo",
             temperature=0.0,
             max_tokens=1000,
+        )
+    
+    @staticmethod
+    def local_qwen() -> LLMConfig:
+        """
+        Preset for local Qwen 2.5 7B (fast local inference)
+        本地 Qwen 2.5 7B 預設配置（快速本地推理）
+        """
+        return LLMConfig(
+            provider="ollama",
+            model_name="qwen2.5:7b",
+            temperature=0.0,
+            max_tokens=2048,
+        )
+    
+    @staticmethod
+    def local_llama() -> LLMConfig:
+        """
+        Preset for local Llama 3.1 8B (local inference)
+        本地 Llama 3.1 8B 預設配置（本地推理）
+        """
+        return LLMConfig(
+            provider="ollama",
+            model_name="llama3.1:8b",
+            temperature=0.0,
+            max_tokens=2048,
         )

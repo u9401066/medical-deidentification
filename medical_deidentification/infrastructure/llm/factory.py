@@ -73,6 +73,8 @@ def create_llm(config: Optional[LLMConfig] = None, **kwargs) -> Union['ChatOpenA
         return _create_openai_llm(provider_kwargs)
     elif config.provider == "anthropic":
         return _create_anthropic_llm(provider_kwargs)
+    elif config.provider == "ollama":
+        return _create_ollama_llm(provider_kwargs)
     else:
         raise ValueError(f"Unsupported LLM provider: {config.provider}")
 
@@ -130,6 +132,34 @@ def _create_anthropic_llm(kwargs: dict) -> 'ChatAnthropic':
     
     llm = ChatAnthropic(**kwargs)
     logger.success(f"Created ChatAnthropic: {kwargs.get('model', 'unknown')}")
+    return llm
+
+
+def _create_ollama_llm(kwargs: dict) -> 'ChatOllama':
+    """
+    Create Ollama LLM instance (local models)
+    創建 Ollama LLM 實例（本地模型）
+    
+    Args:
+        kwargs: Provider-specific kwargs
+    
+    Returns:
+        ChatOllama instance
+    
+    Raises:
+        ImportError: If langchain_community is not installed
+    """
+    try:
+        from langchain_community.chat_models import ChatOllama
+    except ImportError as e:
+        logger.error("langchain_community not installed. Run: pip install langchain-community")
+        raise ImportError(
+            "langchain_community is required for Ollama models. "
+            "Install with: pip install langchain-community"
+        ) from e
+    
+    llm = ChatOllama(**kwargs)
+    logger.success(f"Created ChatOllama: {kwargs.get('model', 'unknown')}")
     return llm
 
 
