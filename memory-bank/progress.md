@@ -13,6 +13,10 @@
 - 清理 31 個臨時文件（22 tests + 9 docs）
 - Memory Bank 完整更新（Decision Log, System Patterns, Architect, Progress）
 - Git commit 完成（2 個 commits：重構 + 文檔清理）
+- 移除舊的 RAG chain 檔案（regulation_chain.py, retriever.py）
+- 移除 3 個依賴舊 API 的 examples
+- 更新 engine.py 使用新的分離 chains
+- 更新 rag/__init__.py 移除舊 imports
 
 ## Doing
 
@@ -20,6 +24,6 @@
 
 ## Next
 
-- 更新 engine.py 使用新的 separated chains
+- 創建新的 examples 示範新 API 使用
 - 修復 vector store embedding dimension 不匹配問題
 - 創建 pytest 測試套件（取代已刪除的臨時測試）

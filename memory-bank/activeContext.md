@@ -2,15 +2,18 @@
 
 ## Current Goals
 
-- ✅ 完成專案重構與清理：
-- - LLM 模組集中化（805 lines）
-- - Prompts 模組集中化（560 lines）
-- - RAG Chain 職責分離（710 lines）
-- - 預設模型改為 gpt-4o-mini
-- - 清理 31 個臨時文件
-- - Git commits: 297efbc (refactor) + 92f96ea (docs)
-- - Working tree clean
-- 下一步：更新 engine.py 使用新 chains、修復 vector store、創建 pytest 測試套件
+- ✅ 完成舊檔案清理與重構：
+- - 刪除 regulation_chain.py (716 lines, deprecated)
+- - 刪除 retriever.py (230 lines, replaced)
+- - 刪除 3 個依賴舊 API 的 examples
+- - 更新 engine.py 使用新的分離 chains
+- - 更新 rag/__init__.py 移除舊 imports
+- - Git commits: 297efbc + 92f96ea + c0ebf55
+- - 專案結構完全整潔，無舊 API 殘留
+- 剩餘檔案：
+- - RAG 模組: 7 個檔案（embeddings, regulation/medical_retriever, regulation/phi chains, store）
+- - Examples: 2 個檔案（loader_usage, processing_engine）
+- 下一步：創建新 examples、修復 vector store、創建 pytest 測試
 
 ## Current Blockers
 
