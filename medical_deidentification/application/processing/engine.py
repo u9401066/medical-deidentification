@@ -486,29 +486,50 @@ class DeidentificationEngine:
                     language = doc_context.detected_language
                     
                     if self.config.use_rag and self._rag_chain:
-                        # Use RAG for PHI identification
-                        rag_result = self._rag_chain.identify_phi(
+                        # Use RAG for PHI identification with structured output
+                        logger.info(f"Identifying PHI using RAG for {doc_context.document_id}")
+                        
+                        rag_response = self._rag_chain.identify_phi(
                             text=text,
-                            language=language.value if language else None
+                            language=language.value if language else None,
+                            return_entities=True  # Get structured PHIEntity list
                         )
                         
-                        # Parse PHI entities from result
-                        # (In real implementation, parse JSON response from LLM)
-                        # For now, create mock entities
-                        logger.info(f"RAG identification completed for {doc_context.document_id}")
+                        # Get structured PHI entities (List[PHIEntity])
+                        phi_entities: List[PHIEntity] = rag_response.get("entities", [])
+                        
+                        # Add entities to document context
+                        for entity in phi_entities:
+                            doc_context.add_phi_entity(entity)
+                        
+                        total_phi += len(phi_entities)
+                        
+                        logger.info(
+                            f"Found {len(phi_entities)} PHI entities in {doc_context.document_id}"
+                        )
                     
                     else:
-                        # Fallback: simple pattern matching or skip
-                        logger.warning("RAG not available, PHI identification limited")
+                        # Without RAG, use pattern matching or skip
+                        logger.warning(
+                            f"RAG disabled for {doc_context.document_id}, "
+                            "PHI identification limited to pattern matching"
+                        )
+                        # Pattern-based fallback could be implemented here
                     
-                    total_phi += len(doc_context.phi_entities)
                     context.mark_document_processed(success=True)
                 
                 result.output["total_phi_entities"] = total_phi
+                result.output["documents_processed"] = len(context.documents)
                 result.mark_completed(success=True)
+                
+                logger.success(f"PHI identification completed: {total_phi} entities found")
             
             except Exception as e:
-                result.set_error(str(e))
+                logger.error(f"PHI identification failed: {e}")
+                result.set_error(
+                    message=str(e),
+                    details={"stage": "phi_identification"}
+                )
             
             return result
         
@@ -520,19 +541,50 @@ class DeidentificationEngine:
             result = StageResult(stage=PipelineStage.MASKING_APPLICATION)
             
             try:
+                total_masked = 0
+                
                 for doc_context in context.documents:
-                    masked_text = self._apply_masking(
-                        doc_context.document.content,
-                        doc_context.phi_entities
+                    # Get PHI entities (already structured PHIEntity objects)
+                    phi_entities = doc_context.phi_entities
+                    
+                    if not phi_entities:
+                        logger.info(f"No PHI found in {doc_context.document_id}")
+                        doc_context.masked_content = doc_context.document.content
+                        continue
+                    
+                    logger.info(
+                        f"Applying masking to {len(phi_entities)} PHI entities "
+                        f"in {doc_context.document_id}"
                     )
+                    
+                    # Apply masking using structured entities
+                    masked_text = self._apply_masking(
+                        text=doc_context.document.content,
+                        phi_entities=phi_entities
+                    )
+                    
                     doc_context.masked_content = masked_text
                     doc_context.mark_completed()
+                    total_masked += len(phi_entities)
+                    
+                    logger.info(
+                        f"Masked {len(phi_entities)} entities in {doc_context.document_id}"
+                    )
                 
-                result.output["documents_masked"] = len(context.documents)
+                result.output["total_masked_entities"] = total_masked
+                result.output["documents_masked"] = len([
+                    d for d in context.documents if d.masked_content
+                ])
                 result.mark_completed(success=True)
+                
+                logger.success(f"Masking completed: {total_masked} entities masked")
             
             except Exception as e:
-                result.set_error(str(e))
+                logger.error(f"Masking application failed: {e}")
+                result.set_error(
+                    message=str(e),
+                    details={"stage": "masking_application"}
+                )
             
             return result
         
@@ -572,24 +624,32 @@ class DeidentificationEngine:
         # Sort entities by position (descending) to avoid offset issues
         sorted_entities = sorted(
             phi_entities,
-            key=lambda e: e.start_position,
+            key=lambda e: e.start_pos,  # Fixed: use start_pos not start_position
             reverse=True
         )
         
         masked_text = text
         
         for entity in sorted_entities:
-            # Get strategy
-            strategy = self._get_strategy_for_phi(entity.phi_type)
+            # Get masking strategy for this PHI type
+            strategy_type = self.config.phi_specific_strategies.get(
+                entity.type,  # Fixed: use type not phi_type
+                self.config.default_strategy
+            )
+            
+            strategy = create_masking_strategy(
+                strategy_type,
+                self.config.strategy_config
+            )
             
             # Mask entity
             masked_value = strategy.mask(entity)
             
-            # Replace in text
+            # Replace in text using correct attribute names
             masked_text = (
-                masked_text[:entity.start_position] +
+                masked_text[:entity.start_pos] +  # Fixed: use start_pos
                 masked_value +
-                masked_text[entity.end_position:]
+                masked_text[entity.end_pos:]  # Fixed: use end_pos
             )
         
         return masked_text

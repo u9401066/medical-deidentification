@@ -6,7 +6,14 @@ This document outlines the architectural design for the Medical Text De-identifi
 
 本文件概述醫療文本去識別化工具套件的架構設計,遵循領域驅動設計 (DDD) 原則與 MVP 開發方法論。
 
-## Architectural Decisions | 架構決策
+## Architectural Decisions
+
+- RAG 系統必須返回結構化 PHIEntity 而非文字 JSON
+- 使用 LangChain structured output + Pydantic schema 強制類型安全
+- PHI 識別結果直接映射到 domain.models.PHIEntity
+- RAG 輸出包含 PHI 類型、位置、信心度、法規依據
+
+
 
 ### 1. Domain-Driven Design (DDD) Architecture | 領域驅動設計架構
 
@@ -546,4 +553,52 @@ Redaction  Masking  Generalization Custom
 - 合規性審計日誌
 - Optional encryption for intermediate results
 - 中間結果可選加密
+
+
+
+## Design Considerations
+
+- LLM 可能返回不符合 schema 的結果 - 需 validation
+- 多語言場景下 PHI 類型映射需統一
+- 結構化輸出可能增加 token 消耗
+- 需要 fallback 機制處理 structured output 失敗情況
+
+
+
+## Components
+
+### PHIIdentificationResult Schema
+
+Pydantic model 定義 RAG 返回的結構化 PHI 識別結果
+
+**Responsibilities:**
+
+- 定義 PHI entity 的完整結構 (text, type, position, confidence, reason)
+- 提供 LLM structured output 的 JSON schema
+- 驗證 LLM 返回的資料完整性
+- 映射到 domain.models.PHIEntity
+
+### RegulationRAGChain with Structured Output
+
+增強版 RAG chain 使用 with_structured_output()
+
+**Responsibilities:**
+
+- 強制 LLM 返回符合 PHIIdentificationResult schema 的結果
+- 處理結構化輸出失敗的 fallback
+- 批次處理時保持類型安全
+- 提供 validation 層確保結果可用
+
+### PHI Type Mapper
+
+映射 LLM 返回的 PHI type string 到 PHIType enum
+
+**Responsibilities:**
+
+- 標準化 PHI 類型名稱 (NAME, AGE_OVER_89, etc.)
+- 處理多語言 PHI 類型別名
+- 支援 custom PHI types
+- 提供錯誤時的默認類型
+
+
 

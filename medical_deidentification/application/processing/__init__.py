@@ -37,11 +37,15 @@ from .context import (
 
 from .strategies import (
     MaskingStrategy,
+    StrategyType,
     RedactionStrategy,
     GeneralizationStrategy,
     PseudonymizationStrategy,
     DateShiftingStrategy,
-    create_masking_strategy
+    PartialMaskingStrategy,
+    SuppressionStrategy,
+    create_masking_strategy,
+    get_default_strategy_for_phi_type
 )
 
 __all__ = [
@@ -63,9 +67,13 @@ __all__ = [
     
     # Strategies
     "MaskingStrategy",
+    "StrategyType",
     "RedactionStrategy",
     "GeneralizationStrategy",
     "PseudonymizationStrategy",
     "DateShiftingStrategy",
+    "PartialMaskingStrategy",
+    "SuppressionStrategy",
     "create_masking_strategy",
+    "get_default_strategy_for_phi_type",
 ]

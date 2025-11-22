@@ -154,3 +154,30 @@ deidentified = apply_strategy(detected_phi, preserve_non_phi=True)
 ## Common Idioms
 
 - Idiom 1: Description
+
+## Structured Output from RAG/LLM
+
+使用 LangChain structured output + Pydantic models 確保 RAG/LLM 返回類型安全的結構化資料，而非依賴 JSON string parsing。
+
+Pattern 結構：
+1. 定義 Pydantic BaseModel 作為輸出 schema (PHIIdentificationResult)
+2. 使用 LangChain llm.with_structured_output(schema) 強制 LLM 遵守 schema
+3. LLM 輸出自動驗證並映射到 Pydantic model instances
+4. 將 Pydantic models 轉換為 domain models (PHIEntity)
+
+優勢：
+- 類型安全：編譯時檢查，運行時驗證
+- 減少錯誤：無需手動 JSON parsing
+- 可維護：Schema 集中定義
+- 可測試：Mock Pydantic instances
+
+適用場景：
+- RAG 系統需要結構化 PHI 識別結果
+- LLM 需要返回複雜的嵌套結構
+- API 響應需要強類型保證
+
+### Examples
+
+- infrastructure/rag/regulation_chain.py: RegulationRAGChain.identify_phi() 使用 structured output
+- domain/models.py: PHIEntity 作為 domain model
+- application/processing/engine.py: 消費結構化 PHI 結果

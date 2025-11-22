@@ -20,3 +20,20 @@
 5. RAG 目標：從 regulation documents 檢索「需要遮罩的個資類型」，而非傳統「保留資訊」的 RAG 模式 |
 | 2025-11-22 | RAG 基礎設施實作完成：實作 regulation_store.py (RegulationVectorStore + InMemoryDocumentProcessor), retriever.py (RegulationRetriever with MMR), regulation_chain.py (RegulationRAGChain with LLM integration) | 完成 RAG 基礎設施核心模組，提供：1) 持久化法規向量庫（FAISS）+ 臨時病歷處理（in-memory），確保隱私設計；2) MMR 檢索器，平衡相關性與多樣性；3) LangChain RetrievalQA 鏈，整合 OpenAI/Anthropic LLM 進行 PHI 識別；4) 完整使用範例（8個場景）和詳細文檔（RAG_USAGE_GUIDE.md），提供雙語說明和最佳實踐。系統已具備完整 RAG 功能框架，待安裝依賴後可測試。 |
 | 2025-11-22 | Document Loader 模組實作完成：支援 10 種文件格式（TXT, CSV, XLSX, XLS, DOCX, JSON, PDF, HTML, XML, FHIR），使用工廠模式和策略模式設計，提供統一載入介面 | 實作完整的文件載入模組，解決醫療文件多格式問題：1) 抽象基類（DocumentLoader）定義統一介面；2) 格式特定載入器（TextLoader, ExcelLoader等）處理各格式細節；3) 工廠類（DocumentLoaderFactory）自動選擇載入器；4) 配置類（LoaderConfig）提供靈活設定（編碼、分頁、工作表選擇等）；5) LoadedDocument 統一返回格式（含元數據、內容、結構化資料）；6) 完整錯誤處理和日誌記錄。新增依賴：xlrd（XLS支援）、PyPDF2/pdfplumber（PDF）、beautifulsoup4（HTML）。提供 18 個使用範例涵蓋所有場景。 |
+| 2025-11-22 | RAG 系統應返回結構化的 PHI 識別結果，而非純文字 | 當前 RegulationRAGChain.identify_phi() 依賴 LLM 返回 JSON 格式字串，但缺乏：
+1. 強制結構化輸出 - 需使用 Pydantic models + LangChain structured output
+2. Domain models 對齊 - PHIEntity 已定義完整結構但未與 RAG 整合
+3. 類型安全 - LLM 輸出需驗證並映射到 domain.models.PHIEntity
+4. 錯誤處理 - JSON parsing 失敗時無降級策略
+
+解決方案：
+- 定義 PHIIdentificationResult(BaseModel) 作為 LLM structured output schema
+- 使用 LangChain with_structured_output() 強制 LLM 返回符合 schema 的結果
+- 映射 LLM 輸出到 PHIEntity domain model
+- 添加 validation + fallback 機制
+
+優勢：
+- 類型安全：編譯時檢查 PHI 結構
+- 可測試：Mock structured responses
+- 可維護：Schema 集中管理
+- 可靠：LLM 輸出必須符合 domain model 定義 |
