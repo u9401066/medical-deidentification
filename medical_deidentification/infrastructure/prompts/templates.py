@@ -428,6 +428,36 @@ def validate_prompt_format(prompt: str, required_vars: list) -> bool:
 
 
 # ============================================================================
+# Regulation Context Defaults | 預設法規上下文
+# ============================================================================
+
+DEFAULT_HIPAA_SAFE_HARBOR_RULES = """Standard HIPAA Safe Harbor PHI Identifiers:
+1. Names (姓名)
+2. All geographic subdivisions smaller than state (地理位置)
+3. All elements of dates (except year) related to an individual (日期)
+4. Telephone numbers (電話)
+5. Fax numbers (傳真)
+6. Email addresses (電子郵件)
+7. Social security numbers (身份證字號)
+8. Medical record numbers (病歷號)
+9. Account numbers (帳號)
+10. Certificate/license numbers (證書號碼)
+11. Vehicle identifiers (車輛識別碼)
+12. Device identifiers (設備識別碼)
+13. Web URLs (網址)
+14. IP addresses (IP位址)
+15. Biometric identifiers (生物特徵)
+16. Full face photos (照片)
+17. Any other unique identifying number or code (其他識別碼)
+18. Ages over 89 years (年齡超過89歲)
+
+Additional Considerations:
+- Rare diseases that could identify individuals (罕見疾病)
+- Genetic information (基因資訊)
+- Hospital/clinic names in small areas (小型醫療機構名稱)"""
+
+
+# ============================================================================
 # Default Exports | 預設導出
 # ============================================================================
 

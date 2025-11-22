@@ -174,3 +174,29 @@ Current implementation:
 - test_batch_processor.py generates: test_batch_YYYYMMDD_HHMMSS.log
 - Captures all DEBUG/INFO/WARNING/ERROR messages
 - Helps diagnose PHI identification issues (like CUSTOM type errors) |
+| 2025-11-22 | PHI Type Mappings Architecture: Domain-Driven Design with Extensibility | Refactored PHI type mappings from infrastructure layer to domain layer following DDD principles:
+
+**Before**: Hardcoded dictionary in phi_identification_chain.py (infrastructure layer)
+**After**: PHITypeMapper class in domain/phi_type_mapper.py
+
+**Key Improvements**:
+1. Separation of Concerns: Business logic (type mappings) in domain layer
+2. Extensibility: Easy to add custom mappings via API
+3. Testability: PHITypeMapper independently testable
+4. Maintainability: Single source of truth
+5. Flexibility: Support per-language/regulation mappings
+
+**API for Extension**:
+```python
+from medical_deidentification.domain import get_default_mapper
+
+mapper = get_default_mapper()
+mapper.register_custom_mapping('職業', PHIType.CUSTOM)
+mapper.register_custom_type_definition('身份證', custom_type_def)
+```
+
+**Benefits for Regulations**:
+- Can load mappings from regulation documents
+- Support multiple language/region specific types
+- CustomPHIType with pattern matching, examples, aliases
+- Future: Load from config files or database |

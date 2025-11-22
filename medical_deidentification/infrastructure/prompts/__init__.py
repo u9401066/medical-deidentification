@@ -60,6 +60,9 @@ from .templates import (
     MASKING_STRATEGY_PROMPT_V1,
     PHI_IDENTIFICATION_PROMPT_ZH_TW,
     
+    # Default regulation contexts
+    DEFAULT_HIPAA_SAFE_HARBOR_RULES,
+    
     # Registry
     PROMPT_REGISTRY,
     
@@ -97,6 +100,9 @@ __all__ = [
     "PHI_VALIDATION_PROMPT_V1",
     "MASKING_STRATEGY_PROMPT_V1",
     "PHI_IDENTIFICATION_PROMPT_ZH_TW",
+    
+    # Default regulation contexts
+    "DEFAULT_HIPAA_SAFE_HARBOR_RULES",
     
     # Registry
     "PROMPT_REGISTRY",
