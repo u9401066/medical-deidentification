@@ -46,6 +46,13 @@ from .models import (
     MedicalDocument,
 )
 
+# PHI Type Mapper
+from .phi_type_mapper import (
+    PHITypeMapper,
+    get_default_mapper,
+    register_custom_mappings_from_config,
+)
+
 __all__ = [
     "PHIType",
     "CustomPHIType",
@@ -55,4 +62,7 @@ __all__ = [
     "DocumentMetadata",
     "ValidationResult",
     "MedicalDocument",
+    "PHITypeMapper",
+    "get_default_mapper",
+    "register_custom_mappings_from_config",
 ]

@@ -163,3 +163,14 @@ from ..prompts import PHI_IDENTIFICATION_PROMPT
 
 Current active test: test_batch_processor.py (uses BatchPHIProcessor module)
 Deleted: test_phi_batch_ollama.py, test_ollama_simple.py (replaced by integrated module) |
+| 2025-11-22 | Test Logging Policy: Always check log files after test execution | To ensure proper debugging and tracking:
+1. All test scripts must generate timestamped log files
+2. Log filename format: test_[feature]_YYYYMMDD_HHMMSS.log
+3. After each test run, ALWAYS check the log file for errors/warnings
+4. Keep logs for 10 days with 10MB rotation
+5. Log level: DEBUG for comprehensive troubleshooting
+
+Current implementation:
+- test_batch_processor.py generates: test_batch_YYYYMMDD_HHMMSS.log
+- Captures all DEBUG/INFO/WARNING/ERROR messages
+- Helps diagnose PHI identification issues (like CUSTOM type errors) |

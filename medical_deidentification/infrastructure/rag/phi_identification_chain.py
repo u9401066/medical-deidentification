@@ -31,6 +31,7 @@ from ..prompts import (
     get_phi_validation_prompt,
 )
 from ...domain.models import PHIType, PHIEntity
+from ...domain.phi_type_mapper import get_default_mapper
 from .regulation_retrieval_chain import RegulationRetrievalChain
 
 
@@ -108,97 +109,21 @@ class PHIIdentificationResult(BaseModel):
     @field_validator('phi_type', mode='before')
     @classmethod
     def normalize_phi_type(cls, v, info) -> PHIType:
-        """Convert string to PHIType enum with Chinese mapping"""
+        """Convert string to PHIType enum using domain PHITypeMapper"""
         if isinstance(v, PHIType):
             return v
         
         if isinstance(v, str):
-            # Chinese to English PHI type mapping (only use existing PHIType values)
-            chinese_mapping = {
-                '姓名': PHIType.NAME,
-                '年齡': PHIType.AGE_OVER_89,  # Map general age to AGE_OVER_89
-                '年齡超過89歲': PHIType.AGE_OVER_89,
-                '年齡超過90歲': PHIType.AGE_OVER_90,
-                '出生日期': PHIType.DATE,
-                '日期': PHIType.DATE,
-                '電話': PHIType.PHONE,
-                '電話號碼': PHIType.PHONE,
-                '聯絡電話': PHIType.PHONE,
-                '聯絡資訊': PHIType.CONTACT,
-                '地址': PHIType.LOCATION,
-                '小型地理區域': PHIType.LOCATION,
-                '地理區域': PHIType.LOCATION,
-                '地理位置': PHIType.LOCATION,
-                '身份證號碼': PHIType.ID,
-                '身分證字號': PHIType.ID,
-                '醫療機構': PHIType.HOSPITAL_NAME,
-                '醫院': PHIType.HOSPITAL_NAME,
-                '組織名稱': PHIType.HOSPITAL_NAME,
-                '組織資訊': PHIType.HOSPITAL_NAME,
-                '醫師': PHIType.CUSTOM,  # No direct mapping, use CUSTOM
-                '醫師資訊': PHIType.CUSTOM,
-                '罕見疾病': PHIType.RARE_DISEASE,
-                '診斷': PHIType.RARE_DISEASE,
-                '醫療資訊': PHIType.MEDICAL_RECORD_NUMBER,
-                '治療資訊': PHIType.CUSTOM,
-                '遺傳資訊': PHIType.GENETIC_INFO,
-                '病歷號': PHIType.MEDICAL_RECORD_NUMBER,
-                '病房號': PHIType.WARD_NUMBER,
-                '床號': PHIType.BED_NUMBER,
-                '科室': PHIType.DEPARTMENT_NAME,
-                '科室名稱': PHIType.DEPARTMENT_NAME,
-                '基因資訊': PHIType.GENETIC_INFO,
-                '照片': PHIType.PHOTO,
-                '生物特徵': PHIType.BIOMETRIC,
-                '郵件': PHIType.EMAIL,
-                '電子郵件': PHIType.EMAIL,
-                '網址': PHIType.URL,
-                'IP位址': PHIType.IP_ADDRESS,
-                '傳真': PHIType.FAX,
-                '傳真號碼': PHIType.FAX,
-                '帳號': PHIType.ACCOUNT_NUMBER,
-                '保險號碼': PHIType.INSURANCE_NUMBER,
-                '社會安全號碼': PHIType.SSN,
-                '設備識別碼': PHIType.DEVICE_ID,
-                '證書': PHIType.CERTIFICATE,
-                '證書號碼': PHIType.CERTIFICATE,
-                '醫療保險ID': PHIType.INSURANCE_NUMBER,
-                '醫療保險 ID': PHIType.INSURANCE_NUMBER,
-                '醫師姓名': PHIType.NAME,  # 醫師也是姓名
-                '醫療機構名稱': PHIType.HOSPITAL_NAME,
-                '識別資訊': PHIType.ID,
-                '職業': PHIType.CUSTOM,  # 職業信息視為 CUSTOM
-                '治療': PHIType.CUSTOM,  # 治療信息視為 CUSTOM
-                '年齡': PHIType.AGE_OVER_89,  # 所有年齡都映射到 AGE_OVER_89
-            }
+            # Use domain-layer PHITypeMapper for all mappings
+            mapper = get_default_mapper()
+            mapped_type, custom_name = mapper.map_with_custom(v)
             
-            # Try Chinese mapping first
-            if v in chinese_mapping:
-                mapped_type = chinese_mapping[v]
-                # If mapped to CUSTOM, store original name
-                if mapped_type == PHIType.CUSTOM:
-                    if 'custom_type_name' not in info.data or not info.data.get('custom_type_name'):
-                        info.data['custom_type_name'] = v
-                return mapped_type
-            
-            # Try direct enum match
-            try:
-                return PHIType(v.upper())
-            except ValueError:
-                pass
-            
-            # Default to CUSTOM for unknown types, store original name
-            logger.warning(f"Unknown PHI type: {v}, treating as CUSTOM")
-            # Store original Chinese type name in custom_type_name if not set
-            # Handle empty string case
-            if v and v.strip():  # Only use non-empty strings
+            # If mapped to CUSTOM, store the custom_type_name
+            if mapped_type == PHIType.CUSTOM and custom_name:
                 if 'custom_type_name' not in info.data or not info.data.get('custom_type_name'):
-                    info.data['custom_type_name'] = v
-            else:
-                # For empty PHI type, use a default
-                if 'custom_type_name' not in info.data or not info.data.get('custom_type_name'):
-                    info.data['custom_type_name'] = 'Unknown PHI Type'
-            return PHIType.CUSTOM
+                    info.data['custom_type_name'] = custom_name
+            
+            return mapped_type
         
         raise ValueError(f"Invalid phi_type: {v}")
     
