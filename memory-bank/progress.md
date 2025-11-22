@@ -2,17 +2,17 @@
 
 ## Done
 
-- 添加測試日誌文件生成
-- 識別並修復CUSTOM類型缺失custom_type_name問題
 - 重構PHI類型映射到domain層
 - 創建PHITypeMapper類別支援擴充
+- 移動預設HIPAA規則到prompts模組
+- 建立集中化prompt管理原則
 
 ## Doing
 
-- 重新執行測試驗證重構
+- 測試重構後的代碼
 
 ## Next
 
-- 完成完整15行測試
-- 分析測試結果與性能
-- 建立自定義PHI類型的配置檔案支援
+- 執行完整測試驗證重構
+- 分析測試結果
+- 建立配置檔支援自定義PHI類型

@@ -200,3 +200,30 @@ mapper.register_custom_type_definition('身份證', custom_type_def)
 - Support multiple language/region specific types
 - CustomPHIType with pattern matching, examples, aliases
 - Future: Load from config files or database |
+| 2025-11-22 | Prompt Management Principle: All text content in prompts module | All prompt-related text, including default contexts and regulation rules, must be centralized in the prompts module:
+
+**Rule**: No hardcoded prompt strings in business logic layers
+
+**Before**: Default HIPAA rules hardcoded in phi_identification_chain.py
+**After**: DEFAULT_HIPAA_SAFE_HARBOR_RULES in prompts/templates.py
+
+**Benefits**:
+1. Single source of truth for all prompts
+2. Easy to update/version prompt content
+3. Consistent with existing prompt architecture
+4. Better testability (test prompts independently)
+5. Clear separation: prompts module = content, other modules = logic
+
+**What belongs in prompts module**:
+- All LLM prompt templates
+- System messages
+- Default regulation contexts
+- Example outputs
+- Instruction text
+- Few-shot examples
+
+**What does NOT belong**:
+- Business logic
+- Data processing code
+- Configuration (use config module instead)
+- Domain models |

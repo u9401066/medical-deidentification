@@ -53,16 +53,37 @@ from .phi_type_mapper import (
     register_custom_mappings_from_config,
 )
 
+# PHI Identification Models (DTOs for LLM structured output)
+from .phi_identification_models import (
+    PHIIdentificationResult,
+    PHIDetectionResponse,
+    PHIIdentificationConfig,
+)
+
 __all__ = [
+    # PHI Types
     "PHIType",
     "CustomPHIType",
+    
+    # Entities
     "PHIEntity",
+    
+    # Value Objects
     "SupportedLanguage",
     "RegulationContext",
     "DocumentMetadata",
     "ValidationResult",
+    
+    # Aggregates
     "MedicalDocument",
+    
+    # PHI Type Mapper
     "PHITypeMapper",
     "get_default_mapper",
     "register_custom_mappings_from_config",
+    
+    # PHI Identification Models
+    "PHIIdentificationResult",
+    "PHIDetectionResponse",
+    "PHIIdentificationConfig",
 ]

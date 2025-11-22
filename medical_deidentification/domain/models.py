@@ -52,6 +52,14 @@ from .value_objects import (
 )
 from .aggregates import MedicalDocument
 
+# PHI Identification Models (DTOs for LLM structured output)
+# PHI 識別模型（LLM 結構化輸出的 DTO）
+from .phi_identification_models import (
+    PHIIdentificationResult,
+    PHIDetectionResponse,
+    PHIIdentificationConfig,
+)
+
 __all__ = [
     # PHI Types | PHI 類型
     "PHIType",
@@ -68,4 +76,9 @@ __all__ = [
     
     # Aggregates | 聚合
     "MedicalDocument",
+    
+    # PHI Identification Models | PHI 識別模型
+    "PHIIdentificationResult",
+    "PHIDetectionResponse",
+    "PHIIdentificationConfig",
 ]
