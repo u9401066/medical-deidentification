@@ -27,7 +27,8 @@ from .base import (
     DocumentLoader,
     LoadedDocument,
     DocumentMetadata,
-    LoaderConfig
+    LoaderConfig,
+    DocumentFormat  # Add DocumentFormat export
 )
 
 from .loaders import (
@@ -55,6 +56,7 @@ __all__ = [
     "LoadedDocument",
     "DocumentMetadata",
     "LoaderConfig",
+    "DocumentFormat",  # Add to exports
     
     # Format-specific loaders
     "TextLoader",

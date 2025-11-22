@@ -11,11 +11,31 @@ __version__ = "0.1.0"
 __author__ = "Your Name"
 __license__ = "MIT"
 
-from medical_deidentification.domain.models import MedicalDocument, PHIEntity
-from medical_deidentification.application.pipeline import DeidentificationPipeline
+# Core domain models (no dependencies)
+from medical_deidentification.domain.models import (
+    MedicalDocument,
+    PHIEntity,
+    PHIType,
+    SupportedLanguage
+)
+
+# Application components (require dependencies)
+try:
+    from medical_deidentification.application.processing import (
+        DeidentificationEngine,
+        DeidentificationPipeline,
+    )
+    _HAS_PROCESSING = True
+except ImportError:
+    _HAS_PROCESSING = False
+    DeidentificationEngine = None
+    DeidentificationPipeline = None
 
 __all__ = [
     "MedicalDocument",
     "PHIEntity",
+    "PHIType",
+    "SupportedLanguage",
+    "DeidentificationEngine",
     "DeidentificationPipeline",
 ]

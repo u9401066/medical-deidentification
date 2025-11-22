@@ -126,7 +126,7 @@ class GeneralizationStrategy(MaskingStrategy):
         PHIType.AGE_OVER_89: lambda age: "≥90 years" if "year" in age.lower() else "≥90歲",
         PHIType.AGE_OVER_90: lambda age: ">90 years" if "year" in age.lower() else ">90歲",
         PHIType.DATE: lambda date: date[:4] if len(date) >= 4 else "[DATE]",  # Keep year only
-        PHIType.ZIP_CODE: lambda zip: zip[:3] + "XX" if len(zip) >= 3 else "[ZIP]",
+        PHIType.LOCATION: lambda loc: "[地區]" if any(c >= '\u4e00' and c <= '\u9fff' for c in loc) else "[LOCATION]",
     }
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -141,7 +141,7 @@ class GeneralizationStrategy(MaskingStrategy):
     
     def mask(self, entity: PHIEntity, context: Optional[Dict[str, Any]] = None) -> str:
         """Generalize to broader category"""
-        phi_type = entity.phi_type
+        phi_type = entity.type  # Fixed: use entity.type not entity.phi_type
         
         # Check custom rules first
         if phi_type in self.custom_rules:
@@ -174,14 +174,15 @@ class PseudonymizationStrategy(MaskingStrategy):
         >>> masked2 = strategy.mask(entity1)  # "張三" → "Patient-A7F8" (same)
     """
     
-    # Pseudonym templates
+    # Pseudonym templates (using existing PHIType values only)
     _TEMPLATES = {
         PHIType.NAME: "Patient-{hash}",
         PHIType.PHONE: "XXX-XXXX-{hash}",
         PHIType.EMAIL: "patient{hash}@example.com",
         PHIType.MEDICAL_RECORD_NUMBER: "MRN-{hash}",
         PHIType.SSN: "XXX-XX-{hash}",
-        PHIType.LICENSE_NUMBER: "LIC-{hash}",
+        PHIType.ID: "ID-{hash}",
+        PHIType.ACCOUNT_NUMBER: "ACC-{hash}",
     }
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -204,7 +205,7 @@ class PseudonymizationStrategy(MaskingStrategy):
     def mask(self, entity: PHIEntity, context: Optional[Dict[str, Any]] = None) -> str:
         """Generate consistent pseudonym"""
         # Check cache
-        cache_key = f"{entity.phi_type}:{entity.text}"
+        cache_key = f"{entity.type}:{entity.text}"  # Fixed: use entity.type
         if cache_key in self._pseudonym_cache:
             return self._pseudonym_cache[cache_key]
         
@@ -212,7 +213,7 @@ class PseudonymizationStrategy(MaskingStrategy):
         hash_value = self._generate_hash(entity.text)
         
         # Get template
-        phi_type = entity.phi_type
+        phi_type = entity.type  # Fixed: use entity.type
         if phi_type in self.custom_templates:
             template = self.custom_templates[phi_type]
         elif phi_type in self._TEMPLATES:
@@ -447,8 +448,8 @@ def get_default_strategy_for_phi_type(phi_type: PHIType) -> StrategyType:
     if phi_type == PHIType.DATE:
         return StrategyType.DATE_SHIFTING
     
-    # Phone, SSN, License → Partial masking
-    if phi_type in [PHIType.PHONE, PHIType.SSN, PHIType.LICENSE_NUMBER]:
+    # Phone, SSN, ID → Partial masking
+    if phi_type in [PHIType.PHONE, PHIType.SSN, PHIType.ID, PHIType.MEDICAL_RECORD_NUMBER]:
         return StrategyType.PARTIAL_MASKING
     
     # Default → Redaction
