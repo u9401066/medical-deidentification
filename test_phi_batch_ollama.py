@@ -77,8 +77,8 @@ def initialize_phi_chain_ollama():
         vector_store=vector_store
     )
     
-    # Create LLM config with Ollama (使用 Qwen 2.5 7B)
-    llm_config = LLMPresets.local_qwen()
+    # Create LLM config with Ollama (使用 Llama 3.1 8B)
+    llm_config = LLMPresets.local_llama()
     logger.info(f"Using Ollama model: {llm_config.model_name}")
     
     # Create PHI identification config
@@ -198,13 +198,12 @@ def main():
     # Check Ollama
     logger.info("⚠️  請確保:")
     logger.info("   1. Ollama 已安裝並運行 (ollama serve)")
-    logger.info("   2. 已下載 Qwen 2.5 7B 模型 (ollama pull qwen2.5:7b)")
+    logger.info("   2. 已下載 Llama 3.1 8B 模型 (ollama pull llama3.1:8b)")
     logger.info("")
     
-    # Test files
+    # Test files - 只處理第一個檔案
     test_files = [
         "data/test/test_complex_phi_cases.xlsx",
-        "data/test/test_medical_records_multilang.xlsx"
     ]
     
     # Initialize PHI chain once with Ollama

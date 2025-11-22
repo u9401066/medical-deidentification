@@ -383,8 +383,12 @@ class PHIIdentificationChain:
         prompt = prompt_template.format(context=context, question=text)
         
         try:
-            response = self.llm.predict(prompt)
-            json_data = json.loads(response)
+            # Use invoke() for compatibility with all LangChain chat models
+            response = self.llm.invoke(prompt)
+            # Get content from response (handles both old and new LangChain versions)
+            response_text = response.content if hasattr(response, 'content') else str(response)
+            
+            json_data = json.loads(response_text)
             
             raw_results = [PHIIdentificationResult(**item) for item in json_data]
             entities = [result.to_phi_entity() for result in raw_results]

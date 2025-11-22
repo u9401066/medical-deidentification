@@ -150,6 +150,8 @@ class LLMConfig(BaseModel):
             valid_models = OPENAI_MODELS
         elif self.provider == "anthropic":
             valid_models = ANTHROPIC_MODELS
+        elif self.provider == "ollama":
+            valid_models = OLLAMA_MODELS
         else:
             raise ValueError(f"Unknown provider: {self.provider}")
         
