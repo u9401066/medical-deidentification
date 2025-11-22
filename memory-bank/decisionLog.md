@@ -247,3 +247,36 @@ Phase 2: HIPAA rules → infrastructure/prompts/templates.py
 Phase 3: Pydantic DTOs → domain/phi_identification_models.py
 
 Result: Clean separation of concerns with no business logic in infrastructure layer. |
+| 2025-11-22 | Domain Layer Export Structure Simplification | Removed redundant domain/models.py export layer and consolidated all exports directly in domain/__init__.py.
+
+Problems Identified:
+1. Duplicate exports: domain/__init__.py imported from domain/models.py, which re-exported the same content (80+ lines of redundancy)
+2. Circular dependencies: value_objects.py imported PHIType, CustomPHIType, PHIEntity only for type hints, causing import cycles
+3. Inconsistent import paths: Some code used domain.models, some used direct submodules
+
+Refactoring Actions:
+1. Deleted domain/models.py completely
+2. Modified domain/__init__.py to import directly from submodules (phi_types, entities, value_objects, aggregates, phi_type_mapper, phi_identification_models)
+3. Fixed circular dependencies in value_objects.py:
+   - Used TYPE_CHECKING for type-only imports
+   - Moved runtime PHIType import to method scope
+   - Changed List[PHIType] to List["PHIType"] in type hints
+4. Updated 14 files across infrastructure and application layers:
+   - domain.models -> domain (simplified import path)
+   - Fixed enum references (ZH_TW -> TRADITIONAL_CHINESE, EN -> ENGLISH)
+
+Architectural Benefits:
+- Single Source of Truth: Only one export point (domain/__init__.py)
+- Cleaner Imports: from ...domain import X instead of from ...domain.models import X
+- No Circular Dependencies: TYPE_CHECKING pattern for type hints
+- Reduced Maintenance: 80+ lines of duplicate code eliminated
+- Better DDD Structure: Clear file organization without intermediate layers
+
+Verification:
+- All domain imports work correctly
+- All infrastructure layer imports work
+- All application layer imports work
+- Zero compile errors in domain layer
+- BatchPHIProcessor loads successfully
+
+This follows the principle: "Each module should export once, at the highest appropriate level." |

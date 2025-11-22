@@ -115,12 +115,13 @@ class PHIIdentificationResult(BaseModel):
         確保 CUSTOM 類型有 custom_type_name
         """
         if 'phi_type' in info.data and info.data['phi_type'] == PHIType.CUSTOM:
-            if not v:
-                # Try to get from entity_text as fallback
-                if 'entity_text' in info.data:
-                    logger.warning(f"CUSTOM type missing custom_type_name, using entity_text as fallback")
-                    return f"Custom PHI: {info.data['entity_text'][:50]}"
-                raise ValueError('custom_type_name required when phi_type is CUSTOM')
+            if not v or not v.strip():
+                # Provide default fallback instead of raising error
+                fallback_name = "Unknown PHI Type"
+                if 'entity_text' in info.data and info.data['entity_text']:
+                    fallback_name = f"Custom PHI: {info.data['entity_text'][:50]}"
+                logger.warning(f"CUSTOM type missing custom_type_name, using fallback: {fallback_name}")
+                return fallback_name
         return v
     
     @field_validator('phi_type', mode='before')

@@ -54,11 +54,11 @@ Medical Text to Analyze:
 
 Task: Extract ALL identifiable information that should be redacted, including:
 1. Personal names
-2. Ages (especially >89 years)
+2. Ages ONLY if >90 years (ages 90 and below should NOT be identified)
 3. Geographic locations smaller than state level
 4. Contact information (phone, email, address)
 5. ID numbers and account numbers
-6. Rare medical conditions
+6. Rare diseases with prevalence <1:2000 that could identify individuals (common diseases like diabetes, hypertension, cancer do NOT need redaction)
 7. Genetic information
 8. Dates related to individuals
 
@@ -99,8 +99,8 @@ Medical Text:
 Instructions:
 1. Identify ALL PHI entities according to regulations
 2. Pay special attention to:
-   - Ages over 89 (HIPAA) or 90 (Taiwan)
-   - Rare diseases that could identify individuals
+   - Ages ONLY if >90 years (do NOT identify ages 90 and below)
+   - Rare diseases with prevalence <1:2000 (common diseases do NOT need redaction)
    - Specific location information
    - Names and identifiers
 3. Provide entity_text, phi_type, start_position, end_position, confidence, reason
@@ -169,9 +169,8 @@ PHI_IDENTIFICATION_PROMPT_ZH_TW = """您是一位醫療去識別化專家。根�
    - reason: 根據法規為何這被視為 PHI 的解釋
 
 3. 特別注意：
-   - 超過 89 歲的年齡（HIPAA 安全港規則）
-   - 超過 90 歲的年齡（台灣法規）
-   - 可能識別個人的罕見疾病
+   - 只有超過 90 歲的年齡才需要去識別化（90 歲及以下不需要）
+   - 罕見疾病（發生率 <1:2000）才需要去識別化（常見疾病如糖尿病、高血壓、癌症不需要）
    - 遺傳資訊
    - 小型地理區域
    

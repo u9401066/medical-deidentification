@@ -10,13 +10,17 @@
 - 重構 HIPAA 規則到 prompts 模組
 - 重構 Pydantic DTOs 到 domain 層（phi_identification_models.py）
 - 完成三階段 DDD 架構重構
+- 消除 domain 層重複導出（移除 models.py）
+- 修復 domain 層循環依賴問題
+- 統一專案導入路徑（domain.models → domain）
 
 ## Doing
 
-- 驗證完整批次測試執行（15 行測試資料）
+
 
 ## Next
 
+- 驗證完整批次測試執行（15 行測試資料）
 - 分析測試日誌檔案結果
 - 檢查 PHI 識別準確率
 - 優化 Ollama prompt 效能

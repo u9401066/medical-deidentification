@@ -50,7 +50,7 @@ def main():
     phi_config = PHIIdentificationConfig(
         llm_config=llm_config,
         retrieve_regulation_context=False,  # 不使用FAISS（避免維度問題）
-        use_structured_output=False,  # Ollama不支援structured output
+        use_structured_output=True,  # ✅ 使用Ollama native structured output (已安裝ollama package)
     )
     
     # 批次處理配置
@@ -66,12 +66,14 @@ def main():
     
     logger.info("Initializing PHI Identification Chain with Ollama...")
     logger.info("Note: retrieve_regulation_context=False, will use default HIPAA rules")
+    logger.info("Note: max_text_length=2000, texts longer than this will be chunked")
     
     # Since retrieve_regulation_context=False, regulation_chain won't be called
     # We pass None and PHIIdentificationChain will use default rules
     phi_chain = PHIIdentificationChain(
         regulation_chain=None,  # Not needed when retrieve_regulation_context=False
-        config=phi_config
+        config=phi_config,
+        max_text_length=2000,  # Chunk texts longer than 2000 chars
     )
     
     logger.info("Initializing Batch PHI Processor...")
