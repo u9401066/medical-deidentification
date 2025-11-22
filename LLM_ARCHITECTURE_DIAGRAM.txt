@@ -1,0 +1,229 @@
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    LLM Module Architecture | LLM 模組架構                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                            infrastructure/llm/
+                                    │
+        ┌───────────────────────────┼───────────────────────────┐
+        │                           │                           │
+        ▼                           ▼                           ▼
+   ┌─────────┐                ┌─────────┐                ┌─────────┐
+   │ config  │                │ factory │                │ manager │
+   │   .py   │                │   .py   │                │   .py   │
+   └─────────┘                └─────────┘                └─────────┘
+        │                           │                           │
+        │                           │                           │
+        ▼                           ▼                           ▼
+
+┌──────────────────┐      ┌──────────────────┐      ┌──────────────────┐
+│   LLMConfig      │      │   create_llm()   │      │   LLMManager     │
+├──────────────────┤      ├──────────────────┤      ├──────────────────┤
+│ - provider       │      │ Creates LLM      │      │ - llm (lazy)     │
+│ - model_name     │◄─────┤ based on config  │◄─────┤ - stats          │
+│ - temperature    │      │                  │      │ - config         │
+│ - max_tokens     │      │ Supports:        │      │                  │
+│ - timeout        │      │ • OpenAI         │      │ Methods:         │
+│ - max_retries    │      │ • Anthropic      │      │ • invoke()       │
+│ - api_key        │      │                  │      │ • invoke_        │
+│ - streaming      │      │ Returns:         │      │   structured()   │
+│ - verbose        │      │ ChatOpenAI |     │      │ • batch_invoke() │
+│                  │      │ ChatAnthropic    │      │ • get_stats()    │
+└──────────────────┘      └──────────────────┘      └──────────────────┘
+        │                           │
+        │                           │
+        ▼                           ▼
+┌──────────────────┐      ┌──────────────────┐
+│   LLMPresets     │      │ Helper Functions │
+├──────────────────┤      ├──────────────────┤
+│ Static Methods:  │      │ • create_openai_ │
+│                  │      │   llm()          │
+│ • phi_           │      │ • create_        │
+│   identification │      │   anthropic_llm()│
+│ • regulation_    │      │ • create_        │
+│   analysis()     │      │   structured_    │
+│ • claude_opus()  │      │   output_llm()   │
+│ • claude_sonnet()│      │                  │
+│ • gpt_3_5_fast() │      │                  │
+└──────────────────┘      └──────────────────┘
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                              Usage in RAG Chain
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     regulation_chain.py (BEFORE)                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  from langchain_openai import ChatOpenAI                                    │
+│  from langchain_anthropic import ChatAnthropic                              │
+│                                                                             │
+│  class RAGChainConfig(BaseModel):                                           │
+│      llm_provider: str = "openai"                                           │
+│      model_name: str = "gpt-4"                                              │
+│      temperature: float = 0.0                                               │
+│      max_tokens: Optional[int] = None                                       │
+│      # ... more scattered config                                            │
+│                                                                             │
+│  class RegulationRAGChain:                                                  │
+│      def __init__(self, ...):                                               │
+│          self.llm = self._create_llm()  # ← 分散的創建邏輯                  │
+│                                                                             │
+│      def _create_llm(self):             # ← 16 lines of repetitive code    │
+│          if self.config.llm_provider == "openai":                           │
+│              return ChatOpenAI(                                             │
+│                  model=self.config.model_name,                              │
+│                  temperature=self.config.temperature,                       │
+│                  max_tokens=self.config.max_tokens                          │
+│              )                                                              │
+│          elif self.config.llm_provider == "anthropic":                      │
+│              return ChatAnthropic(...)                                      │
+│          else:                                                              │
+│              raise ValueError(...)                                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                                    ⬇️  REFACTOR
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     regulation_chain.py (AFTER)                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  from ..llm.config import LLMConfig          # ← 統一的配置                 │
+│  from ..llm.factory import create_llm        # ← 統一的工廠                 │
+│                                                                             │
+│  class RAGChainConfig(BaseModel):                                           │
+│      llm_config: LLMConfig = Field(default_factory=LLMConfig)               │
+│      retriever_config: RegulationRetrieverConfig = ...                      │
+│      use_structured_output: bool = True                                     │
+│                                                                             │
+│  class RegulationRAGChain:                                                  │
+│      def __init__(self, ...):                                               │
+│          self.llm = create_llm(self.config.llm_config)  # ← 1 line!        │
+│          logger.info(f"RAG chain initialized with LLM: ...")                │
+│                                                                             │
+│      # _create_llm() method removed! ✅                                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                               Usage Examples
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Example 1: Quick Start with Factory                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  from medical_deidentification.infrastructure.llm import (                  │
+│      create_llm, LLMConfig                                                  │
+│  )                                                                          │
+│                                                                             │
+│  # Create config                                                            │
+│  config = LLMConfig(provider="openai", model_name="gpt-4")                  │
+│                                                                             │
+│  # Create LLM                                                               │
+│  llm = create_llm(config)                                                   │
+│                                                                             │
+│  # Use it                                                                   │
+│  response = llm.invoke("What is HIPAA?")                                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Example 2: Using Presets                                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  from medical_deidentification.infrastructure.llm import (                  │
+│      create_llm, LLMPresets                                                 │
+│  )                                                                          │
+│                                                                             │
+│  # PHI identification (deterministic, accurate)                             │
+│  config = LLMPresets.phi_identification()                                   │
+│  llm = create_llm(config)                                                   │
+│                                                                             │
+│  # Regulation analysis (balanced)                                           │
+│  config = LLMPresets.regulation_analysis()                                  │
+│  llm = create_llm(config)                                                   │
+│                                                                             │
+│  # Claude 3 Opus (highest quality)                                          │
+│  config = LLMPresets.claude_opus()                                          │
+│  llm = create_llm(config)                                                   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Example 3: Using Manager (Advanced)                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  from medical_deidentification.infrastructure.llm import (                  │
+│      LLMManager, LLMPresets                                                 │
+│  )                                                                          │
+│                                                                             │
+│  # Create manager                                                           │
+│  config = LLMPresets.phi_identification()                                   │
+│  manager = LLMManager(config)                                               │
+│                                                                             │
+│  # Invoke LLM                                                               │
+│  response = manager.invoke("What is HIPAA?")                                │
+│                                                                             │
+│  # Batch processing                                                         │
+│  prompts = ["Q1", "Q2", "Q3"]                                               │
+│  responses = manager.batch_invoke(prompts)                                  │
+│                                                                             │
+│  # Get statistics                                                           │
+│  stats = manager.get_stats()                                                │
+│  print(f"Total calls: {stats['total_calls']}")                              │
+│  print(f"Errors: {stats['errors']}")                                        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Example 4: Structured Output                                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  from medical_deidentification.infrastructure.llm import (                  │
+│      create_structured_output_llm, LLMPresets                               │
+│  )                                                                          │
+│  from pydantic import BaseModel                                             │
+│                                                                             │
+│  # Define schema                                                            │
+│  class PHIResult(BaseModel):                                                │
+│      entity_text: str                                                       │
+│      phi_type: str                                                          │
+│      confidence: float                                                      │
+│                                                                             │
+│  # Create structured LLM                                                    │
+│  config = LLMPresets.phi_identification()                                   │
+│  llm = create_structured_output_llm(config, schema=PHIResult)               │
+│                                                                             │
+│  # Use it                                                                   │
+│  result: PHIResult = llm.invoke("Find PHI: John Smith, age 92")             │
+│  print(f"Entity: {result.entity_text}")                                     │
+│  print(f"Type: {result.phi_type}")                                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                               Benefits Summary
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Single Responsibility        │ LLM 邏輯集中到 llm 模組
+✅ DRY (Don't Repeat Yourself)  │ 不再重複 ChatOpenAI 創建
+✅ Open-Closed Principle        │ 新增 provider 無需修改現有代碼
+✅ Dependency Inversion         │ 透過 LLMConfig 抽象依賴
+✅ Testability                  │ LLM 創建邏輯可獨立測試
+✅ Maintainability              │ 配置變更只需修改一處
+✅ Extensibility                │ 支援新 provider/功能容易擴展
+✅ Backward Compatibility       │ 現有 API 仍可使用
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Code Reduction: -16 lines in regulation_chain.py
+New Code Added: +805 lines in infrastructure/llm/
+Net Impact: Centralized, maintainable, extensible architecture ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```

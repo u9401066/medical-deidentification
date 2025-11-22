@@ -181,3 +181,130 @@ Pattern 結構：
 - infrastructure/rag/regulation_chain.py: RegulationRAGChain.identify_phi() 使用 structured output
 - domain/models.py: PHIEntity 作為 domain model
 - application/processing/engine.py: 消費結構化 PHI 結果
+
+
+## Structured Output with Enum Types
+
+Use str-based Enum in Pydantic models for LLM structured output to combine type safety with JSON compatibility. PHIType enum demonstrates this pattern: inherits both str and Enum, provides validators for flexible input, and ensures type-safe output throughout the system.
+
+### Examples
+
+- medical_deidentification/domain/models.py: class PHIType(str, Enum)
+- medical_deidentification/infrastructure/rag/regulation_chain.py: class PHIIdentificationResult(BaseModel) with phi_type: PHIType field
+- Validator automatically converts LLM string outputs to PHIType enum values
+
+
+## Dynamic PHI Type Extension Pattern
+
+Use CustomPHIType to extend PHIType enum dynamically based on regulation discovery. When RAG retrieves regulations containing country-specific or institution-specific identifiers, create CustomPHIType instances with pattern matching, masking strategies, and risk levels. PHIEntity uses PHIType.CUSTOM + custom_type field to represent extended types while maintaining type safety.
+
+### Examples
+
+- Taiwan National ID (身份證字號): CustomPHIType with pattern r'[A-Z][12]\d{8}'
+- Japan My Number (マイナンバー): CustomPHIType with pattern r'\d{12}'
+- Hospital rare disease policy: CustomPHIType with aliases=['Gaucher', '戈謝', '高雪氏']
+- PHIEntity(type=PHIType.CUSTOM, custom_type=tw_national_id, ...)
+
+
+## LLM 創建和管理的統一模式
+
+系統中所有 LLM 的創建和管理都統一通過 infrastructure/llm 模組進行：
+
+**架構層次**：
+1. **Config Layer** (config.py): 統一的 LLMConfig 配置類 + LLMPresets 預設配置
+2. **Factory Layer** (factory.py): create_llm() 工廠函數，根據 config 創建對應的 LLM 實例
+3. **Manager Layer** (manager.py): LLMManager 高階管理介面，提供懶載入、統計追蹤、批次處理等功能
+
+**設計原則**：
+- 單一職責：LLM 創建邏輯只存在於 llm 模組
+- 依賴反轉：使用 LLMConfig 抽象，不直接依賴 ChatOpenAI/ChatAnthropic
+- 開放封閉：新增 provider 只需修改 factory.py，不影響現有代碼
+- DRY 原則：避免在多處重複 LLM 創建代碼
+
+**使用模式**：
+```python
+# 方式 1: Factory (簡單場景)
+from infrastructure.llm import create_llm, LLMConfig
+config = LLMConfig(provider="openai", model_name="gpt-4")
+llm = create_llm(config)
+
+# 方式 2: Presets (常見場景)
+from infrastructure.llm import create_llm, LLMPresets
+config = LLMPresets.phi_identification()
+llm = create_llm(config)
+
+# 方式 3: Manager (進階場景)
+from infrastructure.llm import LLMManager
+manager = LLMManager(config)
+response = manager.invoke("prompt")
+stats = manager.get_stats()
+```
+
+**向後兼容**：
+- create_regulation_rag_chain() 仍接受 llm_provider/model_name 參數
+- 內部自動轉換為 LLMConfig
+
+### Examples
+
+- medical_deidentification/infrastructure/llm/config.py
+- medical_deidentification/infrastructure/llm/factory.py
+- medical_deidentification/infrastructure/llm/manager.py
+- medical_deidentification/infrastructure/rag/regulation_chain.py (使用 create_llm)
+
+
+## Prompt 模板的集中管理模式
+
+系統中所有 prompt 模板都統一通過 infrastructure/prompts 模組進行管理：
+
+**架構設計**：
+1. **templates.py**: 所有 prompt 模板定義
+   - 版本化的 prompt (v1, v2, ...)
+   - 多語言版本 (en, zh-TW, zh-CN)
+   - PROMPT_REGISTRY 統一註冊
+   - 存取函數 (get_prompt, get_phi_identification_prompt, etc.)
+
+2. **__init__.py**: 統一導出所有公開 API
+
+**設計原則**：
+- 單一真相來源：所有 prompts 定義在一處
+- 版本控制：支援多版本共存
+- 多語言：統一管理不同語言版本
+- 易測試：可獨立驗證 prompt 格式
+- 向後兼容：保留直接存取方式
+
+**使用模式**：
+```python
+# 方式 1: 便捷函數（推薦）
+from infrastructure.prompts import get_phi_identification_prompt
+prompt = get_phi_identification_prompt(language="en", structured=True)
+
+# 方式 2: 完全控制
+from infrastructure.prompts import get_prompt
+prompt = get_prompt("phi_identification", language="zh-TW", version="v1")
+
+# 方式 3: 直接存取（向後兼容）
+from infrastructure.prompts import PHI_IDENTIFICATION_PROMPT
+prompt = PHI_IDENTIFICATION_PROMPT
+```
+
+**擴展方式**：
+1. 新增語言：在 templates.py 中添加新的語言版本到 PROMPT_REGISTRY
+2. 新增版本：創建 *_V2 常數並更新 PROMPT_REGISTRY
+3. 新增 prompt 類型：添加新的 prompt 常數和對應的 get_* 函數
+
+### Examples
+
+- medical_deidentification/infrastructure/prompts/templates.py
+- medical_deidentification/infrastructure/prompts/__init__.py
+- medical_deidentification/infrastructure/rag/regulation_chain.py (使用 get_phi_identification_prompt)
+
+
+## RAG Chain 的職責分離模式
+
+RAG Chain 應該按照數據來源和用途分離：(1) RegulationRetrievalChain: 從持久化法規向量庫檢索 PHI 定義和 masking 策略，使用 RegulationRetriever；(2) PHIIdentificationChain: 從臨時醫療文本中識別具體 PHI 實體，使用 MedicalTextRetriever + 法規 context。兩者可以組合但不應混在同一個 class (當前 RegulationRAGChain 716 行過長且職責混淆)。共用部分：LLM factory, Prompts module。
+
+### Examples
+
+- 待重構: infrastructure/rag/regulation_chain.py (拆分為兩個 chain)
+- infrastructure/rag/regulation_retriever.py (持久化法規)
+- infrastructure/rag/medical_retriever.py (臨時醫療文本)

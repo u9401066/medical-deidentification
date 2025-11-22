@@ -1,0 +1,63 @@
+================================================================================
+STEP 2: PHI Identification Result
+================================================================================
+
+1. Exact text from document: Sarah Johnson
+   - PHI Type: NAME
+   - Masking Action: [PATIENT]
+   - Reason: Patient names must be removed or replaced with [PATIENT]
+
+2. Exact text from document: February 8, 1930
+   - PHI Type: DATE
+   - Masking Action: 1930
+   - Reason: Exact dates must be generalized to year only or masked as [DATE]
+
+3. Exact text from document: Age: 94 years
+   - PHI Type: AGE_OVER_89
+   - Masking Action: 90+ years
+   - Reason: Ages 90 years and older must be masked as '90+ years' to prevent re-identification
+
+4. Exact text from document: MRN-456123
+   - PHI Type: MRN
+   - Masking Action: [MRN]
+   - Reason: Medical Record Numbers (MRN) must be removed or masked
+
+5. Exact text from document: 987-65-4321
+   - PHI Type: SSN
+   - Masking Action: [SSN]
+   - Reason: Social Security Numbers are direct identifiers and must be masked
+
+6. Exact text from document: (555) 789-0123
+   - PHI Type: PHONE
+   - Masking Action: [PHONE]
+   - Reason: Telephone numbers must be masked
+
+7. Exact text from document: sarah.j@email.com
+   - PHI Type: EMAIL
+   - Masking Action: [EMAIL]
+   - Reason: Email addresses must be masked
+
+8. Exact text from document: 789 Pine Street, Los Angeles, CA 90001
+   - PHI Type: ADDRESS
+   - Masking Action: [ADDRESS]
+   - Reason: Street addresses and ZIP codes must be masked
+
+9. Exact text from document: Gaucher disease (Type 1), a rare lysosomal storage disorder.
+   - PHI Type: RARE_DISEASE
+   - Masking Action: rare metabolic disorder
+   - Reason: Rare diseases (affecting <20,000 people) should be generalized to 'rare metabolic disorder'
+
+10. Exact text from document: January 15, 2025
+    - PHI Type: DATE
+    - Masking Action: 2025
+    - Reason: Exact dates must be generalized to year only or masked as [DATE]
+
+11. Exact text from document: robert.martinez@hospital.org
+    - PHI Type: EMAIL
+    - Masking Action: [EMAIL]
+    - Reason: Email addresses must be masked
+
+12. Exact text from document: (555) 123-9876
+    - PHI Type: PHONE
+    - Masking Action: [PHONE]
+    - Reason: Telephone numbers must be masked

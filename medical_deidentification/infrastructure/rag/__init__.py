@@ -34,17 +34,37 @@ from .regulation_store import (
     InMemoryDocumentProcessor
 )
 
-from .retriever import (
+from .regulation_retriever import (
     RegulationRetriever,
-    RetrieverConfig,
+    RegulationRetrieverConfig,
     create_regulation_retriever
 )
 
+from .medical_retriever import (
+    MedicalTextRetriever,
+    MedicalRetrieverConfig,
+    create_medical_retriever
+)
+
+# New modular chains (recommended)
+from .regulation_retrieval_chain import (
+    RegulationRetrievalChain,
+    RegulationRetrievalConfig,
+    create_regulation_retrieval_chain
+)
+
+from .phi_identification_chain import (
+    PHIIdentificationChain,
+    PHIIdentificationConfig,
+    PHIIdentificationResult,
+    PHIDetectionResponse,
+    create_phi_identification_chain
+)
+
+# Legacy combined chain (deprecated, use separate chains instead)
 from .regulation_chain import (
     RegulationRAGChain,
     RAGChainConfig,
-    PHIIdentificationResult,
-    PHIDetectionResponse,
     create_regulation_rag_chain
 )
 
@@ -60,16 +80,29 @@ __all__ = [
     "RegulationStoreConfig",
     "InMemoryDocumentProcessor",
     
-    # Retriever
+    # Regulation Retriever (persistent)
     "RegulationRetriever",
-    "RetrieverConfig",
+    "RegulationRetrieverConfig",
     "create_regulation_retriever",
     
-    # RAG Chain
-    "RegulationRAGChain",
-    "RAGChainConfig",
+    # Medical Retriever (ephemeral)
+    "MedicalTextRetriever",
+    "MedicalRetrieverConfig",
+    "create_medical_retriever",
+    
+    # New Modular Chains (recommended)
+    "RegulationRetrievalChain",
+    "RegulationRetrievalConfig",
+    "create_regulation_retrieval_chain",
+    "PHIIdentificationChain",
+    "PHIIdentificationConfig",
     "PHIIdentificationResult",
     "PHIDetectionResponse",
+    "create_phi_identification_chain",
+    
+    # Legacy Combined Chain (deprecated)
+    "RegulationRAGChain",
+    "RAGChainConfig",
     "create_regulation_rag_chain",
 ]
 

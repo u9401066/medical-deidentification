@@ -8,6 +8,13 @@ This document outlines the architectural design for the Medical Text De-identifi
 
 ## Architectural Decisions
 
+- RAG Chain 職責分離：將原 RegulationRAGChain (716 lines) 拆分為 RegulationRetrievalChain (280 lines) 和 PHIIdentificationChain (430 lines)
+- 職責分離原則：RegulationRetrievalChain 負責法規檢索，PHIIdentificationChain 負責醫療文本 PHI 識別
+- 共用模組：兩個 chain 都使用 infrastructure/llm 和 infrastructure/prompts 模組
+- 向後相容：舊的 RegulationRAGChain 標記為 deprecated 但保留，並提供 deprecation warning
+
+
+
 - RAG 系統必須返回結構化 PHIEntity 而非文字 JSON
 - 使用 LangChain structured output + Pydantic schema 強制類型安全
 - PHI 識別結果直接映射到 domain.models.PHIEntity
@@ -558,6 +565,14 @@ Redaction  Masking  Generalization Custom
 
 ## Design Considerations
 
+- 原始 RegulationRAGChain 混淆了「法規檢索」和「醫療文本 PHI 識別」兩個不同職責
+- 716 行代碼過長，難以維護和測試
+- 無法靈活組合使用（例如只想檢索法規而不識別 PHI）
+- 重構後代碼量相近（710 lines vs 716 lines）但職責清晰
+- 測試結果：新 chains 成功導入和創建，MMR 問題為已知問題（與重構無關）
+
+
+
 - LLM 可能返回不符合 schema 的結果 - 需 validation
 - 多語言場景下 PHI 類型映射需統一
 - 結構化輸出可能增加 token 消耗
@@ -566,6 +581,43 @@ Redaction  Masking  Generalization Custom
 
 
 ## Components
+
+### RegulationRetrievalChain
+
+專責從法規向量庫檢索 PHI 定義和 masking 策略
+
+**Responsibilities:**
+
+- 檢索多個 PHI 類型的定義 (get_phi_definitions)
+- 獲取特定 PHI 類型的 masking 策略 (get_masking_strategies)
+- 根據醫療上下文檢索相關法規 (retrieve_by_context)
+- 使用 RegulationRetriever (持久化)
+
+### PHIIdentificationChain
+
+專責從醫療文本中識別 PHI 實體
+
+**Responsibilities:**
+
+- 識別醫療文本中的 PHI (identify_phi)
+- 結合法規 context 和 LLM 進行精確識別
+- 驗證識別的 PHI 實體 (validate_entity)
+- 支援 structured output (Pydantic models)
+- 使用 RegulationRetrievalChain 取得法規 context
+
+### RegulationRAGChain (deprecated)
+
+舊的組合 chain，已標記為 deprecated
+
+**Responsibilities:**
+
+- 保留向後相容
+- 提供 deprecation warning
+- 將在未來版本移除
+
+
+
+
 
 ### PHIIdentificationResult Schema
 

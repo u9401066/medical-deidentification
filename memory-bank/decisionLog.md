@@ -37,3 +37,116 @@
 - 可測試：Mock structured responses
 - 可維護：Schema 集中管理
 - 可靠：LLM 輸出必須符合 domain model 定義 |
+| 2025-11-22 | PHIType is the Structured Output Model for RAG system | PHIType enum serves as the core type system for RAG's structured output:
+
+1. Type Safety: PHIType (Enum) ensures type-safe PHI classification instead of error-prone strings
+2. Pydantic Integration: Works seamlessly with Pydantic BaseModel for LLM structured output validation
+3. JSON Serialization: str-based Enum allows direct JSON serialization/deserialization
+4. LLM Output Parsing: Validator converts LLM text output ("name", "姓名") to PHIType.NAME automatically
+5. Extensibility: Supports 28 PHI types (7 standard HIPAA + 21 extended) with helper methods
+
+Updated PHIIdentificationResult model to use PHIType instead of str for phi_type field, providing compile-time type checking and runtime validation. |
+| 2025-11-22 | Enable dynamic PHI type extension through CustomPHIType for regulation-discovered types | PHI types vary significantly across countries, regulations, and institutions. CustomPHIType enables:
+
+1. Regulation Discovery: RAG can discover country-specific identifiers from regulation documents (e.g., Taiwan National ID, Japan My Number)
+2. Pattern Matching: Supports regex patterns, examples, and aliases for flexible detection
+3. Risk Classification: Each custom type can be marked as high-risk
+4. Masking Strategy: Includes recommended masking approach per regulation
+5. Seamless Integration: Works with PHIEntity (type=PHIType.CUSTOM + custom_type)
+6. Context Awareness: RegulationContext manages discovered custom types
+
+Real-world examples:
+- Taiwan: 身份證字號 (National ID), 健保卡號 (Health Insurance Card)
+- Japan: マイナンバー (My Number), 保険証番号 (Insurance Number)  
+- EU: National health service numbers per country
+- Disease-specific: Hospital policies for rare diseases
+
+This design allows the system to adapt to any regulation without code changes. |
+| 2025-11-22 | Refactor domain models using DDD pattern - split models.py into separate files | Original models.py was 468 lines with 8 classes, violating Single Responsibility Principle. Refactored into DDD-aligned structure:
+
+1. phi_types.py (205 lines): PHIType enum + CustomPHIType - Core type system for RAG
+2. entities.py (91 lines): PHIEntity - Domain entity representing detected PHI
+3. value_objects.py (105 lines): SupportedLanguage, RegulationContext, DocumentMetadata, ValidationResult - Immutable value objects
+4. aggregates.py (91 lines): MedicalDocument - Aggregate root managing the de-identification lifecycle
+5. models.py (70 lines): Unified export interface for backward compatibility
+
+Benefits:
+- Separation of Concerns: Each file has single responsibility
+- DDD Alignment: Clear distinction between entities, value objects, aggregates
+- Maintainability: Easier to locate and modify specific concepts
+- Testability: Can test each component independently (proven by 21/21 tests passing)
+- Backward Compatibility: All existing imports still work via re-export
+
+All 21 unit tests passed, confirming zero breaking changes. |
+| 2025-11-22 | 統一 LLM 創建和管理到 infrastructure/llm 模組 | 重構理由：
+1. **單一職責原則**：所有 LLM 初始化邏輯從 regulation_chain.py 移到專屬的 llm 模組
+2. **可維護性**：集中管理 LLM 配置和創建，避免在多個文件中重複 ChatOpenAI/ChatAnthropic 創建邏輯
+3. **擴展性**：未來新增其他 LLM provider（如 Google PaLM, Cohere）只需修改 llm 模組
+4. **測試性**：LLM 創建邏輯可獨立測試，不依賴 RAG chain
+
+架構設計：
+- **config.py**: LLMConfig (統一配置) + LLMPresets (預設配置)
+- **factory.py**: create_llm() (工廠函數) + provider-specific 創建
+- **manager.py**: LLMManager (高階介面) + 懶載入 + 統計追蹤
+- **__init__.py**: 統一導出所有公開 API
+
+使用範例：
+```python
+# 在 regulation_chain.py 中
+from ..llm.config import LLMConfig
+from ..llm.factory import create_llm
+
+config = LLMConfig(provider="openai", model_name="gpt-4")
+self.llm = create_llm(config)
+```
+
+好處：
+- regulation_chain.py 減少 16 行代碼（移除 _create_llm 方法）
+- 不再直接 import ChatOpenAI/ChatAnthropic
+- 配置更清晰（LLMConfig 替代 llm_provider/model_name/temperature 等散亂參數）
+- 支援 LLMPresets.phi_identification() 等預設配置 |
+| 2025-11-22 | 統一 Prompt 管理到 infrastructure/prompts 模組 | 重構理由：
+1. **單一真相來源**：所有 prompt 模板從 regulation_chain.py 和測試文件移到專屬的 prompts 模組
+2. **版本控制**：支援多版本 prompts (v1, v2, ...)，方便 A/B 測試和逐步升級
+3. **多語言支援**：統一管理不同語言版本（English, 繁體中文, 簡體中文）
+4. **可維護性**：修改 prompt 只需更新一處，不需要在多個文件中搜尋替換
+5. **可測試性**：Prompt 可獨立測試格式正確性和變數完整性
+
+架構設計：
+- **templates.py** (450 lines): 所有 prompt 模板定義
+  * PHI_IDENTIFICATION_PROMPT_V1: PHI 識別主 prompt
+  * PHI_IDENTIFICATION_STRUCTURED_PROMPT_V1: 結構化輸出版本
+  * PHI_VALIDATION_PROMPT_V1: PHI 驗證 prompt
+  * PHI_IDENTIFICATION_PROMPT_ZH_TW: 繁體中文版本
+  * SYSTEM_MESSAGE_*: 系統訊息
+  * PROMPT_REGISTRY: 統一註冊表
+  * get_prompt(), get_phi_identification_prompt() 等存取函數
+
+- **__init__.py** (110 lines): 統一導出所有公開 API
+
+使用範例：
+```python
+# 在 regulation_chain.py 中
+from ..prompts import get_phi_identification_prompt
+
+# 動態取得 prompt
+prompt = get_phi_identification_prompt(language="en", structured=True)
+formatted = prompt.format(context=context, text=text)
+
+# 或直接存取（向後兼容）
+from ..prompts import PHI_IDENTIFICATION_PROMPT
+```
+
+好處：
+- regulation_chain.py 減少 65+ 行（移除內嵌 prompt 定義）
+- 支援版本控制：可同時維護 v1, v2 等多版本
+- 支援多語言：English, 繁體中文（可輕易擴展）
+- 統一管理：新增 prompt 只需在 templates.py 中定義
+- 便捷函數：get_phi_identification_prompt() 等簡化使用
+- 向後兼容：PHI_IDENTIFICATION_PROMPT 仍可直接存取
+
+測試結果：8/9 測試通過 ✅ |
+| 2025-11-22 | 重構 RAG Chain：分離法規檢索與醫療文本 PHI 識別 | 當前 regulation_chain.py 混淆了兩個不同職責：(1) 從法規向量庫檢索 PHI 定義 (應用 RegulationRetriever)，(2) 從醫療文本中識別具體 PHI 實體 (應用 MedicalTextRetriever)。應該拆分為：RegulationRetrievalChain (查詢法規) 和 PHIIdentificationChain (識別醫療文本中的 PHI，內部使用法規 context)。兩者可以組合使用，但職責應分離。這樣可以減少代碼長度 (716 lines 太長)，提高可維護性，符合單一職責原則。 |
+| 2025-11-22 | 創建 .env 文件儲存 OpenAI API Key | 為了安全管理 API keys，創建 .env 文件儲存敏感資訊。.env 文件已在 .gitignore 中，不會被提交到 Git。專案使用 python-dotenv 讀取環境變數，支援本地開發和 CI/CD。API key 儲存後可以運行完整的 PHI identification 測試。 |
+| 2025-11-22 | 更改預設 LLM 模型為 gpt-4o-mini（支持結構化輸出） | 原預設模型 gpt-4 不支持 OpenAI 的 Structured Output API。gpt-4o-mini 支持結構化輸出（with_structured_output），比 gpt-4 便宜 ~60%，速度更快，且質量接近。已驗證 OpenAI API 通過 LangChain 正確初始化，結構化輸出測試成功返回 Pydantic 模型。支持結構化輸出的模型：gpt-4o, gpt-4o-mini, gpt-4-turbo。 |
+| 2025-11-22 | 清理專案中的舊測試文件和臨時文檔 | 完成多次重構後（LLM、Prompts、Retriever、RAG Chain），累積了大量臨時測試文件和重構摘要文檔。這些文件已完成其目的（驗證重構），現在清理以保持專案整潔。保留的測試文件：tests/unit/（單元測試）、tests/integration/（整合測試）、tests/e2e/（端到端測試）、examples/（示例代碼）。刪除的文件類型：1) 根目錄 test_*.py（臨時測試）；2) *_SUMMARY.md（重構摘要）；3) *_COMMIT.md（臨時 commit 訊息）；4) tests/ 中的舊測試（test_step*.py, test_rag*.py）。所有重構決策和進度已記錄在 Memory Bank 中。 |

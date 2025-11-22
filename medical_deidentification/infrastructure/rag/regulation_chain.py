@@ -1,54 +1,116 @@
 """
-Regulation RAG Chain
-法規 RAG 鏈
+Regulation RAG Chain (DEPRECATED)
+法規 RAG 鏈（已棄用）
+
+⚠️ DEPRECATED: This module混淆了兩個不同職責，已被拆分為：
+
+使用新的模組 (推薦):
+1. RegulationRetrievalChain - 從法規向量庫檢索 PHI 定義
+2. PHIIdentificationChain - 從醫療文本中識別 PHI 實體
+
+舊代碼 (此文件):
+>>> from medical_deidentification.infrastructure.rag import RegulationRAGChain
+>>> chain = RegulationRAGChain(vector_store)
+
+新代碼 (推薦):
+>>> from medical_deidentification.infrastructure.rag import (
+...     RegulationRetrievalChain,
+...     PHIIdentificationChain
+... )
+>>> reg_chain = RegulationRetrievalChain(vector_store)
+>>> phi_chain = PHIIdentificationChain(reg_chain)
+
+原因：
+- 原 RegulationRAGChain 716 行過長，難以維護
+- 混淆了「法規檢索」和「醫療文本 PHI 識別」兩個不同職責
+- 無法靈活組合使用
 
 LangChain-based RAG system for regulation retrieval and PHI identification.
 基於 LangChain 的 RAG 系統，用於法規檢索和 PHI 識別。
 """
 
-from typing import List, Dict, Any, Optional, Tuple
+import warnings
+
+warnings.warn(
+    "RegulationRAGChain is deprecated and will be removed in a future version. "
+    "Use RegulationRetrievalChain and PHIIdentificationChain instead. "
+    "See module docstring for migration guide.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+from typing import List, Dict, Any, Optional, Tuple, cast
 import json
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
-from langchain.schema import Document
+from langchain_core.prompts import PromptTemplate
+from langchain_core.documents import Document
 from pydantic import BaseModel, Field, field_validator
 from loguru import logger
 
 from .regulation_store import RegulationVectorStore
-from .retriever import RegulationRetriever, RetrieverConfig
+from .regulation_retriever import RegulationRetriever, RegulationRetrieverConfig
+from ..llm.config import LLMConfig, LLMProvider
+from ..llm.factory import create_llm
+from ..prompts import (
+    get_phi_identification_prompt,
+    get_phi_validation_prompt,
+    PHI_IDENTIFICATION_PROMPT,
+    PHI_VALIDATION_PROMPT,
+)
 from ...domain.models import PHIType, SupportedLanguage, PHIEntity
 
 
 class PHIIdentificationResult(BaseModel):
-    """單個 PHI 實體的結構化識別結果"""
+    """
+    單個 PHI 實體的結構化識別結果
+    
+    這是 RAG 系統的 Structured Output Model，用於：
+    1. LLM 輸出結構化的 PHI 識別結果
+    2. 確保類型安全（phi_type 使用 PHIType enum 或 custom type）
+    3. 驗證資料完整性（位置範圍、信心度範圍）
+    4. 支援從法規文件動態發現的自定義 PHI 類型
+    """
     
     entity_text: str = Field(
-        description="The exact text from the document"
+        description="The exact text from the document that was identified as PHI"
     )
-    phi_type: str = Field(
-        description="PHI type (e.g., NAME, AGE_OVER_89, RARE_DISEASE)"
+    phi_type: PHIType = Field(
+        description="PHI type enum (e.g., PHIType.NAME, PHIType.AGE_OVER_89). Use PHIType.CUSTOM for custom types."
+    )
+    custom_type_name: Optional[str] = Field(
+        default=None,
+        description="Custom PHI type name if phi_type is CUSTOM (e.g., 'TW_NATIONAL_ID', 'JP_MY_NUMBER')"
+    )
+    custom_type_description: Optional[str] = Field(
+        default=None,
+        description="Description of custom PHI type if applicable"
     )
     start_position: int = Field(
         ge=0,
-        description="Character position where entity starts"
+        description="Character position where entity starts (0-indexed)"
     )
     end_position: int = Field(
         ge=0,
-        description="Character position where entity ends"
+        description="Character position where entity ends (exclusive)"
     )
     confidence: float = Field(
         ge=0.0,
         le=1.0,
-        description="Confidence level (0.0-1.0)"
+        description="Confidence level (0.0-1.0), where 1.0 = highest confidence"
     )
     reason: str = Field(
-        description="Why this is considered PHI according to regulations"
+        description="Explanation of why this is considered PHI according to regulations"
     )
     regulation_source: Optional[str] = Field(
         default=None,
-        description="Source regulation (e.g., HIPAA, GDPR, Taiwan PDPA)"
+        description="Source regulation (e.g., 'HIPAA §164.514(b)', 'Taiwan PDPA Article 6')"
+    )
+    masking_action: Optional[str] = Field(
+        default=None,
+        description="Recommended masking action (e.g., '[PATIENT]', '90+ years', '[REDACTED]')"
+    )
+    is_custom_from_regulation: bool = Field(
+        default=False,
+        description="Whether this PHI type was discovered from regulation documents"
     )
     
     @field_validator('end_position')
@@ -58,6 +120,70 @@ class PHIIdentificationResult(BaseModel):
         if 'start_position' in info.data and v < info.data['start_position']:
             raise ValueError('end_position must be >= start_position')
         return v
+    
+    @field_validator('custom_type_name')
+    @classmethod
+    def validate_custom_type(cls, v: Optional[str], info) -> Optional[str]:
+        """確保 CUSTOM 類型必須提供 custom_type_name"""
+        if 'phi_type' in info.data and info.data['phi_type'] == PHIType.CUSTOM:
+            if not v:
+                raise ValueError('custom_type_name is required when phi_type is CUSTOM')
+        return v
+    
+    @field_validator('phi_type', mode='before')
+    @classmethod
+    def normalize_phi_type(cls, v) -> PHIType:
+        """將字串轉換為 PHIType enum（支援 LLM 輸出字串）"""
+        if isinstance(v, PHIType):
+            return v
+        
+        # 如果是字串，嘗試轉換
+        if isinstance(v, str):
+            # 嘗試直接匹配 enum value
+            try:
+                return PHIType(v.upper())
+            except ValueError:
+                pass
+            
+            # 嘗試通過 mapping 字典
+            from . import RegulationRAGChain
+            normalized = v.strip().lower()
+            if normalized in RegulationRAGChain.PHI_TYPE_MAPPING:
+                return RegulationRAGChain.PHI_TYPE_MAPPING[normalized]
+            
+            # 預設返回 CUSTOM（可能是從法規文件發現的新類型）
+            logger.warning(f"Unknown PHI type: {v}, treating as CUSTOM type")
+            return PHIType.CUSTOM
+        
+        raise ValueError(f"Invalid phi_type: {v}")
+    
+    def to_phi_entity(self) -> 'PHIEntity':
+        """
+        Convert to PHIEntity domain model | 轉換為 PHIEntity 領域模型
+        
+        Returns:
+            PHIEntity with optional CustomPHIType
+        """
+        from ...domain.models import PHIEntity, CustomPHIType
+        
+        custom_type = None
+        if self.phi_type == PHIType.CUSTOM and self.custom_type_name:
+            custom_type = CustomPHIType(
+                name=self.custom_type_name,
+                description=self.custom_type_description or self.reason,
+                regulation_source=self.regulation_source,
+                masking_strategy=self.masking_action,
+            )
+        
+        return PHIEntity(
+            type=self.phi_type,
+            text=self.entity_text,
+            start_pos=self.start_position,
+            end_pos=self.end_position,
+            confidence=self.confidence,
+            regulation_source=self.regulation_source,
+            custom_type=custom_type,
+        )
 
 
 class PHIDetectionResponse(BaseModel):
@@ -87,24 +213,12 @@ class PHIDetectionResponse(BaseModel):
 class RAGChainConfig(BaseModel):
     """RAG 鏈配置"""
     
-    llm_provider: str = Field(
-        default="openai",
-        description="LLM provider: 'openai' or 'anthropic'"
+    llm_config: LLMConfig = Field(
+        default_factory=LLMConfig,
+        description="LLM configuration"
     )
-    model_name: str = Field(
-        default="gpt-4",
-        description="Model name"
-    )
-    temperature: float = Field(
-        default=0.0,
-        description="LLM temperature (0=deterministic)"
-    )
-    max_tokens: Optional[int] = Field(
-        default=None,
-        description="Max tokens in response"
-    )
-    retriever_config: RetrieverConfig = Field(
-        default_factory=RetrieverConfig,
+    retriever_config: RegulationRetrieverConfig = Field(
+        default_factory=RegulationRetrieverConfig,
         description="Retriever configuration"
     )
     use_structured_output: bool = Field(
@@ -219,48 +333,8 @@ class RegulationRAGChain:
             regulation_source=regulation_source or result.regulation_source
         )
     
-    # Prompt template for PHI identification
-    PHI_IDENTIFICATION_PROMPT = """You are a medical de-identification expert. Based on the provided regulations, identify all PHI (Protected Health Information) in the given medical text.
-
-Regulations (retrieved from vector store):
-{context}
-
-Medical Text:
-{question}
-
-Instructions:
-1. Identify ALL PHI entities according to the regulations
-2. For each entity, provide:
-   - entity_text: The exact text from the document
-   - phi_type: Type according to regulations (e.g., NAME, AGE_OVER_89, RARE_DISEASE)
-   - start_position: Character position where entity starts
-   - end_position: Character position where entity ends
-   - confidence: Your confidence level (0.0-1.0)
-   - reason: Why this is considered PHI according to regulations
-
-3. Special attention to:
-   - Ages over 89 (HIPAA Safe Harbor)
-   - Ages over 90 (Taiwan regulations)
-   - Rare diseases that could identify individuals
-   - Genetic information
-   - Small geographic areas
-   
-4. Return results as JSON array:
-[
-  {{
-    "entity_text": "...",
-    "phi_type": "...",
-    "start_position": 123,
-    "end_position": 456,
-    "confidence": 0.95,
-    "reason": "..."
-  }},
-  ...
-]
-
-If no PHI found, return empty array: []
-
-Answer:"""
+    # Prompt templates are now managed centrally in prompts module
+    # Access via: get_phi_identification_prompt() or PHI_IDENTIFICATION_PROMPT
     
     def __init__(
         self,
@@ -277,51 +351,17 @@ Answer:"""
         self.vector_store = vector_store
         self.config = config or RAGChainConfig()
         
-        # Initialize LLM
-        self.llm = self._create_llm()
+        # Initialize LLM using centralized factory
+        self.llm = create_llm(self.config.llm_config)
+        logger.info(f"RAG chain initialized with LLM: {self.config.llm_config.provider}/{self.config.llm_config.model_name}")
         
         # Initialize retriever
         self.retriever = RegulationRetriever(
             vector_store=vector_store,
             config=self.config.retriever_config
         )
-        
-        # Create QA chain
-        self.qa_chain = self._create_qa_chain()
     
-    def _create_llm(self):
-        """Create LLM based on configuration"""
-        if self.config.llm_provider == "openai":
-            return ChatOpenAI(
-                model=self.config.model_name,
-                temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens
-            )
-        elif self.config.llm_provider == "anthropic":
-            return ChatAnthropic(
-                model=self.config.model_name,
-                temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens
-            )
-        else:
-            raise ValueError(f"Unsupported LLM provider: {self.config.llm_provider}")
-    
-    def _create_qa_chain(self) -> RetrievalQA:
-        """Create RetrievalQA chain"""
-        prompt = PromptTemplate(
-            template=self.PHI_IDENTIFICATION_PROMPT,
-            input_variables=["context", "question"]
-        )
-        
-        chain = RetrievalQA.from_chain_type(
-            llm=self.llm,
-            chain_type="stuff",
-            retriever=self.retriever.base_retriever,
-            return_source_documents=True,
-            chain_type_kwargs={"prompt": prompt}
-        )
-        
-        return chain
+
     
     def identify_phi(
         self,
@@ -415,25 +455,12 @@ Answer:"""
         # Create structured output LLM
         llm_structured = self.llm.with_structured_output(PHIDetectionResponse)
         
-        # Build prompt
-        prompt = f"""Based on these regulations, identify all PHI in the medical text.
-
-Regulations:
-{context}
-
-Medical Text:
-{text}
-
-Instructions:
-1. Identify ALL PHI entities according to regulations
-2. Pay special attention to:
-   - Ages over 89 (HIPAA) or 90 (Taiwan)
-   - Rare diseases that could identify individuals
-   - Specific location information
-   - Names and identifiers
-3. Provide entity_text, phi_type, start_position, end_position, confidence, reason
-4. Return structured response with all detected entities
-"""
+        # Build prompt using centralized template
+        prompt_template = get_phi_identification_prompt(
+            language=language or "en",
+            structured=True
+        )
+        prompt = prompt_template.format(context=context, text=text)
         
         try:
             # Get structured response
@@ -466,7 +493,11 @@ Instructions:
         Returns:
             Tuple of (PHIEntity list, PHIIdentificationResult list)
         """
-        prompt = self.PHI_IDENTIFICATION_PROMPT.format(
+        # Use centralized prompt template
+        prompt_template = get_phi_identification_prompt(
+            language=language or "en"
+        )
+        prompt = prompt_template.format(
             context=context,
             question=text
         )
@@ -629,22 +660,13 @@ Instructions:
                 for doc in docs
             ]
             
-            # Use LLM to validate
-            validation_prompt = f"""Based on the regulations below, should this entity be masked?
-
-Entity: {entity_text}
-Claimed PHI Type: {phi_type}
-
-Regulations:
-{chr(10).join([doc.page_content for doc in docs])}
-
-Answer with JSON:
-{{
-  "should_mask": true/false,
-  "confidence": 0.0-1.0,
-  "reason": "explanation"
-}}
-"""
+            # Use LLM to validate with centralized prompt
+            validation_prompt_template = get_phi_validation_prompt()
+            validation_prompt = validation_prompt_template.format(
+                entity_text=entity_text,
+                phi_type=phi_type,
+                regulations=chr(10).join([doc.page_content for doc in docs])
+            )
             
             llm_response = self.llm.predict(validation_prompt)
             
@@ -663,8 +685,7 @@ Answer with JSON:
     def get_chain_stats(self) -> Dict[str, Any]:
         """Get RAG chain statistics"""
         return {
-            "llm_provider": self.config.llm_provider,
-            "model_name": self.config.model_name,
+            "llm_config": self.config.llm_config.model_dump(),
             "retriever_config": self.retriever.get_config(),
             "vector_store_stats": self.vector_store.get_stats()
         }
@@ -672,7 +693,7 @@ Answer with JSON:
     def __repr__(self) -> str:
         return (
             f"RegulationRAGChain("
-            f"llm={self.config.llm_provider}/{self.config.model_name}, "
+            f"llm={self.config.llm_config.provider}/{self.config.llm_config.model_name}, "
             f"retriever={self.retriever.config.search_type})"
         )
 
@@ -682,6 +703,7 @@ def create_regulation_rag_chain(
     llm_provider: str = "openai",
     model_name: str = "gpt-4",
     search_type: str = "mmr",
+    temperature: float = 0.0,
     **kwargs
 ) -> RegulationRAGChain:
     """
@@ -692,6 +714,7 @@ def create_regulation_rag_chain(
         llm_provider: 'openai' or 'anthropic'
         model_name: Model name (e.g., 'gpt-4', 'claude-3-opus-20240229')
         search_type: Retriever search type ('similarity' or 'mmr')
+        temperature: LLM temperature (0.0=deterministic)
         **kwargs: Additional config parameters
         
     Returns:
@@ -705,11 +728,19 @@ def create_regulation_rag_chain(
         ...     search_type="mmr"
         ... )
     """
-    retriever_config = RetrieverConfig(search_type=search_type)
-    
-    config = RAGChainConfig(
-        llm_provider=llm_provider,
+    # Create LLM config
+    llm_config = LLMConfig(
+        provider=cast(LLMProvider, llm_provider),
         model_name=model_name,
+        temperature=temperature
+    )
+    
+    # Create retriever config
+    retriever_config = RegulationRetrieverConfig(search_type=search_type)
+    
+    # Create RAG chain config
+    config = RAGChainConfig(
+        llm_config=llm_config,
         retriever_config=retriever_config,
         **kwargs
     )

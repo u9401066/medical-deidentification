@@ -1,0 +1,14 @@
+Step 1: OpenAI GPT-5-Nano Test (Direct API)
+================================================================================
+
+Input:
+Identify PHI in: Patient John Smith, age 35, phone (555) 123-4567
+
+Output:
+- John Smith — Name (PHI)
+- 35 — Age (PHI)
+- (555) 123-4567 — Phone number (PHI)
+
+================================================================================
+Model: gpt-5-nano
+Status: Success

@@ -19,8 +19,8 @@ from langchain_community.document_loaders import (
     TextLoader,
     UnstructuredMarkdownLoader
 )
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
 from pydantic import BaseModel, Field
 from loguru import logger
 
@@ -118,23 +118,33 @@ class RegulationVectorStore:
         
         documents = []
         
-        # Load markdown files
-        md_loader = DirectoryLoader(
-            str(self.config.source_dir),
-            glob="**/*.md",
-            loader_cls=UnstructuredMarkdownLoader,
-            show_progress=True
-        )
-        documents.extend(md_loader.load())
+        # Load markdown files using TextLoader (simpler, no dependencies)
+        md_files = list(self.config.source_dir.glob("**/*.md"))
+        for md_file in md_files:
+            try:
+                with open(md_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                doc = Document(
+                    page_content=content,
+                    metadata={"source": str(md_file.name), "type": "markdown"}
+                )
+                documents.append(doc)
+            except Exception as e:
+                logger.warning(f"Failed to load {md_file}: {e}")
         
         # Load text files
-        txt_loader = DirectoryLoader(
-            str(self.config.source_dir),
-            glob="**/*.txt",
-            loader_cls=TextLoader,
-            show_progress=True
-        )
-        documents.extend(txt_loader.load())
+        txt_files = list(self.config.source_dir.glob("**/*.txt"))
+        for txt_file in txt_files:
+            try:
+                with open(txt_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                doc = Document(
+                    page_content=content,
+                    metadata={"source": str(txt_file.name), "type": "text"}
+                )
+                documents.append(doc)
+            except Exception as e:
+                logger.warning(f"Failed to load {txt_file}: {e}")
         
         logger.info(f"Loaded {len(documents)} documents")
         return documents

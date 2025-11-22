@@ -2,24 +2,20 @@
 Regulation Retriever
 法規檢索器
 
-Advanced retrieval with MMR (Maximal Marginal Relevance) for diversity.
-使用 MMR（最大邊際相關性）的高級檢索，確保結果多樣性。
+Specialized retriever for persistent regulation documents with MMR support.
+專門用於持久化法規文件的檢索器，支援 MMR（最大邊際相關性）。
 """
 
 from typing import List, Optional, Dict, Any
 from langchain_core.documents import Document
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from loguru import logger
 
 from .regulation_store import RegulationVectorStore
 
-# Note: ContextualCompressionRetriever is optional and not used by default
-# If needed, it can be imported from langchain_community when available
 
-
-class RetrieverConfig(BaseModel):
-    """檢索器配置"""
+class RegulationRetrieverConfig(BaseModel):
+    """法規檢索器配置"""
     
     search_type: str = Field(
         default="mmr",
@@ -41,25 +37,25 @@ class RetrieverConfig(BaseModel):
         default=None,
         description="Minimum relevance score threshold"
     )
-    use_compression: bool = Field(
-        default=False,
-        description="Use LLM-based compression to filter irrelevant content"
-    )
 
 
 class RegulationRetriever:
     """
-    Advanced retriever for regulation documents
+    Advanced retriever for regulation documents (persistent)
     
-    Supports multiple search strategies:
-    - Similarity search: Pure cosine similarity
-    - MMR: Balances relevance and diversity
-    - Compression: LLM filters irrelevant content
+    用於法規文件的高級檢索器（持久化存儲）
     
-    高級法規檢索器，支援多種搜索策略：
-    - 相似度搜索：純餘弦相似度
-    - MMR：平衡相關性與多樣性
-    - 壓縮：LLM 過濾不相關內容
+    Features:
+    - MMR search: Balances relevance and diversity
+    - PHI-type specific retrieval
+    - Multi-PHI type combination (union/intersection)
+    - Score-based filtering
+    
+    特性：
+    - MMR 搜索：平衡相關性與多樣性
+    - PHI 類型專屬檢索
+    - 多 PHI 類型組合（聯集/交集）
+    - 基於分數的過濾
     
     Examples:
         >>> from medical_deidentification.infrastructure.rag import (
@@ -75,30 +71,38 @@ class RegulationRetriever:
         >>> docs = retriever.retrieve("patient age over 90 years")
         >>> 
         >>> # With MMR for diversity
-        >>> config = RetrieverConfig(search_type="mmr", k=3, lambda_mult=0.7)
+        >>> config = RegulationRetrieverConfig(
+        ...     search_type="mmr", 
+        ...     k=3, 
+        ...     lambda_mult=0.7
+        ... )
         >>> retriever = RegulationRetriever(store, config)
         >>> docs = retriever.retrieve("genetic information and rare diseases")
         >>> 
-        >>> # With score threshold
-        >>> config = RetrieverConfig(score_threshold=0.7)
-        >>> retriever = RegulationRetriever(store, config)
-        >>> docs = retriever.retrieve_with_scores("HIPAA identifiers")
+        >>> # Retrieve by PHI type
+        >>> docs = retriever.retrieve_by_phi_type("AGE_OVER_89")
+        >>> 
+        >>> # Multi-PHI retrieval
+        >>> docs = retriever.retrieve_multi_phi(
+        ...     ["AGE_OVER_89", "RARE_DISEASE", "NAME"],
+        ...     combine_strategy="union"
+        ... )
     """
     
     def __init__(
         self,
         vector_store: RegulationVectorStore,
-        config: Optional[RetrieverConfig] = None
+        config: Optional[RegulationRetrieverConfig] = None
     ):
         """
-        Initialize retriever
+        Initialize regulation retriever
         
         Args:
-            vector_store: RegulationVectorStore instance
+            vector_store: RegulationVectorStore instance (persistent)
             config: Retriever configuration. Uses defaults if None.
         """
         self.vector_store = vector_store
-        self.config = config or RetrieverConfig()
+        self.config = config or RegulationRetrieverConfig()
         
         # Setup base retriever
         self._setup_retriever()
@@ -114,6 +118,10 @@ class RegulationRetriever:
                     "lambda_mult": self.config.lambda_mult,
                 }
             )
+            logger.debug(
+                f"RegulationRetriever setup: MMR "
+                f"(k={self.config.k}, lambda={self.config.lambda_mult})"
+            )
         else:  # similarity
             search_kwargs: Dict[str, Any] = {"k": self.config.k}
             if self.config.score_threshold is not None:
@@ -123,24 +131,23 @@ class RegulationRetriever:
                 search_type="similarity",
                 search_kwargs=search_kwargs
             )
-        
-        logger.debug(f"Retriever setup: {self.config.search_type}")
+            logger.debug(f"RegulationRetriever setup: similarity (k={self.config.k})")
     
     def retrieve(self, query: str) -> List[Document]:
         """
-        Retrieve relevant documents
+        Retrieve relevant regulation documents
         
         Args:
             query: Query text
             
         Returns:
-            List of relevant documents
+            List of relevant regulation documents
         """
-        logger.info(f"Retrieving documents for query: {query[:50]}...")
+        logger.info(f"[Regulation] Retrieving for: {query[:50]}...")
         
         docs = self.base_retriever.invoke(query)
         
-        logger.info(f"Retrieved {len(docs)} documents")
+        logger.info(f"[Regulation] Retrieved {len(docs)} documents")
         return docs
     
     def retrieve_with_scores(
@@ -148,7 +155,7 @@ class RegulationRetriever:
         query: str
     ) -> List[tuple[Document, float]]:
         """
-        Retrieve documents with relevance scores
+        Retrieve regulation documents with relevance scores
         
         Args:
             query: Query text
@@ -156,7 +163,7 @@ class RegulationRetriever:
         Returns:
             List of (document, score) tuples
         """
-        logger.info(f"Retrieving with scores for query: {query[:50]}...")
+        logger.info(f"[Regulation] Retrieving with scores: {query[:50]}...")
         
         docs_with_scores = self.vector_store.similarity_search_with_score(
             query=query,
@@ -170,7 +177,9 @@ class RegulationRetriever:
                 if score >= self.config.score_threshold
             ]
         
-        logger.info(f"Retrieved {len(docs_with_scores)} documents with scores")
+        logger.info(
+            f"[Regulation] Retrieved {len(docs_with_scores)} documents with scores"
+        )
         return docs_with_scores
     
     def retrieve_by_phi_type(
@@ -188,7 +197,7 @@ class RegulationRetriever:
         Returns:
             Relevant regulation documents
         """
-        # Build query
+        # Build query from PHI type
         query_parts = [phi_type.replace("_", " ").lower()]
         
         if context:
@@ -196,7 +205,7 @@ class RegulationRetriever:
         
         query = " ".join(query_parts)
         
-        logger.info(f"Retrieving regulations for PHI type: {phi_type}")
+        logger.info(f"[Regulation] Retrieving for PHI type: {phi_type}")
         return self.retrieve(query)
     
     def retrieve_multi_phi(
@@ -214,7 +223,10 @@ class RegulationRetriever:
         Returns:
             Combined regulation documents
         """
-        logger.info(f"Retrieving for {len(phi_types)} PHI types")
+        logger.info(
+            f"[Regulation] Multi-PHI retrieval for {len(phi_types)} types "
+            f"(strategy: {combine_strategy})"
+        )
         
         if combine_strategy == "union":
             # Retrieve for all types and deduplicate
@@ -229,7 +241,7 @@ class RegulationRetriever:
                         all_docs.append(doc)
                         seen_content.add(content_hash)
             
-            logger.info(f"Union retrieval: {len(all_docs)} unique documents")
+            logger.info(f"[Regulation] Union: {len(all_docs)} unique documents")
             return all_docs
         
         else:  # intersection
@@ -253,17 +265,8 @@ class RegulationRetriever:
                 }
             
             result = list(common_docs.values())
-            logger.info(f"Intersection retrieval: {len(result)} common documents")
+            logger.info(f"[Regulation] Intersection: {len(result)} common documents")
             return result
-    
-    # Note: Compressed retriever is not available in current LangChain version
-    # This method is disabled until dependencies are resolved
-    # def create_compressed_retriever(self, llm=None):
-    #     """Create retriever with LLM-based compression (not available)"""
-    #     raise NotImplementedError(
-    #         "ContextualCompressionRetriever is not available in LangChain 1.0+. "
-    #         "Use standard retrieval methods instead."
-    #     )
     
     def get_config(self) -> Dict[str, Any]:
         """Get current retriever configuration"""
@@ -284,13 +287,14 @@ class RegulationRetriever:
         # Recreate retriever with new config
         self._setup_retriever()
         
-        logger.info(f"Updated retriever config: {kwargs}")
+        logger.info(f"[Regulation] Config updated: {kwargs}")
     
     def __repr__(self) -> str:
         return (
             f"RegulationRetriever("
             f"search_type={self.config.search_type}, "
-            f"k={self.config.k})"
+            f"k={self.config.k}, "
+            f"source=persistent)"
         )
 
 
@@ -322,7 +326,7 @@ def create_regulation_retriever(
         ...     lambda_mult=0.7
         ... )
     """
-    config = RetrieverConfig(
+    config = RegulationRetrieverConfig(
         search_type=search_type,
         k=k,
         lambda_mult=lambda_mult,
