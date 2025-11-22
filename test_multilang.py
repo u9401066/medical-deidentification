@@ -6,28 +6,25 @@ Test multilingual medical records file
 """
 
 from pathlib import Path
-from medical_deidentification.infrastructure.utils import configure_logging
-from medical_deidentification.infrastructure.rag import (
-    PHIIdentificationChain,
-    PHIIdentificationConfig
-)
-from medical_deidentification.application.processing import (
-    BatchPHIProcessor,
-    BatchProcessingConfig,
-    save_batch_results
-)
-from loguru import logger
 import time
 
-# 配置日誌
-log_file = configure_logging(
-    console_level="INFO",
-    file_level="DEBUG"
-)
+# 先配置日誌，避免載入 embeddings
+from loguru import logger
+import sys
+
+# 配置簡單的日誌
+logger.remove()  # 移除預設
+logger.add(sys.stderr, level="INFO")
+logger.add("logs/test_multilang_{time}.log", level="DEBUG", rotation="10 MB")
 
 logger.info("="*80)
 logger.info("測試多語言醫療記錄 - Test Multilingual Medical Records")
 logger.info("="*80)
+
+# 延遲導入，避免載入 embeddings
+from medical_deidentification.infrastructure.rag import (
+    PHIIdentificationConfig
+)
 
 # 測試文件
 test_file = Path("data/test/test_medical_records_multilang.xlsx")
@@ -37,10 +34,17 @@ if not test_file.exists():
     exit(1)
 
 logger.info(f"✓ 測試文件: {test_file}")
-logger.info(f"✓ 日誌文件: {log_file}")
+
+# 延遲導入以避免載入 embeddings
+logger.info("\n配置 PHI Identification Chain...")
+from medical_deidentification.infrastructure.rag import PHIIdentificationChain
+from medical_deidentification.application.processing import (
+    BatchPHIProcessor,
+    BatchProcessingConfig,
+    save_batch_results
+)
 
 # 配置 PHI 識別（使用 Ollama）
-logger.info("\n配置 PHI Identification Chain...")
 phi_config = PHIIdentificationConfig(
     retrieve_regulation_context=False,  # 不使用 RAG
     llm_config={

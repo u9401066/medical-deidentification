@@ -50,6 +50,10 @@ def create_llm(config: Optional[LLMConfig] = None, **kwargs) -> Union['ChatOpenA
     if config is None:
         config = LLMConfig()
     
+    # Handle dict config (convert to LLMConfig)
+    if isinstance(config, dict):
+        config = LLMConfig(**config)
+    
     # Override config with kwargs
     if kwargs:
         config_dict = config.model_dump()

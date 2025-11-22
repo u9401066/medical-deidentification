@@ -14,7 +14,7 @@ Architecture:
 - In-memory processing for medical documents (no persistence)
 
 Components:
-- EmbeddingsManager: Embedding model management
+- EmbeddingsManager: Embedding model management (lazy import to avoid torch)
 - RegulationVectorStore: Persistent storage for regulation documents
 - RegulationRetriever: Semantic search for regulations
 - RegulationRetrievalChain: Retrieve PHI definitions from regulations
@@ -22,6 +22,7 @@ Components:
 - MedicalTextRetriever: Ephemeral medical document processing
 """
 
+# Re-export embeddings components
 from .embeddings import (
     EmbeddingsManager,
     EmbeddingsConfig,

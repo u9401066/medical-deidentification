@@ -119,9 +119,17 @@ class PHIIdentificationChain:
         )
         self.medical_retriever = MedicalTextRetriever(embeddings_manager, medical_config)
         
+        # Get LLM info for logging (handle dict or object)
+        if isinstance(self.config.llm_config, dict):
+            provider = self.config.llm_config.get("provider", "unknown")
+            model_name = self.config.llm_config.get("model_name", "unknown")
+        else:
+            provider = self.config.llm_config.provider
+            model_name = self.config.llm_config.model_name
+        
         logger.info(
             f"PHIIdentificationChain initialized with "
-            f"LLM: {self.config.llm_config.provider}/{self.config.llm_config.model_name}, "
+            f"LLM: {provider}/{model_name}, "
             f"max_text_length: {max_text_length}"
         )
     

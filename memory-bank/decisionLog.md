@@ -354,3 +354,4 @@ This follows the principle: "Each module should export once, at the highest appr
 
 這確保了系統使用最新、穩定的 LangChain 生態系統，避免未來的兼容性問題。 |
 | 2025-11-22 | 升級 langchain 生態系統到新版本 (1.0+) | 舊版 langchain 0.1.x 與新安裝的套件版本衝突，導致 ImportError。升級到 langchain 1.0+, langchain-core 1.1+, anthropic 0.40+ 以解決依賴衝突。同時新增 langchain-huggingface 支援 embeddings。 |
+| 2025-11-22 | 修正 llm_config 類型處理：factory.py 和 phi_identification_chain.py 現在可以處理 dict 或 LLMConfig 對象 | PHIIdentificationConfig 的 llm_config 被設計為 Any 類型（可接受 dict 或對象）以避免循環依賴，但下游代碼期望 LLMConfig 對象。修改了 factory.py 在創建 LLM 時自動轉換 dict 為 LLMConfig，並修改 phi_identification_chain.py 在日誌記錄時處理兩種類型 |
