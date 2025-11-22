@@ -8,9 +8,6 @@ Regulation RAG Chain (DEPRECATED)
 1. RegulationRetrievalChain - 從法規向量庫檢索 PHI 定義
 2. PHIIdentificationChain - 從醫療文本中識別 PHI 實體
 
-舊代碼 (此文件):
->>> from medical_deidentification.infrastructure.rag import RegulationRAGChain
->>> chain = RegulationRAGChain(vector_store)
 
 新代碼 (推薦):
 >>> from medical_deidentification.infrastructure.rag import (
