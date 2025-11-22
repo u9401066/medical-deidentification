@@ -308,3 +308,17 @@ RAG Chain 應該按照數據來源和用途分離：(1) RegulationRetrievalChain
 - 待重構: infrastructure/rag/regulation_chain.py (拆分為兩個 chain)
 - infrastructure/rag/regulation_retriever.py (持久化法規)
 - infrastructure/rag/medical_retriever.py (臨時醫療文本)
+
+
+## Engine 模組化架構 (Modular Engine Architecture)
+
+將大型單一檔案重構為模組化資料夾結構，每個模組專注於單一職責。原 engine.py (718 lines) 拆分為 6 個模組：config.py (配置)、result.py (結果)、masking.py (遮蔽邏輯)、handlers.py (Pipeline處理器)、core.py (主引擎協調)、__init__.py (統一導出)。每個模組平均 ~206 lines，易於閱讀和維護。優勢：SRP、易測試、易擴展、向後兼容。
+
+### Examples
+
+- medical_deidentification/application/processing/engine/ - 6 個模組檔案
+- config.py - ProcessingStatus, EngineConfig
+- result.py - ProcessingResult with helper methods
+- masking.py - MaskingProcessor class
+- handlers.py - PipelineHandlers factory
+- core.py - DeidentificationEngine (主引擎)

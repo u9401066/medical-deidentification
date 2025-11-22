@@ -17,6 +17,7 @@
 - 移除 3 個依賴舊 API 的 examples
 - 更新 engine.py 使用新的分離 chains
 - 更新 rag/__init__.py 移除舊 imports
+- Engine 模組化重構（718 lines -> 6 個檔案, 1237 lines）
 
 ## Doing
 
