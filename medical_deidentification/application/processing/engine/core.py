@@ -53,7 +53,7 @@ class DeidentificationEngine:
         ...     DeidentificationEngine,
         ...     EngineConfig
         ... )
-        >>> from medical_deidentification.application.processing.strategies import StrategyType
+        >>> from medical_deidentification.domain import StrategyType
         >>> 
         >>> config = EngineConfig(
         ...     use_rag=True,

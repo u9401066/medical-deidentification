@@ -30,6 +30,7 @@ This module provides a unified export interface for all domain models.
 
 # Type Definitions | 類型定義
 from .phi_types import PHIType, CustomPHIType
+from .masking_types import StrategyType
 
 # Entities | 實體
 from .entities import PHIEntity
@@ -63,6 +64,7 @@ __all__ = [
     # Type Definitions
     "PHIType",
     "CustomPHIType",
+    "StrategyType",
     # Entities
     "PHIEntity",
     # Value Objects

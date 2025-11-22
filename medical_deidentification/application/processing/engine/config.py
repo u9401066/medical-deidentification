@@ -10,8 +10,7 @@ from typing import Dict, Any, Optional
 from enum import Enum
 from pydantic import BaseModel, Field
 
-from ..strategies import StrategyType
-from ....domain import PHIType
+from ....domain import PHIType, StrategyType
 from ....infrastructure.loader import LoaderConfig
 
 

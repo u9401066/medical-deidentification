@@ -22,17 +22,7 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 from loguru import logger
 
-from ...domain import PHIEntity, PHIType
-
-
-class StrategyType(str, Enum):
-    """遮蔽策略類型 | Masking strategy types"""
-    REDACTION = "redaction"
-    GENERALIZATION = "generalization"
-    PSEUDONYMIZATION = "pseudonymization"
-    DATE_SHIFTING = "date_shifting"
-    PARTIAL_MASKING = "partial_masking"
-    SUPPRESSION = "suppression"
+from ...domain import PHIEntity, PHIType, StrategyType
 
 
 class MaskingStrategy(ABC):

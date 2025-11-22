@@ -9,10 +9,9 @@ Provides utilities for applying masking strategies to PHI entities.
 from typing import List, Dict, Any, Optional
 from loguru import logger
 
-from ....domain import PHIEntity, PHIType
+from ....domain import PHIEntity, PHIType, StrategyType
 from ..strategies import (
     MaskingStrategy,
-    StrategyType,
     create_masking_strategy
 )
 
@@ -32,7 +31,7 @@ class MaskingProcessor:
     - Validates masked output
     
     Examples:
-        >>> from medical_deidentification.application.processing.strategies import StrategyType
+        >>> from medical_deidentification.domain import StrategyType
         >>> 
         >>> processor = MaskingProcessor(
         ...     default_strategy=StrategyType.REDACTION,

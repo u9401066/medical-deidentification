@@ -35,9 +35,9 @@ from .context import (
     RegulationContext
 )
 
+from ...domain import StrategyType
 from .strategies import (
     MaskingStrategy,
-    StrategyType,
     RedactionStrategy,
     GeneralizationStrategy,
     PseudonymizationStrategy,
