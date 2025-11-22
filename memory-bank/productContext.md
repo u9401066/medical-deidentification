@@ -67,7 +67,11 @@ A Python-based medical text de-identification toolkit that leverages LLM/Agent t
 - **Code Quality**: black, isort, mypy, pylint
 - **Documentation**: Sphinx, MkDocs
 
-## Architecture | 系統架構
+## Architecture
+
+DDD (Domain-Driven Design) with 4 layers: Domain, Application, Infrastructure, Interface. 6 core modules: (1) Document Loader, (2) RAG Regulation Engine with LangChain, (3) Core Processing, (4) LLM Integration, (5) Output, (6) Validation. RAG innovation: retrieves 'what to mask' from regulations instead of traditional 'what to preserve'. Privacy-first: in-memory vector store for medical documents (no persistence), persistent vector store only for public regulations.
+
+
 
 Following DDD (Domain-Driven Design) principles:
 
@@ -103,3 +107,48 @@ rich = "^13.0"    # Terminal UI
 - Python Virtual Environment: Poetry
 - Git workflow: Feature branch + PR review
 - Documentation: Inline docstrings (Google style) + MkDocs
+
+## Technologies
+
+- Python 3.10+
+- LangChain (RAG/LLM/Agent framework)
+- FAISS (in-memory vector store)
+- HuggingFace Embeddings (sentence-transformers)
+- OpenAI API
+- Anthropic Claude API
+- ChromaDB (ephemeral mode option)
+- Pydantic (data validation)
+- spaCy (NLP)
+- pandas (data processing)
+- openpyxl (Excel I/O)
+- python-docx (Word I/O)
+- typer (CLI)
+- rich (terminal UI)
+- pytest (testing)
+- Git (version control)
+
+
+
+## Libraries and Dependencies
+
+- langchain (>=0.1.0) - Core RAG/LLM framework
+- langchain-openai - OpenAI integration
+- langchain-anthropic - Anthropic integration
+- langchain-community - Community integrations
+- chromadb (>=0.4.0) - Vector database
+- faiss-cpu - Fast similarity search
+- sentence-transformers - Embeddings
+- openai (>=1.0.0) - OpenAI API
+- anthropic - Claude API
+- pydantic (>=2.0) - Data validation
+- spacy (>=3.0) - NLP
+- pandas - Data manipulation
+- openpyxl - Excel files
+- python-docx - Word files
+- typer - CLI framework
+- rich - Terminal formatting
+- tqdm - Progress bars
+- tenacity - Retry logic
+- loguru - Logging
+- pytest - Testing
+

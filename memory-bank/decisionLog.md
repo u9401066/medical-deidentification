@@ -13,3 +13,8 @@
 | 2025-11-22 | 實作可擴充的 PHI 類型系統 | PHI 識別需求因法規、機構政策和使用情境而異。實作包含：(1) 擴充標準 PHI 類型至 20+ 種，包括病房號、醫院名稱、年齡>90、罕見疾病等 (2) CustomPHIType 允許使用者定義自定義類型 (3) 支援 standard/strict 嚴格程度 (4) 高風險 PHI 標記機制 (5) 透過 RAG 從法規文件動態檢索所需的 PHI 類型。此設計平衡了標準化與靈活性。 |
 | 2025-11-22 | 建立依賴管理策略：所有套件安裝必須同步更新 MEM + requirements.txt | 確保專案依賴可追溯且可重現。規範：(1) 使用 Poetry 管理依賴 (2) 每次安裝新套件後立即執行 poetry export 生成 requirements.txt (3) 在 MEM decisionLog 記錄安裝原因 (4) 更新 progress.md 記錄進度。此策略確保團隊成員和 CI/CD 環境能夠準確重現開發環境。 |
 | 2025-11-22 | 安裝測試檔案生成所需套件：openpyxl 和 python-docx | 為了建立測試用的多格式病歷檔案（XLSX, DOCX, TXT），需要安裝文件處理套件。openpyxl 用於處理 Excel 檔案，python-docx 用於處理 Word 檔案。這些套件也將用於未來的 Document Loader 模組實作。 |
+| 2025-11-22 | RAG架構選擇：使用 LangChain 而非 LightRAG，採用 in-memory vector store (無持久化) | 1. LangChain 優勢：統一管理 LLM/RAG/Agent，豐富的生態系統，支援多種 LLM provider (OpenAI, Anthropic, 本地模型)
+2. LightRAG 劣勢：較新框架，生態系統較小，文檔較少，不確定是否支援 in-memory 模式
+3. 隱私要求：不持久化 vector store 以避免儲存個資（regulations 可持久化，但病歷文本僅在記憶體處理）
+4. 實作策略：LangChain + FAISS (in-memory) / Chroma (ephemeral mode) 作為 vector store
+5. RAG 目標：從 regulation documents 檢索「需要遮罩的個資類型」，而非傳統「保留資訊」的 RAG 模式 |

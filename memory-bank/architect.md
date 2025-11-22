@@ -84,14 +84,76 @@ The system is organized into **6 core modules** aligned with DDD principles:
 
 ### Module 2: RAG Regulation Engine | RAG 規範引擎 (創新核心)
 **Purpose**: Retrieve relevant de-identification rules using RAG
-- Vector database of regulation documents (HIPAA, GDPR, local regulations)
-- 法規文件向量資料庫
+**技術選型**: LangChain + In-Memory Vector Store (無持久化病歷)
+
+#### 核心概念
+- **Key Innovation**: RAG retrieves "what to mask" not "what to preserve"
+- **關鍵創新**: RAG 檢索「要遮蔽什麼」而非「要保留什麼」
+- Traditional RAG: 檢索相關知識來回答問題
+- This system RAG: 檢索法規定義的「個資類型」來指導遮罩
+- Advantage: 彈性支援不同國家/地區法規（HIPAA, GDPR, PDPA, 台灣個資法）
+
+#### 為何選擇 LangChain？
+1. **統一管理介面**: LLM / RAG / Agent 三合一
+2. **多 Provider 支援**: OpenAI, Anthropic, Azure OpenAI, 本地模型（Ollama, HuggingFace）
+3. **豐富生態系統**: Document Loaders, Text Splitters, Retrievers, Chains
+4. **成熟穩定**: 廣泛使用，文檔完善，社群活躍
+
+#### 隱私設計原則
+- ❌ **不持久化病歷文本向量** - 避免個資外洩
+- ✅ **可持久化法規文本向量** - 法規是公開資訊
+- ✅ **In-memory 處理病歷** - 處理完即銷毀
+
+#### 技術架構
+```python
+# Regulation Vector Store (Persistent) - 法規可持久化
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
+# 法規文件結構
+regulations/
+  ├── vectorstore/              # FAISS 持久化向量庫
+  │   ├── index.faiss
+  │   └── index.pkl
+  ├── source_documents/         # 原始法規文件
+  │   ├── hipaa_safe_harbor.md
+  │   ├── taiwan_personal_data_law.md
+  │   ├── gdpr_article_4.md
+  │   └── custom_phi_definitions.md
+  └── metadata.json
+
+# RAG Pipeline 組件
+class RegulationRAG:
+    - embeddings: HuggingFaceEmbeddings (本地模型)
+    - regulation_store: FAISS (persistent)
+    - retriever: MMR (Maximal Marginal Relevance)
+    - llm_chain: LangChain RetrievalQA
+    
+    methods:
+    - retrieve_phi_types(context, strictness) -> List[PHIType]
+    - query_age_handling(age) -> str
+    - query_rare_disease() -> str
+    - query_geographic_rules(location) -> str
+
+# Medical Document Processing (Ephemeral) - 病歷不持久化
+def process_medical_document(doc_text: str):
+    # 建立臨時 in-memory vector store
+    temp_vectorstore = FAISS.from_texts(texts, embeddings)
+    
+    # 處理後立即銷毀
+    result = deidentify_with_rag(temp_vectorstore, regulation_store)
+    del temp_vectorstore
+    return result
+```
+
+#### RAG Integration with LLM
 - Semantic search for applicable PHI detection rules
 - 語義搜尋適用的個資檢測規則
 - Generate context-specific masking instructions
 - 生成上下文特定的遮蔽指令
-- **Key Innovation**: RAG retrieves "what to mask" not "what to preserve"
-- **關鍵創新**: RAG 檢索「要遮蔽什麼」而非「要保留什麼」
+- LangChain RetrievalQA chain for regulation queries
+- Prompt engineering for PHI extraction
+- Return structured PHI entities with confidence scores
 
 ### Module 3: Core Processing Engine | 核心處理引擎
 **Purpose**: Orchestrate the de-identification workflow

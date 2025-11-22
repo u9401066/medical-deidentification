@@ -2,22 +2,26 @@
 
 ## Done
 
-- 完成 6 個核心模組架構設計
-- 實作核心領域模型
-- 添加多語言支援 (10 種語言)
-- 實作可擴充 PHI 類型系統 (20+ 類型)
-- 建立虛擬環境 (.venv)
-- 定義依賴管理策略 (MEM + requirements.txt 同步)
-- 建立 requirements.txt
+- Git repository initialized with 3 commits
+- Memory Bank architecture complete (all 6 files)
+- DDD domain models implemented (20+ PHI types, 10 languages)
+- Multi-language support with extensible PHI type system
+- Virtual environment setup (.venv)
+- Dependency management strategy (MEM + requirements.txt)
+- Test data generation: XLSX with 50 patients (>1024 token narratives)
+- Complex PHI test cases: 15 scenarios with mixed columns
+- All HIPAA identifiers + extended PHI types covered
 
 ## Doing
 
-- 建立虛擬環境與依賴管理
-- 準備建立測試病歷檔案
+- Designing RAG architecture for regulation retrieval
+- Evaluating RAG frameworks: LightRAG vs LangChain
+- Planning no-persistence vector store strategy
 
 ## Next
 
-- 安裝專案依賴
-- 建立測試病歷檔案 (XLSX, TXT, DOCX)
-- 實作 Module 1: Document Loader
-- 實作 Module 2: RAG Engine
+- Implement RAG Regulation Engine (Module 2)
+- Implement Document Loader (Module 1)
+- Implement LLM Integration (Module 4)
+- Create regulation document corpus
+- Install RAG dependencies
