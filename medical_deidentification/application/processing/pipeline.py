@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from loguru import logger
 
 from .context import ProcessingContext, DocumentContext
-from ...domain.models import PHIEntity
+from ...domain import PHIEntity
 
 
 class PipelineStage(str, Enum):
@@ -296,11 +296,11 @@ def create_language_detection_handler():
                 has_chinese = any('\u4e00' <= char <= '\u9fff' for char in text)
                 
                 if has_chinese:
-                    from ...domain.models import SupportedLanguage
-                    doc_context.detected_language = SupportedLanguage.ZH_TW
+                    from ...domain import SupportedLanguage
+                    doc_context.detected_language = SupportedLanguage.TRADITIONAL_CHINESE
                 else:
-                    from ...domain.models import SupportedLanguage
-                    doc_context.detected_language = SupportedLanguage.EN
+                    from ...domain import SupportedLanguage
+                    doc_context.detected_language = SupportedLanguage.ENGLISH
             
             result.output["detected"] = True
             result.mark_completed(success=True)

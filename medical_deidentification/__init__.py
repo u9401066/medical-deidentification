@@ -12,7 +12,7 @@ __author__ = "Your Name"
 __license__ = "MIT"
 
 # Core domain models (no dependencies)
-from medical_deidentification.domain.models import (
+from medical_deidentification.domain import (
     MedicalDocument,
     PHIEntity,
     PHIType,

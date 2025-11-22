@@ -11,7 +11,7 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 from ..strategies import StrategyType
-from ....domain.models import PHIType
+from ....domain import PHIType
 from ....infrastructure.loader import LoaderConfig
 
 

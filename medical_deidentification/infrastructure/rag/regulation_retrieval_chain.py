@@ -24,7 +24,7 @@ from loguru import logger
 
 from .regulation_store import RegulationVectorStore
 from .regulation_retriever import RegulationRetriever, RegulationRetrieverConfig
-from ...domain.models import PHIType
+from ...domain import PHIType
 
 
 class RegulationRetrievalConfig(BaseModel):

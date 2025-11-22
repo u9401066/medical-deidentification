@@ -9,7 +9,7 @@ Provides utilities for applying masking strategies to PHI entities.
 from typing import List, Dict, Any, Optional
 from loguru import logger
 
-from ....domain.models import PHIEntity, PHIType
+from ....domain import PHIEntity, PHIType
 from ..strategies import (
     MaskingStrategy,
     StrategyType,

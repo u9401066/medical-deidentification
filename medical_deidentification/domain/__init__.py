@@ -4,56 +4,55 @@ Domain Layer | 領域層
 Contains core business logic and domain models following DDD principles.
 包含遵循 DDD 原則的核心業務邏輯與領域模型。
 
-Refactored Structure (DDD Pattern):
-重構結構（領域驅動設計模式）:
+DDD Structure (領域驅動設計結構):
 
-This layer is framework-agnostic and organized by DDD building blocks:
-此層與框架無關，按 DDD 構建塊組織：
+├── phi_types.py               - Type definitions (PHIType enum, CustomPHIType)
+│                                類型定義（PHI 類型枚舉、自定義類型）
+│
+├── entities.py                - Domain entities (PHIEntity)
+│                                領域實體（PHI 實體）
+│
+├── value_objects.py           - Value objects (SupportedLanguage, RegulationContext, etc.)
+│                                值物件（支援語言、法規上下文等）
+│
+├── aggregates.py              - Aggregate roots (MedicalDocument)
+│                                聚合根（醫療文件）
+│
+├── phi_type_mapper.py         - PHI type mapping service
+│                                PHI 類型映射服務
+│
+└── phi_identification_models.py - DTOs for LLM structured output
+                                   LLM 結構化輸出的 DTO
 
-- phi_types.py: Type definitions (PHIType enum, CustomPHIType)
-  類型定義（PHIType 枚舉、自定義類型）
-  
-- entities.py: Domain entities with identity (PHIEntity)
-  具有身份的領域實體（PHI 實體）
-  
-- value_objects.py: Immutable value objects (SupportedLanguage, RegulationContext, etc.)
-  不可變值物件（支援語言、法規上下文等）
-  
-- aggregates.py: Aggregate roots (MedicalDocument)
-  聚合根（醫療文件）
-  
-- models.py: Unified export interface (backward compatibility)
-  統一導出接口（向後兼容）
+This module provides a unified export interface for all domain models.
+此模組提供所有領域模型的統一導出接口。
 """
 
-# Export all domain models through models.py
-# 通過 models.py 導出所有領域模型
-from .models import (
-    # PHI Types
-    PHIType,
-    CustomPHIType,
-    
-    # Entities
-    PHIEntity,
-    
-    # Value Objects
+# Type Definitions | 類型定義
+from .phi_types import PHIType, CustomPHIType
+
+# Entities | 實體
+from .entities import PHIEntity
+
+# Value Objects | 值物件
+from .value_objects import (
     SupportedLanguage,
     RegulationContext,
     DocumentMetadata,
     ValidationResult,
-    
-    # Aggregates
-    MedicalDocument,
 )
 
-# PHI Type Mapper
+# Aggregates | 聚合
+from .aggregates import MedicalDocument
+
+# PHI Type Mapper | PHI 類型映射器
 from .phi_type_mapper import (
     PHITypeMapper,
     get_default_mapper,
     register_custom_mappings_from_config,
 )
 
-# PHI Identification Models (DTOs for LLM structured output)
+# PHI Identification DTOs | PHI 識別 DTO
 from .phi_identification_models import (
     PHIIdentificationResult,
     PHIDetectionResponse,
@@ -61,28 +60,23 @@ from .phi_identification_models import (
 )
 
 __all__ = [
-    # PHI Types
+    # Type Definitions
     "PHIType",
     "CustomPHIType",
-    
     # Entities
     "PHIEntity",
-    
     # Value Objects
     "SupportedLanguage",
     "RegulationContext",
     "DocumentMetadata",
     "ValidationResult",
-    
     # Aggregates
     "MedicalDocument",
-    
     # PHI Type Mapper
     "PHITypeMapper",
     "get_default_mapper",
     "register_custom_mappings_from_config",
-    
-    # PHI Identification Models
+    # PHI Identification DTOs
     "PHIIdentificationResult",
     "PHIDetectionResponse",
     "PHIIdentificationConfig",

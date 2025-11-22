@@ -31,8 +31,7 @@ from ..prompts import (
     get_phi_validation_prompt,
     DEFAULT_HIPAA_SAFE_HARBOR_RULES,
 )
-from ...domain.models import PHIType, PHIEntity
-from ...domain.phi_type_mapper import get_default_mapper
+from ...domain import PHIType, PHIEntity, get_default_mapper
 from .regulation_retrieval_chain import RegulationRetrievalChain
 
 # Import PHI identification models from domain layer

@@ -11,7 +11,7 @@ from loguru import logger
 
 from ..context import ProcessingContext, RegulationContext
 from ..pipeline import StageResult, PipelineStage
-from ....domain.models import PHIEntity
+from ....domain import PHIEntity
 from ....infrastructure.rag import (
     RegulationRetrievalChain,
     PHIIdentificationChain

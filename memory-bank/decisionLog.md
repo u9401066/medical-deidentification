@@ -227,3 +227,23 @@ mapper.register_custom_type_definition('身份證', custom_type_def)
 - Data processing code
 - Configuration (use config module instead)
 - Domain models |
+| 2025-11-22 | PHI Identification Models in Domain Layer (DTOs) | Moved PHIIdentificationResult, PHIDetectionResponse, and PHIIdentificationConfig from infrastructure/rag/phi_identification_chain.py to domain/phi_identification_models.py (270 lines). 
+
+Architectural Principles:
+1. DDD Alignment: DTOs representing business concepts belong in domain layer
+2. Single Source of Truth: One definition for all infrastructure consumers
+3. Reusability: Can be imported by any infrastructure component
+4. Testability: Domain models can be tested independently
+
+Implementation Details:
+- Used Any type for llm_config field to avoid circular imports (domain shouldn't depend on infrastructure)
+- Integrated PHITypeMapper into PHIIdentificationResult validators for automatic type normalization
+- Added to_phi_entity() conversion method bridging DTO → domain entity
+- Reduced phi_identification_chain.py from 681 lines to ~520 lines
+
+This completes the third phase of DDD refactoring:
+Phase 1: PHI type mappings → domain/phi_type_mapper.py
+Phase 2: HIPAA rules → infrastructure/prompts/templates.py
+Phase 3: Pydantic DTOs → domain/phi_identification_models.py
+
+Result: Clean separation of concerns with no business logic in infrastructure layer. |

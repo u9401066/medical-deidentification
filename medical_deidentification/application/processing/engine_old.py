@@ -32,7 +32,7 @@ from .strategies import (
     get_default_strategy_for_phi_type
 )
 
-from ...domain.models import PHIEntity, PHIType, SupportedLanguage
+from ...domain import PHIEntity, PHIType, SupportedLanguage
 from ...infrastructure.loader import (
     DocumentLoaderFactory,
     LoadedDocument,

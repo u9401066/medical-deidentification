@@ -2,17 +2,22 @@
 
 ## Done
 
-- 重構PHI類型映射到domain層
-- 創建PHITypeMapper類別支援擴充
-- 移動預設HIPAA規則到prompts模組
-- 建立集中化prompt管理原則
+- 修復 Ollama 批次測試的 PHI 類型映射錯誤
+- 修復 CUSTOM 類型處理
+- 清理 14 個過時測試腳本
+- 建立測試腳本管理規則
+- 重構 PHI 類型映射到 domain 層（phi_type_mapper.py）
+- 重構 HIPAA 規則到 prompts 模組
+- 重構 Pydantic DTOs 到 domain 層（phi_identification_models.py）
+- 完成三階段 DDD 架構重構
 
 ## Doing
 
-- 測試重構後的代碼
+- 驗證完整批次測試執行（15 行測試資料）
 
 ## Next
 
-- 執行完整測試驗證重構
-- 分析測試結果
-- 建立配置檔支援自定義PHI類型
+- 分析測試日誌檔案結果
+- 檢查 PHI 識別準確率
+- 優化 Ollama prompt 效能
+- 考慮升級到 langchain-ollama 套件

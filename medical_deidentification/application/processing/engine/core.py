@@ -20,7 +20,7 @@ from ..context import ProcessingContext, DocumentContext
 from ..pipeline import DeidentificationPipeline, PipelineStage, StageResult, create_language_detection_handler, create_validation_handler
 from ..strategies import create_masking_strategy, get_default_strategy_for_phi_type, MaskingStrategy
 
-from ....domain.models import PHIType
+from ....domain import PHIType
 from ....infrastructure.loader import DocumentLoaderFactory
 from ....infrastructure.rag import (
     EmbeddingsManager,

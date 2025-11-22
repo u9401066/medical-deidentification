@@ -15,7 +15,7 @@ from datetime import datetime
 import pandas as pd
 from loguru import logger
 
-from ...domain.models import PHIEntity
+from ...domain import PHIEntity
 from ...infrastructure.rag.phi_identification_chain import PHIIdentificationChain
 
 

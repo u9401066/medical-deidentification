@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from pydantic import BaseModel, Field
 
-from ...domain.models import PHIEntity, SupportedLanguage, RegulationContext as DomainRegulationContext
+from ...domain import PHIEntity, SupportedLanguage, RegulationContext as DomainRegulationContext
 from ...infrastructure.loader.base import LoadedDocument, DocumentMetadata
 
 

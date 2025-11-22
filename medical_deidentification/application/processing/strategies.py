@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 from loguru import logger
 
-from ...domain.models import PHIEntity, PHIType
+from ...domain import PHIEntity, PHIType
 
 
 class StrategyType(str, Enum):
