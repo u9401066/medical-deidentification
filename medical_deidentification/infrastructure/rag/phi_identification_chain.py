@@ -25,7 +25,7 @@ from loguru import logger
 from ..llm.factory import create_llm
 from ...domain import PHIEntity
 from .regulation_retrieval_chain import RegulationRetrievalChain
-from .medical_retriever import MedicalTextRetriever, MedicalRetrieverConfig
+from .text_splitter import MedicalTextSplitter
 from .embeddings import EmbeddingsManager
 
 # Import PHI identification models from domain layer
@@ -76,7 +76,8 @@ class PHIIdentificationChain:
         self,
         regulation_chain: Optional[RegulationRetrievalChain] = None,
         config: Optional[PHIIdentificationConfig] = None,
-        embeddings_manager: Optional[EmbeddingsManager] = None,
+        chunk_size: int = 500,
+        chunk_overlap: int = 50,
         max_text_length: int = 2000,  # 超過此長度則分段處理
     ):
         """
@@ -86,7 +87,8 @@ class PHIIdentificationChain:
             regulation_chain: RegulationRetrievalChain for retrieving regulation context
                              (Optional when retrieve_regulation_context=False)
             config: Chain configuration
-            embeddings_manager: For MedicalTextRetriever (optional, created if None)
+            chunk_size: Text chunk size for MapReduce splitting (default: 500)
+            chunk_overlap: Overlap between chunks (default: 50)
             max_text_length: Maximum text length before chunking (default: 2000)
         """
         self.regulation_chain = regulation_chain
@@ -102,16 +104,11 @@ class PHIIdentificationChain:
         # Initialize LLM
         self.llm = create_llm(self.config.llm_config)
         
-        # Initialize MedicalTextRetriever for long text handling
-        if embeddings_manager is None:
-            embeddings_manager = EmbeddingsManager()
-        
-        medical_config = MedicalRetrieverConfig(
-            chunk_size=500,
-            chunk_overlap=50,
-            k=5  # Retrieve top 5 relevant chunks
+        # Initialize MedicalTextSplitter for MapReduce chunking
+        self.text_splitter = MedicalTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap
         )
-        self.medical_retriever = MedicalTextRetriever(embeddings_manager, medical_config)
         
         # Get LLM info for logging (handle dict or object)
         if isinstance(self.config.llm_config, dict):
@@ -209,7 +206,7 @@ class PHIIdentificationChain:
         entities = identify_phi_with_map_reduce(
             text=text,
             llm=self.llm,
-            medical_retriever=self.medical_retriever,
+            text_splitter=self.text_splitter,
             language=language
         )
         

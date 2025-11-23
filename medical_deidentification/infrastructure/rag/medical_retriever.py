@@ -4,6 +4,30 @@ Medical Text Retriever
 
 Specialized retriever for ephemeral medical documents (in-memory only).
 專門用於臨時醫療文件的檢索器（僅記憶體，不持久化）。
+
+⚠️ CURRENT STATUS: Reserved for future RAG use cases
+⚠️ 當前狀態：保留供未來 RAG 使用場景
+
+The current PHI identification pipeline uses MedicalTextSplitter (text_splitter.py)
+for simple text chunking in the MapReduce pattern. This module provides more
+advanced retrieval capabilities that may be useful for future features:
+
+當前的 PHI 識別 pipeline 使用 MedicalTextSplitter 進行 MapReduce 模式的簡單文本分割。
+本模組提供更高級的檢索功能，可能用於未來的特性：
+
+Future Use Cases 未來使用場景:
+- Contextual PHI identification (retrieve relevant medical context)
+  上下文 PHI 識別（檢索相關醫療上下文）
+- Multi-query PHI extraction (find age, diagnosis, medications separately)
+  多查詢 PHI 提取（分別查找年齡、診斷、藥物）
+- Score-based filtering (only high-confidence PHI matches)
+  基於分數的過濾（僅高置信度 PHI 匹配）
+
+Design Note 設計說明:
+- Ephemeral: Vector stores are created and destroyed per-request (no persistence)
+  臨時性：每次請求創建和銷毀向量庫（不持久化）
+- Privacy-preserving: Medical text never touches disk
+  隱私保護：醫療文本永不落盤
 """
 
 from typing import List, Optional, Dict, Any

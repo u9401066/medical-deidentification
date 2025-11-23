@@ -149,7 +149,7 @@ def merge_phi_results(
 def identify_phi_with_map_reduce(
     text: str,
     llm,
-    medical_retriever,
+    text_splitter,
     language: Optional[str] = None
 ) -> List[PHIEntity]:
     """
@@ -157,14 +157,14 @@ def identify_phi_with_map_reduce(
     使用 LangChain 的 MapReduce 模式處理長文本
     
     Flow:
-    1. Split text into chunks (via medical_retriever)
+    1. Split text into chunks (via text_splitter)
     2. Map: Build chain and process each chunk → PHI entities (parallel-ready)
     3. Reduce: Merge all PHI lists, deduplicate, adjust positions
     
     Args:
         text: Medical text to process
         llm: Language model
-        medical_retriever: MedicalTextRetriever for chunking
+        text_splitter: MedicalTextSplitter for chunking
         language: Language code (optional, for future multilingual support)
         
     Returns:
@@ -173,7 +173,7 @@ def identify_phi_with_map_reduce(
     logger.info(f"MapReduce: Processing {len(text)} chars with LangChain")
     
     # 1. Split text into chunks
-    chunks = medical_retriever._split_text(text)
+    chunks = text_splitter.split_text(text)
     logger.info(f"MapReduce: Split into {len(chunks)} chunks")
     
     # 2. Build map chain (LangChain Runnable)

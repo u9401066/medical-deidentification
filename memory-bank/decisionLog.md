@@ -459,3 +459,49 @@ This aligns with LangChain best practices (LCEL - LangChain Expression Language)
 - API → templates.py (main entry)
 
 This follows the same modular pattern as chains/ submodule. |
+| 2025-11-23 | Apply strict DDD architecture by migrating all config and domain models to domain layer | **Problem**: Infrastructure layer had scattered BaseModel classes violating DDD principles:
+- 5 RAG config classes in infrastructure/rag/*.py
+- 4 loader domain models in infrastructure/loader/base.py (DocumentFormat, DocumentMetadata, LoadedDocument, LoaderConfig)
+- 2 empty placeholder modules (validation/, output/)
+
+**Solution - DDD Refactoring Phase 3**:
+
+1. **Created domain/configs.py** (112 lines)
+   - Centralized 5 RAG configuration models
+   - EmbeddingsConfig, RegulationStoreConfig, RegulationRetrieverConfig, RegulationRetrievalConfig, MedicalRetrieverConfig
+   - All models follow consistent Field(description=...) pattern
+
+2. **Created domain/loader_models.py** (189 lines)
+   - Extracted 4 loader domain models from infrastructure/loader/base.py
+   - DocumentFormat (enum with from_extension() classmethod)
+   - DocumentMetadata (file info, temporal info, content info, custom metadata)
+   - LoadedDocument (content, metadata, structured_data, records, __str__, __repr__)
+   - LoaderConfig (encoding, content extraction, format-specific options)
+   - These are business domain concepts, not infrastructure implementations
+
+3. **Updated Infrastructure Layer** (~287 lines removed):
+   - 5 RAG files: Removed config class definitions, imported from domain
+   - infrastructure/loader/base.py: Removed all domain models, only kept DocumentLoader abstract class
+   - Deleted empty validation/ and output/ modules
+
+4. **Key Fixes During Migration**:
+   - Added score_threshold: Optional[float] to RegulationRetrieverConfig (was used in code but missing in config)
+   - Fixed MedicalRetrieverConfig field order to match actual usage (search_type first, k=3 not 5)
+   - Renamed exported DocumentMetadata → LoaderDocumentMetadata (avoid conflict with value_objects.DocumentMetadata)
+
+**DDD Principles Applied**:
+✅ Domain Layer: Contains ALL business models, entities, value objects, configs
+✅ Infrastructure Layer: ONLY contains technical implementations (no domain definitions)
+✅ Application Layer: Orchestrates use cases, imports from domain
+✅ Clear Dependencies: Infrastructure → Domain (correct), never Domain → Infrastructure
+
+**Benefits**:
+- Single Source of Truth: All configs in domain/ (no duplication)
+- Better Testability: Domain models testable without infrastructure dependencies
+- Clear Boundaries: Easy to understand what is "business concept" vs "technical implementation"
+- Maintainability: Config changes only happen in domain layer
+
+**This completes the 3-phase DDD migration**:
+- Phase 1: PHI types → domain/phi_types.py (commit aff6cbd)
+- Phase 2: PHI DTOs → domain/phi_identification_models.py (commit 4411e45)
+- Phase 3: Config/loader models → domain/configs.py + domain/loader_models.py (commit 146fc3b) |

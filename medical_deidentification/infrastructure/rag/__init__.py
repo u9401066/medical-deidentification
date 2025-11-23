@@ -42,6 +42,13 @@ from .regulation_retriever import (
     create_regulation_retriever
 )
 
+# Text Splitting (for MapReduce and chunking)
+from .text_splitter import (
+    MedicalTextSplitter,
+    create_medical_splitter
+)
+
+# Medical Retriever (for future RAG use cases)
 from .medical_retriever import (
     MedicalTextRetriever,
     MedicalRetrieverConfig,
@@ -80,7 +87,11 @@ __all__ = [
     "RegulationRetrieverConfig",
     "create_regulation_retriever",
     
-    # Medical Retriever (ephemeral)
+    # Text Splitting
+    "MedicalTextSplitter",
+    "create_medical_splitter",
+    
+    # Medical Retriever (ephemeral, for future RAG use)
     "MedicalTextRetriever",
     "MedicalRetrieverConfig",
     "create_medical_retriever",
