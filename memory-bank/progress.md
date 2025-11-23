@@ -3,11 +3,11 @@
 ## Done
 
 - MapReduce implementation - commit aff6cbd
-- File modularization (935 → 236 lines) - commit 6fbcd0f
-- RAG architecture refactoring with LangChain - commit 4411e45
-- Enforced LangChain Runnable pattern across all chains
-- Centralized all prompts to prompts module
-- All chains return Runnables (composable, testable)
+- File modularization: phi_identification_chain.py (935 → 236 lines) - commit 6fbcd0f
+- RAG LangChain Runnable pattern - commit 4411e45
+- Prompts modularization (429 → 112 lines) - commit 5b0740b
+- All prompts organized by category in separate files
+- Maintained backward compatibility across all refactorings
 
 ## Doing
 
@@ -15,6 +15,6 @@
 
 ## Next
 
-- Test refactored chains with real medical text
-- Verify MapReduce pattern with long texts (>2000 chars)
-- Integration test with batch processing
+- Test entire refactored system end-to-end
+- Performance benchmarking with real data
+- Documentation update

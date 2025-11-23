@@ -9,35 +9,10 @@ Specialized retriever for ephemeral medical documents (in-memory only).
 from typing import List, Optional, Dict, Any
 from langchain_core.documents import Document
 from langchain_community.vectorstores import FAISS
-from pydantic import BaseModel, Field
 from loguru import logger
 
+from ...domain import MedicalRetrieverConfig
 from .embeddings import EmbeddingsManager
-
-
-class MedicalRetrieverConfig(BaseModel):
-    """醫療文本檢索器配置"""
-    
-    search_type: str = Field(
-        default="similarity",
-        description="Search type: 'similarity' (MMR not recommended for small medical docs)"
-    )
-    k: int = Field(
-        default=3,
-        description="Number of chunks to retrieve (smaller for medical docs)"
-    )
-    score_threshold: Optional[float] = Field(
-        default=None,
-        description="Minimum relevance score threshold"
-    )
-    chunk_size: int = Field(
-        default=500,
-        description="Text chunk size for medical documents"
-    )
-    chunk_overlap: int = Field(
-        default=50,
-        description="Overlap between chunks"
-    )
 
 
 class MedicalTextRetriever:

@@ -8,35 +8,10 @@ Specialized retriever for persistent regulation documents with MMR support.
 
 from typing import List, Optional, Dict, Any
 from langchain_core.documents import Document
-from pydantic import BaseModel, Field
 from loguru import logger
 
+from ...domain import RegulationRetrieverConfig
 from .regulation_store import RegulationVectorStore
-
-
-class RegulationRetrieverConfig(BaseModel):
-    """法規檢索器配置"""
-    
-    search_type: str = Field(
-        default="mmr",
-        description="Search type: 'similarity' or 'mmr'"
-    )
-    k: int = Field(
-        default=5,
-        description="Number of documents to retrieve"
-    )
-    fetch_k: int = Field(
-        default=20,
-        description="Number of documents to fetch before MMR"
-    )
-    lambda_mult: float = Field(
-        default=0.5,
-        description="Diversity factor for MMR (0=max diversity, 1=max relevance)"
-    )
-    score_threshold: Optional[float] = Field(
-        default=None,
-        description="Minimum relevance score threshold"
-    )
 
 
 class RegulationRetriever:

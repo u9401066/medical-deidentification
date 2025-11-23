@@ -12,7 +12,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from ...domain import PHIEntity, SupportedLanguage, RegulationContext as DomainRegulationContext
-from ...infrastructure.loader.base import LoadedDocument, DocumentMetadata
+from ...domain import LoaderDocumentMetadata as DocumentMetadata, LoadedDocument
 
 
 class DocumentContext(BaseModel):

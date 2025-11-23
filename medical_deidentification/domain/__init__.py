@@ -60,6 +60,23 @@ from .phi_identification_models import (
     PHIIdentificationConfig,
 )
 
+# Configuration Models | 配置模型
+from .configs import (
+    EmbeddingsConfig,
+    RegulationStoreConfig,
+    RegulationRetrieverConfig,
+    RegulationRetrievalConfig,
+    MedicalRetrieverConfig,
+)
+
+# Document Loader Models | 文檔載入模型
+from .loader_models import (
+    DocumentFormat,
+    DocumentMetadata as LoaderDocumentMetadata,
+    LoadedDocument,
+    LoaderConfig,
+)
+
 __all__ = [
     # Type Definitions
     "PHIType",
@@ -82,4 +99,15 @@ __all__ = [
     "PHIIdentificationResult",
     "PHIDetectionResponse",
     "PHIIdentificationConfig",
+    # RAG Configuration Models
+    "EmbeddingsConfig",
+    "RegulationStoreConfig",
+    "RegulationRetrieverConfig",
+    "RegulationRetrievalConfig",
+    "MedicalRetrieverConfig",
+    # Document Loader Models
+    "DocumentFormat",
+    "LoaderDocumentMetadata",
+    "LoadedDocument",
+    "LoaderConfig",
 ]

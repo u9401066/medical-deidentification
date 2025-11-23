@@ -19,33 +19,11 @@ NOT responsible for:
 
 from typing import List, Dict, Any, Optional
 from langchain_core.documents import Document
-from pydantic import BaseModel, Field
 from loguru import logger
 
+from ...domain import PHIType, RegulationRetrievalConfig, RegulationRetrieverConfig
 from .regulation_store import RegulationVectorStore
-from .regulation_retriever import RegulationRetriever, RegulationRetrieverConfig
-from ...domain import PHIType
-
-
-class RegulationRetrievalConfig(BaseModel):
-    """Configuration for regulation retrieval chain"""
-    
-    retriever_config: RegulationRetrieverConfig = Field(
-        default_factory=RegulationRetrieverConfig,
-        description="Retriever configuration"
-    )
-    top_k: int = Field(
-        default=5,
-        ge=1,
-        le=20,
-        description="Number of regulation documents to retrieve"
-    )
-    min_relevance_score: float = Field(
-        default=0.5,
-        ge=0.0,
-        le=1.0,
-        description="Minimum relevance score threshold"
-    )
+from .regulation_retriever import RegulationRetriever
 
 
 class RegulationRetrievalChain:

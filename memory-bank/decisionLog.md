@@ -406,3 +406,56 @@ Deleted obsolete code:
    - No direct imports of ChatOllama, ChatOpenAI, etc.
 
 This aligns with LangChain best practices (LCEL - LangChain Expression Language) and makes the codebase more maintainable and testable. |
+| 2025-11-23 | Modularize prompts module from monolithic 429-line file into 5 specialized files | Original templates.py was 429 lines containing all prompts, system messages, registry, and accessor functions in one file - violating Single Responsibility Principle and making it hard to navigate.
+
+**New Modular Structure**:
+
+1. **phi_prompts.py (160 lines)**:
+   - All PHI identification prompts (v1, structured, multilingual)
+   - Validation prompts
+   - Masking strategy prompts
+   - MapReduce prompts
+   - Backward compatibility aliases
+
+2. **system_messages.py (41 lines)**:
+   - System messages for different agent roles (PHI expert, regulation analyst)
+   - Multilingual system messages (en, zh-TW)
+   - DEFAULT_HIPAA_SAFE_HARBOR_RULES context
+
+3. **registry.py (74 lines)**:
+   - PromptType and PromptLanguage enums
+   - PROMPT_REGISTRY central dictionary
+   - Imports from phi_prompts and system_messages
+
+4. **accessors.py (193 lines)**:
+   - get_prompt() - Generic accessor with version support
+   - get_phi_identification_prompt()
+   - get_phi_validation_prompt()
+   - get_masking_strategy_prompt()
+   - get_phi_map_reduce_prompt()
+   - get_system_message()
+   - list_available_prompts()
+   - validate_prompt_format()
+
+5. **templates.py (112 lines)** - Main entry point:
+   - Re-exports all components from submodules
+   - Maintains backward compatibility
+   - Clean __all__ declaration
+   - Reduced from 429 → 112 lines (74% reduction)
+
+**Benefits**:
+- **Single Responsibility**: Each file has one clear purpose
+- **Navigability**: Easy to find specific prompts by category
+- **Maintainability**: Changes isolated to specific files
+- **Testability**: Can test each module independently
+- **Backward Compatible**: All imports remain unchanged
+- **Scalability**: Easy to add new prompt categories
+
+**Files organized by concern**:
+- Prompts → phi_prompts.py
+- Context → system_messages.py
+- Registry → registry.py
+- Accessors → accessors.py
+- API → templates.py (main entry)
+
+This follows the same modular pattern as chains/ submodule. |

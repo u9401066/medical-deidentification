@@ -21,35 +21,10 @@ from langchain_community.document_loaders import (
 )
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from pydantic import BaseModel, Field
 from loguru import logger
 
+from ...domain import RegulationStoreConfig
 from .embeddings import EmbeddingsManager
-
-
-class RegulationStoreConfig(BaseModel):
-    """法規向量庫配置"""
-    
-    source_dir: Path = Field(
-        default=Path("regulations/source_documents"),
-        description="Directory containing regulation source documents"
-    )
-    vectorstore_dir: Path = Field(
-        default=Path("regulations/vectorstore"),
-        description="Directory for persistent vector store"
-    )
-    chunk_size: int = Field(
-        default=1000,
-        description="Text chunk size for splitting documents"
-    )
-    chunk_overlap: int = Field(
-        default=200,
-        description="Overlap between chunks"
-    )
-    file_patterns: List[str] = Field(
-        default_factory=lambda: ["**/*.md", "**/*.txt"],
-        description="File patterns to load"
-    )
 
 
 class RegulationVectorStore:

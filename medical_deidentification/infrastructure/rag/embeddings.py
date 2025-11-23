@@ -8,28 +8,8 @@ Manages embedding models for semantic similarity search in RAG system.
 
 from typing import Optional, List
 from langchain_huggingface import HuggingFaceEmbeddings
-from pydantic import BaseModel, Field
 
-
-class EmbeddingsConfig(BaseModel):
-    """嵌入模型配置"""
-    
-    model_name: str = Field(
-        default="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
-        description="HuggingFace model name for embeddings"
-    )
-    model_kwargs: dict = Field(
-        default_factory=lambda: {"device": "cpu"},
-        description="Additional model kwargs (e.g., device: 'cpu' or 'cuda')"
-    )
-    encode_kwargs: dict = Field(
-        default_factory=lambda: {"normalize_embeddings": True},
-        description="Encoding kwargs for generating embeddings"
-    )
-    cache_folder: Optional[str] = Field(
-        default=None,
-        description="Local cache folder for downloaded models"
-    )
+from ...domain import EmbeddingsConfig
 
 
 class EmbeddingsManager:
