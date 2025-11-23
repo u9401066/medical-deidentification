@@ -142,10 +142,18 @@ class PHIIdentificationResult(BaseModel):
             mapper = get_default_mapper()
             mapped_type, custom_name = mapper.map_with_custom(v)
             
-            # If mapped to CUSTOM, store the custom_type_name
-            if mapped_type == PHIType.CUSTOM and custom_name:
-                if 'custom_type_name' not in info.data or not info.data.get('custom_type_name'):
-                    info.data['custom_type_name'] = custom_name
+            # CRITICAL FIX: If mapped to CUSTOM, ALWAYS store the custom_type_name
+            # This prevents "custom_type must be provided" error in PHIEntity
+            if mapped_type == PHIType.CUSTOM:
+                if custom_name:
+                    # Store original custom name from mapper
+                    if hasattr(info, 'data'):
+                        info.data['custom_type_name'] = custom_name
+                else:
+                    # Fallback: use original string as custom type name
+                    logger.warning(f"PHI type '{v}' mapped to CUSTOM but no custom_name provided, using original string")
+                    if hasattr(info, 'data'):
+                        info.data['custom_type_name'] = v
             
             return mapped_type
         
