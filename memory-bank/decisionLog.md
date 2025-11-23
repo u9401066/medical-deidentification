@@ -381,3 +381,28 @@ Benefits:
 Deleted obsolete code:
 - _old_identify_phi_chunked (replaced by MapReduce)
 - batch_identify (redundant with BatchPHIProcessor) |
+| 2025-11-23 | Enforce LangChain Runnable pattern across all RAG chains | Original RAG implementation had inconsistent chain patterns - some components directly called LLM, others mixed direct calls with chain patterns. Refactored to enforce LangChain Runnable pattern throughout:
+
+1. **Prompt Centralization**:
+   - Added PHI_MAP_REDUCE_PROMPT_V1 to prompts/templates.py
+   - Added get_phi_map_reduce_prompt() accessor
+   - All chains now use centralized prompts module
+
+2. **Chain Pattern Enforcement**:
+   - map_reduce.py: build_map_chain() returns Runnable (prompt | llm.with_structured_output)
+   - processors.py: build_phi_identification_chain() returns Runnable
+   - utils.py: validate_entity() uses chain (prompt | llm | JsonOutputParser)
+
+3. **Benefits**:
+   - **Composability**: Chains can be easily composed and tested
+   - **Consistency**: All components follow same pattern
+   - **Testability**: Runnables are unit-testable without LLM calls
+   - **Maintainability**: Centralized prompts, single source of truth
+   - **Error Handling**: Consistent error propagation through chains
+   - **Type Safety**: LangChain Runnable provides better type hints
+
+4. **Factory Pattern**:
+   - All LLM creation uses create_llm() factory
+   - No direct imports of ChatOllama, ChatOpenAI, etc.
+
+This aligns with LangChain best practices (LCEL - LangChain Expression Language) and makes the codebase more maintainable and testable. |
