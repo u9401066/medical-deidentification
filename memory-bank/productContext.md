@@ -69,6 +69,10 @@ A Python-based medical text de-identification toolkit that leverages LLM/Agent t
 
 ## Architecture
 
+DDD (Domain-Driven Design) with 4 layers: Domain (models, entities, configs), Application (batch processing, pipelines), Infrastructure (RAG, LLM, loaders), Interface (CLI). 6 core modules: (1) Document Loader - multi-format support, (2) RAG Regulation Engine - retrieves 'what to mask' from regulations, (3) Core Processing Engine - pipeline orchestration, (4) LLM Integration - multi-provider support, (5) Output Module - multiple export formats, (6) Validation Module - quality metrics.
+
+
+
 Domain-Driven Design with clean architecture layers. Infrastructure layer handles RAG (embeddings, vector stores, retrievers) and LLM integration. Application layer provides batch processing and PHI identification chains. Domain layer defines PHI types, entities, and masking strategies. Uses LangChain for unified LLM/RAG management, with support for multiple LLM providers (Anthropic, OpenAI, Ollama).
 
 
@@ -114,6 +118,21 @@ rich = "^13.0"    # Terminal UI
 
 ## Technologies
 
+- Python 3.11+
+- LangChain 1.0+
+- Ollama (Local LLM)
+- PyTorch 2.2.0+cpu
+- NumPy 1.26.4
+- HuggingFace Transformers
+- Sentence Transformers
+- FAISS
+- Spacy
+- Pandas
+- Pydantic 2.x
+- Loguru
+
+
+
 - Python 3.10
 - LangChain 1.0+
 - Anthropic Claude
@@ -151,6 +170,24 @@ rich = "^13.0"    # Terminal UI
 
 
 ## Libraries and Dependencies
+
+- langchain==1.0.8
+- langchain-anthropic==1.1.0
+- langchain-openai==1.0.3
+- langchain-ollama==1.0.0
+- langchain-huggingface==1.0.1
+- torch==2.2.0+cpu
+- numpy==1.26.4
+- transformers==4.57.1
+- sentence-transformers==2.7.0
+- faiss-cpu==1.13.0
+- spacy==3.8.11
+- pydantic==2.12.4
+- pandas==2.3.3
+- loguru==0.7.3
+- ollama==0.6.1
+
+
 
 - langchain==1.0.8
 - langchain-anthropic==1.1.0
@@ -195,6 +232,10 @@ rich = "^13.0"    # Terminal UI
 
 
 ## Project Description
+
+Python-based medical text de-identification toolkit using LLM/RAG technology to automatically identify and mask Protected Health Information (PHI) from clinical records. 基於 Python 的醫療文本去識別化工具套件，透過 LLM/RAG 技術自動識別並遮蔽個人健康資訊。
+
+
 
 LLM-powered medical text de-identification toolkit with RAG-enhanced regulation retrieval. 基於 LLM 與 RAG 的醫療文本去識別化工具套件。支援多語言醫療記錄處理、PHI 自動識別與遮蔽。
 

@@ -1,9 +1,56 @@
 # Decision Log
 
+## Core Principles | 核心原則
+
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2025-11-22 | 採用繁體中文及學術英文作為專案語言 | 確保團隊溝通清晰,同時維持技術文件的國際標準 |
-| 2025-11-22 | 實施 GIT + MEM 同步原則 | 保持版本控制與知識管理一致性,確保專案脈絡可追溯 |
+| 2025-11-22 | GIT + MEM 同步原則 | 所有變更必須同時提交 Git 和更新 Memory Bank,確保版本控制與知識管理一致性 |
+| 2025-11-22 | Memory Bank 作為唯一真實來源 | 所有專案知識必須透過 Memory Bank 記錄和更新 |
+| 2025-11-22 | 繁體中文 + 學術英文雙語 | 技術文件用英文,註解和溝通用繁體中文,確保國際標準與本地化平衡 |
+| 2025-11-22 | MVP 開發原則 | 優先實作核心功能,快速迭代交付,及早獲得回饋 |
+| 2025-11-22 | DDD (Domain-Driven Design) | 四層架構: Domain (模型/配置) → Application (用例) → Infrastructure (技術實作) → Interface (CLI) |
+
+## Architecture Decisions | 架構決策
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2025-11-22 | 6 個核心模組設計 | (1) Document Loader (2) **RAG Regulation Engine** (3) Core Processing (4) LLM Integration (5) Output (6) Validation。模組化設計,清晰分離關注點 |
+| 2025-11-22 | RAG 創新: 檢索「需要遮蔽的內容」 | 傳統方法檢索「要保留的內容」易過度遮蔽。RAG 從法規文件檢索「需遮蔽的 PHI 類型」,提高精準度和可讀性 |
+| 2025-11-22 | 隱私優先: In-memory 處理 | 法規文件持久化 (FAISS),醫療文本僅在記憶體處理 (不持久化),確保個資安全 |
+| 2025-11-22 | LangChain 作為 RAG/LLM 框架 | 統一管理 LLM/RAG/Agent,豐富生態系統,支援多 provider (OpenAI/Anthropic/Ollama) |
+| 2025-11-22 | 結構化輸出 (Pydantic + LangChain) | 使用 Pydantic BaseModel + with_structured_output() 確保類型安全,避免 JSON parsing 錯誤 |
+| 2025-11-22 | 可擴充 PHI 類型系統 | 28 標準類型 + CustomPHIType 動態擴展,支援不同國家/法規/機構需求 |
+| 2025-11-22 | 多語言支援 (10+ 語言) | 支援繁中/簡中/英/日/韓/西/法/德/泰/越,使用 SupportedLanguage 枚舉確保類型安全 |
+
+## Technical Patterns | 技術模式
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2025-11-22 | 統一 LLM 管理模組 (infrastructure/llm) | config.py (配置) + factory.py (創建) + manager.py (管理),避免重複代碼,易於擴展 |
+| 2025-11-22 | 統一 Prompt 管理模組 (infrastructure/prompts) | 版本控制 (v1/v2) + 多語言 + 集中管理,單一真相來源 |
+| 2025-11-22 | RAG Chain 職責分離 | RegulationRetrievalChain (法規檢索) + PHIIdentificationChain (PHI識別),符合單一職責原則 |
+| 2025-11-22 | 模組化架構 (例: engine/, chains/, prompts/) | 大文件拆分為多個小模組,每個 ~200 行,易讀易維護 |
+| 2025-11-22 | LangChain Runnable 模式 | 所有 chain 使用 Runnable (prompt \| llm),可組合、可測試、一致性 |
+| 2025-11-22 | MapReduce 處理長文本 | Map 階段: 每個 chunk 提取 PHI (短 prompt),Reduce 階段: 合併去重 (無需 LLM) |
+
+## Implementation Decisions | 實作決策
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2025-11-22 | Ollama 作為本地 LLM | 開源免費,支援多模型,易部署,與 LangChain 良好整合,保護醫療數據隱私 |
+| 2025-11-22 | GPU 硬體加速支援 | LLMConfig 支援 use_gpu/num_gpu/gpu_layers,自動檢測 GPU,3-5x 速度提升 |
+| 2025-11-22 | torch 2.2.0+cpu + numpy <2.0 | torch 2.9.1 在 Windows 有 DLL 問題,固定版本確保穩定性 |
+| 2025-11-22 | langchain 1.0+ 生態系統 | 升級到最新穩定版,避免 deprecation warnings 和未來相容性問題 |
+| 2025-11-22 | 清理測試文件原則 | 每功能只保留一個測試腳本,臨時診斷腳本完成後必須刪除 |
+| 2025-11-22 | 測試日誌政策 | 所有測試生成時間戳日誌,執行後必須檢查,保留 10 天/10MB 輪替 |
+| 2025-11-22 | Prompt 年齡規則優化 | "Ages ONLY if >90" (否定句) 避免誤判年輕人,符合 HIPAA 安全港規則 |
+| 2025-11-23 | PHI 檢測評估工具 | generate_test_data_with_phi_tags.py (107 標記 PHI) + phi_evaluator.py (Precision/Recall/F1) |
+| 2025-11-23 | 刪除過時文檔保持整潔 | 開發過程中的臨時記錄 (PACKAGE_VERSIONS.md 等) 完成目的後刪除,核心功能完好 |
+
+---
+
+**更新時間**: 2025-11-23  
+**文件狀態**: ✅ 精簡整理完成
 | 2025-11-22 | 文件更新必須透過 Memory Bank | Memory Bank 作為專案知識的唯一真實來源 |
 | 2025-11-22 | 採用 MVP 開發原則 | 快速交付價值,透過迭代降低風險,及早獲得回饋 |
 | 2025-11-22 | 採用 DDD (Domain-Driven Design) | 以業務領域為核心,建立清晰的領域邊界,提升系統可維護性 |
@@ -505,3 +552,4 @@ This follows the same modular pattern as chains/ submodule. |
 - Phase 1: PHI types → domain/phi_types.py (commit aff6cbd)
 - Phase 2: PHI DTOs → domain/phi_identification_models.py (commit 4411e45)
 - Phase 3: Config/loader models → domain/configs.py + domain/loader_models.py (commit 146fc3b) |
+| 2025-11-23 | 刪除過時文檔文件,保持專案整潔 | 刪除 PACKAGE_VERSIONS.md, PROJECT_STATUS.md, TEST_ENGINE_QUICK.md, VERIFICATION_REPORT.md 等過時文檔和測試腳本。這些是開發過程中的臨時記錄,已不再需要。核心功能完好 (log 顯示 157 PHI 成功識別)。 |
