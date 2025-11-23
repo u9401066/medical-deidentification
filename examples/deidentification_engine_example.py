@@ -2,47 +2,72 @@
 De-identification Engine Example | 去識別化引擎範例
 =================================================
 
+Updated for New LangChain Architecture | 更新為新的 LangChain 架構
+------------------------------------------------------------------
+
 DeidentificationEngine 是什麼？
 --------------------------------
 高階 API，整合完整的去識別化工作流程：
 1. 文件載入 (DocumentLoader)
 2. 語言檢測
-3. PHI 識別 (使用 LLM)
+3. PHI 識別 (使用 LLM + LangChain)
 4. 遮蔽策略應用
 5. 結果驗證
 6. 輸出生成
 
-適用場景：
----------
-✅ 生產環境的完整工作流程
-✅ 需要自動化pipeline的場景
-✅ 需要統一配置和管理的場景
-✅ 需要完整錯誤處理的場景
-
-與 BatchPHIProcessor 的區別：
----------------------------
-- BatchPHIProcessor: 低階API，直接PHI識別，適合研究/測試
-- DeidentificationEngine: 高階API，完整工作流程，適合生產環境
+✅ 已更新適配新的 LangChain 結構化輸出架構
+✅ PHIIdentificationChain 使用 MapReduce 模式處理長文本
+✅ 直接使用 Ollama native structured output
+✅ Token/sec 效能監控
 
 當前狀態：
 ---------
-⚠️  PHI identification handler 需要配置才能正常工作
-✅  Pipeline 架構完整
-✅  文件載入功能正常
-⚠️  建議用於簡化配置和workflow管理，實際PHI識別使用BatchPHIProcessor
+✅ Pipeline 架構完整
+✅ LangChain Runnable 模式
+✅ 結構化輸出正常
+✅ PHI 識別不依賴 RAG（use_rag 只控制法規檢索）
+⚠️  需要 Ollama 服務運行
+
+重要說明：
+---------
+• use_rag=True: 啟用法規文件檢索（需載入 embeddings）
+• use_rag=False: 不檢索法規，但 PHI 識別仍正常運作
+• PHI 識別使用 LLM + MapReduce，不依賴法規檢索
+
+適用場景：
+---------
+✅ 生產環境的完整工作流程
+✅ 需要自動化 pipeline 的場景
+✅ 需要統一配置和管理的場景
+✅ 需要完整錯誤處理的場景
 """
 
 from pathlib import Path
-from medical_deidentification.infrastructure.utils import configure_logging
-from medical_deidentification.domain import StrategyType, PHIType
-from medical_deidentification.application.processing import (
-    DeidentificationEngine,
-    EngineConfig,
-)
+import sys
 from loguru import logger
 
-# Configure logging
-log_file = configure_logging(console_level="INFO", file_level="DEBUG")
+# Configure simple logging to avoid heavy imports
+logger.remove()
+logger.add(
+    sys.stdout,
+    format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
+    level="INFO"
+)
+logger.add(
+    "logs/engine_example_{time}.log",
+    rotation="10 MB",
+    level="DEBUG"
+)
+
+# Lazy imports to avoid loading embeddings immediately
+def get_engine_classes():
+    """延遲導入以避免立即載入 embeddings"""
+    from medical_deidentification.application.processing import (
+        DeidentificationEngine,
+        EngineConfig,
+    )
+    from medical_deidentification.domain import StrategyType, PHIType
+    return DeidentificationEngine, EngineConfig, StrategyType, PHIType
 
 
 def example_1_basic_usage():
@@ -51,13 +76,15 @@ def example_1_basic_usage():
     
     Engine 的主要優勢：用簡單的配置啟動完整的workflow
     """
+    DeidentificationEngine, EngineConfig, StrategyType, PHIType = get_engine_classes()
+    
     logger.info("="*80)
     logger.info("Example 1: Basic Usage - Simplified Configuration")
     logger.info("="*80)
     
     # 創建配置 - 只需幾行代碼
     config = EngineConfig(
-        use_rag=False,                          # 不使用RAG（使用預設HIPAA規則）
+        use_rag=True,                           # ✅ 啟用 RAG（使用法規向量庫）
         llm_provider="ollama",                  # LLM提供者
         llm_model="llama3.1:8b",               # 模型
         default_strategy=StrategyType.REDACTION # 預設遮蔽策略
@@ -196,13 +223,15 @@ def example_4_custom_strategies():
     
     Engine 的優勢：為不同PHI類型配置不同策略
     """
+    DeidentificationEngine, EngineConfig, StrategyType, PHIType = get_engine_classes()
+    
     logger.info("\n" + "="*80)
     logger.info("Example 4: Custom Masking Strategies")
     logger.info("="*80)
     
     # 為不同PHI類型配置不同策略
     config = EngineConfig(
-        use_rag=False,
+        use_rag=True,  # ✅ 啟用 RAG
         llm_provider="ollama",
         llm_model="llama3.1:8b",
         default_strategy=StrategyType.REDACTION,  # 預設：刪除
@@ -292,11 +321,10 @@ def main():
         logger.success("\n" + "="*80)
         logger.success("All examples completed!")
         logger.success("="*80)
-        logger.info(f"\nLog file: {log_file}")
         logger.info("\n下一步建議:")
-        logger.info("  1. 查看完整日誌了解 pipeline 執行細節")
-        logger.info("  2. 使用 BatchPHIProcessor 進行實際 PHI 識別")
-        logger.info("  3. Engine 適合用於配置管理和 workflow 編排")
+        logger.info("  1. 查看 logs/ 目錄中的完整日誌了解 pipeline 執行細節")
+        logger.info("  2. Engine 適合用於配置管理和 workflow 編排")
+        logger.info("  3. 新架構使用 LangChain Runnable + Ollama structured output")
         
     except Exception as e:
         logger.exception(f"Example failed: {e}")

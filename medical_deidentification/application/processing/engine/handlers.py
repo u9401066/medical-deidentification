@@ -107,10 +107,12 @@ class PipelineHandlers:
                     text = doc_context.document.content
                     language = doc_context.detected_language
                     
-                    if self.use_rag and self.phi_chain:
-                        # Use RAG for PHI identification with structured output
+                    # Always use PHI chain if available (RAG flag only affects regulation retrieval)
+                    if self.phi_chain:
+                        # Use LLM for PHI identification with structured output
                         logger.info(
-                            f"Identifying PHI using RAG for {doc_context.document_id}"
+                            f"Identifying PHI for {doc_context.document_id} "
+                            f"(RAG={'enabled' if self.use_rag else 'disabled'})"
                         )
                         
                         rag_response = self.phi_chain.identify_phi(
@@ -134,12 +136,11 @@ class PipelineHandlers:
                         )
                     
                     else:
-                        # Without RAG, use pattern matching or skip
+                        # PHI chain not initialized
                         logger.warning(
-                            f"RAG disabled for {doc_context.document_id}, "
-                            "PHI identification limited to pattern matching"
+                            f"PHI chain not available for {doc_context.document_id}, "
+                            "skipping PHI identification"
                         )
-                        # Pattern-based fallback could be implemented here
                     
                     context.mark_document_processed(success=True)
                 

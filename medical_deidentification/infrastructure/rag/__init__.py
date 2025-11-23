@@ -62,12 +62,13 @@ from .regulation_retrieval_chain import (
     create_regulation_retrieval_chain
 )
 
-from .phi_identification_chain import (
-    PHIIdentificationChain,
+from .phi_identification_chain import PHIIdentificationChain
+
+# Re-export domain models for convenience
+from ...domain.phi_identification_models import (
     PHIIdentificationConfig,
     PHIIdentificationResult,
     PHIDetectionResponse,
-    create_phi_identification_chain
 )
 
 __all__ = [
@@ -104,6 +105,5 @@ __all__ = [
     "PHIIdentificationConfig",
     "PHIIdentificationResult",
     "PHIDetectionResponse",
-    "create_phi_identification_chain",
 ]
 

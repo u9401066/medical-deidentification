@@ -28,9 +28,10 @@ from ....infrastructure.rag import (
     RegulationRetrievalChain,
     PHIIdentificationChain,
     create_embeddings_manager,
-    create_regulation_retrieval_chain,
-    create_phi_identification_chain
+    create_regulation_retrieval_chain
 )
+from ....infrastructure.llm import LLMConfig
+from ....domain.phi_identification_models import PHIIdentificationConfig
 
 
 class DeidentificationEngine:
@@ -237,10 +238,20 @@ class DeidentificationEngine:
         )
         
         # Create PHI identification chain
-        self._phi_chain = create_phi_identification_chain(
+        llm_config = LLMConfig(
+            provider=self.config.llm_provider,
+            model_name=self.config.llm_model,
+            temperature=0.0
+        )
+        phi_config = PHIIdentificationConfig(
+            llm_config=llm_config,
+            retrieve_regulation_context=self.config.use_rag
+        )
+        self._phi_chain = PHIIdentificationChain(
             regulation_chain=self._regulation_chain,
-            llm_provider=self.config.llm_provider,
-            model_name=self.config.llm_model
+            config=phi_config,
+            chunk_size=500,
+            chunk_overlap=50
         )
         
         # Update pipeline handlers with initialized chains

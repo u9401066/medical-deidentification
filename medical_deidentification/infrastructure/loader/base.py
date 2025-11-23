@@ -9,6 +9,7 @@ Defines abstract interfaces and common data structures for all document loaders.
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
+from datetime import datetime
 from loguru import logger
 
 # Import domain models

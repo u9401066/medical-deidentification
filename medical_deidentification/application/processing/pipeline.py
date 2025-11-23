@@ -268,7 +268,7 @@ class DeidentificationPipeline:
 def create_document_loading_handler(loader_factory):
     """Create document loading stage handler"""
     def handler(context: ProcessingContext) -> StageResult:
-        result = StageResult(stage=PipelineStage.DOCUMENT_LOADING)
+        result = StageResult(stage=PipelineStage.DOCUMENT_LOADING, success=False)
         
         try:
             # Document loading logic here
@@ -286,7 +286,7 @@ def create_document_loading_handler(loader_factory):
 def create_language_detection_handler():
     """Create language detection stage handler"""
     def handler(context: ProcessingContext) -> StageResult:
-        result = StageResult(stage=PipelineStage.LANGUAGE_DETECTION)
+        result = StageResult(stage=PipelineStage.LANGUAGE_DETECTION, success=False)
         
         try:
             # Language detection logic
@@ -315,7 +315,7 @@ def create_language_detection_handler():
 def create_validation_handler():
     """Create validation stage handler"""
     def handler(context: ProcessingContext) -> StageResult:
-        result = StageResult(stage=PipelineStage.VALIDATION)
+        result = StageResult(stage=PipelineStage.VALIDATION, success=False)
         
         try:
             # Validation logic

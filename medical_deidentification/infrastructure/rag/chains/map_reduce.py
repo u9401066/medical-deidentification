@@ -184,8 +184,12 @@ def identify_phi_with_map_reduce(
     current_pos = 0
     
     for i, chunk in enumerate(chunks):
-        logger.debug(
-            f"MapReduce Map {i+1}/{len(chunks)}: "
+        import time
+        chunk_start = time.time()
+        
+        progress_pct = (i / len(chunks)) * 100
+        logger.info(
+            f"MapReduce Map {i+1}/{len(chunks)} ({progress_pct:.1f}%): "
             f"Processing chunk at pos {current_pos} ({len(chunk)} chars)"
         )
         
@@ -194,12 +198,17 @@ def identify_phi_with_map_reduce(
             # The chain will apply prompt template and call LLM
             detection_response = map_chain.invoke({"page_content": chunk})
             
+            # Calculate performance metrics
+            chunk_duration = time.time() - chunk_start
+            tokens_per_sec = len(chunk.split()) / chunk_duration if chunk_duration > 0 else 0
+            
             # Store result with position info
             chunk_results.append((detection_response, current_pos, chunk))
             
-            logger.debug(
+            logger.info(
                 f"MapReduce Map {i+1}/{len(chunks)}: "
-                f"Found {len(detection_response.entities)} PHI entities"
+                f"Found {len(detection_response.entities)} PHI entities "
+                f"({chunk_duration:.2f}s, {tokens_per_sec:.1f} tokens/sec)"
             )
             
         except Exception as e:
@@ -217,9 +226,18 @@ def identify_phi_with_map_reduce(
         current_pos += len(chunk)
     
     # 4. Reduce stage: Merge results (pure data processing, no LLM)
-    logger.debug(f"MapReduce Reduce: Merging {len(chunk_results)} chunk results")
+    logger.info(f"MapReduce Reduce: Merging {len(chunk_results)} chunk results...")
+    
+    # Calculate overall statistics
+    total_chunks = len(chunks)
+    successful_chunks = len([r for r in chunk_results if r[0].entities])
+    total_phi_found = sum(len(r[0].entities) for r in chunk_results)
+    
     entities = merge_phi_results(chunk_results, text)
     
-    logger.success(f"MapReduce complete: {len(entities)} PHI entities identified")
+    logger.success(
+        f"MapReduce complete: {len(entities)} unique PHI entities identified "
+        f"({total_phi_found} raw detections from {successful_chunks}/{total_chunks} chunks)"
+    )
     
     return entities
