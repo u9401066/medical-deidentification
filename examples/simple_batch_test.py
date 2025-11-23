@@ -37,7 +37,6 @@ def main():
     
     # 測試文件（使用之前成功的測試檔案）
     test_file = Path("data/test/test_complex_phi_cases.xlsx")
-    output_file = Path("test_output/simple_batch_result.xlsx")
     
     if not test_file.exists():
         logger.error(f"❌ 測試文件不存在: {test_file}")
@@ -150,11 +149,13 @@ def main():
             else:
                 logger.error(f"  Row {row_result.row_number}: ❌ {row_result.error_message}")
         
-        # 保存結果
+        # 保存結果（使用 OutputManager 自動管理路徑和報告）
         if result.processed_rows > 0:
-            output_file.parent.mkdir(parents=True, exist_ok=True)
-            save_batch_results([result], str(output_file))
-            logger.info(f"\n✓ 結果已保存: {output_file}")
+            saved_paths = save_batch_results([result], generate_report=True)
+            logger.info(f"\n✓ 結果已保存:")
+            logger.info(f"  Excel: {saved_paths.get('result')}")
+            if 'report' in saved_paths:
+                logger.info(f"  Report: {saved_paths.get('report')}")
         
         return 0
         

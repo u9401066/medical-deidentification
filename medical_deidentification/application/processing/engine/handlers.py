@@ -11,6 +11,8 @@ from loguru import logger
 
 from ..context import ProcessingContext, RegulationContext
 from ..pipeline import StageResult, PipelineStage
+from ..output_manager import OutputManager, get_default_output_manager
+from ..report_generator import ReportGenerator
 from ....domain import PHIEntity
 from ....infrastructure.rag import (
     RegulationRetrievalChain,
@@ -36,7 +38,8 @@ class PipelineHandlers:
         regulation_chain: Optional[RegulationRetrievalChain] = None,
         phi_chain: Optional[PHIIdentificationChain] = None,
         masking_processor: Optional[MaskingProcessor] = None,
-        use_rag: bool = True
+        use_rag: bool = True,
+        output_manager: Optional[OutputManager] = None
     ):
         """
         Initialize pipeline handlers
@@ -46,11 +49,14 @@ class PipelineHandlers:
             phi_chain: PHI identification chain
             masking_processor: Masking processor
             use_rag: Whether to use RAG for PHI identification
+            output_manager: Output manager for file paths and reports
         """
         self.regulation_chain = regulation_chain
         self.phi_chain = phi_chain
         self.masking_processor = masking_processor
         self.use_rag = use_rag
+        self.output_manager = output_manager or get_default_output_manager()
+        self.report_generator = ReportGenerator(output_manager=self.output_manager)
     
     def create_regulation_retrieval_handler(self) -> Callable:
         """
@@ -244,12 +250,19 @@ class PipelineHandlers:
             )
             
             try:
-                # Output generation logic
-                # In production, this would format and export results
-                result.output["output_generated"] = True
-                result.mark_completed(success=True)
+                # Generate output paths based on job_id
+                result_path = self.output_manager.get_result_path(
+                    f"deidentified_{context.job_id}",
+                    "xlsx"
+                )
                 
-                logger.success("Output generation completed")
+                # Store output path in context for engine to use
+                result.output["result_path"] = str(result_path)
+                result.output["reports_dir"] = str(self.output_manager.reports_dir)
+                result.output["output_generated"] = True
+                
+                result.mark_completed(success=True)
+                logger.success(f"✓ Output paths configured: {result_path}")
             
             except Exception as e:
                 logger.error(f"Output generation failed: {e}")

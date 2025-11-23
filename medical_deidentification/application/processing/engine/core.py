@@ -19,6 +19,8 @@ from .masking import MaskingProcessor
 from ..context import ProcessingContext, DocumentContext
 from ..pipeline import DeidentificationPipeline, PipelineStage, StageResult, create_language_detection_handler, create_validation_handler
 from ..strategies import create_masking_strategy, get_default_strategy_for_phi_type, MaskingStrategy
+from ..output_manager import OutputManager, OutputConfig
+from ..report_generator import ReportGenerator
 
 from ....domain import PHIType
 from ....infrastructure.loader import DocumentLoaderFactory
@@ -93,6 +95,14 @@ class DeidentificationEngine:
         """
         self.config = config or EngineConfig()
         
+        # Initialize output manager and report generator
+        output_config = OutputConfig(
+            base_dir=Path(self.config.output_base_dir) if hasattr(self.config, 'output_base_dir') 
+                     else Path("data/output")
+        )
+        self.output_manager = OutputManager(config=output_config)
+        self.report_generator = ReportGenerator(output_manager=self.output_manager)
+        
         # Initialize document loader
         self.loader_factory = DocumentLoaderFactory(
             default_config=self.config.loader_config
@@ -122,7 +132,7 @@ class DeidentificationEngine:
         self.strategies: Dict[PHIType, MaskingStrategy] = {}
         self._setup_strategies()
         
-        logger.info("DeidentificationEngine initialized")
+        logger.info(f"DeidentificationEngine initialized with output: {self.output_manager.base_dir}")
     
     def _setup_pipeline(self) -> None:
         """Setup pipeline stages"""
@@ -131,7 +141,8 @@ class DeidentificationEngine:
             regulation_chain=self._regulation_chain,
             phi_chain=self._phi_chain,
             masking_processor=self._masking_processor,
-            use_rag=self.config.use_rag
+            use_rag=self.config.use_rag,
+            output_manager=self.output_manager
         )
         
         # Add stage handlers

@@ -121,7 +121,8 @@ def example_2_process_single_file(engine):
     logger.info("Example 2: Process Single File")
     logger.info("="*80)
     
-    test_file = Path("data/test/test_complex_phi_cases.xlsx")
+    test_file = Path("data/test/test_phi_tagged_cases.xlsx")
+    #data/test/test_complex_phi_cases.xlsx
     
     if not test_file.exists():
         logger.error(f"Test file not found: {test_file}")
@@ -169,6 +170,10 @@ def example_2_process_single_file(engine):
         for i, error in enumerate(result.errors[:3], 1):
             logger.error(f"  {i}. {error.get('type')}: {error.get('message', '')[:100]}")
     
+    logger.info(f"\n📁 輸出管理由 Engine 自動處理:")
+    logger.info(f"  結果資料夾: {engine.output_manager.results_dir}")
+    logger.info(f"  報告資料夾: {engine.output_manager.reports_dir}")
+    
     return result
 
 
@@ -213,6 +218,10 @@ def example_3_multiple_files(engine):
     logger.info(f"  Total PHI: {result.total_phi_entities}")
     logger.info(f"  Total time: {result.duration_seconds:.2f}s")
     logger.info(f"  Avg per file: {result.duration_seconds/result.total_documents:.2f}s")
+    
+    logger.info(f"\n📁 批次輸出管理由 Engine 自動處理:")
+    logger.info(f"  結果資料夾: {engine.output_manager.results_dir}")
+    logger.info(f"  報告資料夾: {engine.output_manager.reports_dir}")
     
     return result
 
@@ -323,8 +332,9 @@ def main():
         logger.success("="*80)
         logger.info("\n下一步建議:")
         logger.info("  1. 查看 logs/ 目錄中的完整日誌了解 pipeline 執行細節")
-        logger.info("  2. Engine 適合用於配置管理和 workflow 編排")
-        logger.info("  3. 新架構使用 LangChain Runnable + Ollama structured output")
+        logger.info("  2. Engine 自動管理輸出路徑（data/output/results/, data/output/reports/）")
+        logger.info("  3. Engine 適合用於配置管理和 workflow 編排")
+        logger.info("  4. 新架構使用 LangChain Runnable + Ollama structured output")
         
     except Exception as e:
         logger.exception(f"Example failed: {e}")

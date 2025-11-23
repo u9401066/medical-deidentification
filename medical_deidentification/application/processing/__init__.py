@@ -56,6 +56,21 @@ from .batch_processor import (
     save_batch_results
 )
 
+from .output_manager import (
+    OutputManager,
+    OutputConfig,
+    get_default_output_manager,
+    set_default_output_manager,
+    get_result_path,
+    get_report_path
+)
+
+from .report_generator import (
+    ReportGenerator,
+    generate_batch_report,
+    save_batch_report
+)
+
 __all__ = [
     # Engine
     "DeidentificationEngine",
@@ -91,4 +106,17 @@ __all__ = [
     "BatchProcessingResult",
     "RowProcessingResult",
     "save_batch_results",
+    
+    # Output Management
+    "OutputManager",
+    "OutputConfig",
+    "get_default_output_manager",
+    "set_default_output_manager",
+    "get_result_path",
+    "get_report_path",
+    
+    # Report Generation
+    "ReportGenerator",
+    "generate_batch_report",
+    "save_batch_report",
 ]

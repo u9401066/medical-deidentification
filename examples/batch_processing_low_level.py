@@ -8,7 +8,6 @@ Demonstrates using BatchPHIProcessor for detailed control and statistics.
 
 import sys
 from pathlib import Path
-from datetime import datetime
 
 # Import and configure logging from package
 from medical_deidentification.infrastructure.utils import configure_logging
@@ -47,7 +46,6 @@ def main():
     
     # 測試文件路徑
     test_file = Path("data/test/test_complex_phi_cases.xlsx")
-    output_file = Path("test_results_batch_processor.xlsx")
     
     # Ollama配置（使用本地llama3.1:8b模型，啟用GPU加速）
     llm_config = LLMConfig(
@@ -115,8 +113,9 @@ def main():
     
     # ============= 輸出結果 =============
     
-    # 儲存詳細結果到Excel
-    save_batch_results([result], str(output_file))
+    # 儲存詳細結果到 Excel 和生成報告
+    # save_batch_results 會自動使用 OutputManager 管理路徑
+    saved_paths = save_batch_results([result], generate_report=True)
     
     # 計算 token 統計
     # 估算總輸入 tokens（所有處理的文本）
@@ -173,7 +172,10 @@ def main():
     print(f"Min:  {confidence_stats['min']:.2%}")
     print(f"Max:  {confidence_stats['max']:.2%}")
     
-    print(f"\nResults saved to: {output_file}")
+    print(f"\n✅ 結果已儲存:")
+    print(f"  Excel: {saved_paths.get('result')}")
+    if 'report' in saved_paths:
+        print(f"  Report: {saved_paths.get('report')}")
 
 
 if __name__ == "__main__":
