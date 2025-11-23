@@ -96,8 +96,13 @@ def validate_entity(
     retrieve_evidence: bool = False
 ) -> Dict[str, Any]:
     """
-    Validate if an entity is actually PHI according to regulations
-    根據法規驗證實體是否確實為 PHI
+    Validate if an entity is actually PHI according to regulations using LangChain
+    使用 LangChain 根據法規驗證實體是否確實為 PHI
+    
+    Uses LangChain chain for validation:
+    1. Retrieve regulation documents
+    2. Build validation prompt with chain
+    3. Parse structured response
     
     Args:
         entity_text: The entity text to validate
@@ -109,6 +114,9 @@ def validate_entity(
     Returns:
         Validation result with should_mask, confidence, evidence
     """
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.output_parsers import JsonOutputParser
+    
     result = {
         "entity_text": entity_text,
         "phi_type": phi_type,
@@ -130,27 +138,33 @@ def validate_entity(
                 for doc in regulation_docs
             ]
             
-            # Use LLM to validate
-            validation_prompt_template = get_phi_validation_prompt()
-            validation_prompt = validation_prompt_template.format(
-                entity_text=entity_text,
-                phi_type=phi_type,
-                regulations="\n".join([doc.page_content for doc in regulation_docs])
+            # Build validation chain using LangChain
+            validation_prompt_text = get_phi_validation_prompt()
+            
+            # Create ChatPromptTemplate
+            prompt = ChatPromptTemplate.from_template(validation_prompt_text)
+            
+            # Build chain: prompt → LLM → JSON parser
+            validation_chain = (
+                prompt
+                | llm
+                | JsonOutputParser()
             )
             
-            # Use invoke() for compatibility with all LangChain chat models
-            response = llm.invoke(validation_prompt)
-            llm_response = response.content if hasattr(response, 'content') else str(response)
+            # Invoke chain with parameters
+            validation = validation_chain.invoke({
+                "entity_text": entity_text,
+                "phi_type": phi_type,
+                "regulations": "\n".join([doc.page_content for doc in regulation_docs])
+            })
             
-            # Parse validation result
-            validation = json.loads(llm_response)
             result["should_mask"] = validation.get("should_mask", False)
             result["confidence"] = validation.get("confidence", 0.0)
             result["reason"] = validation.get("reason", "")
             
         except json.JSONDecodeError:
-            logger.warning("Failed to parse LLM validation response")
+            logger.warning("Failed to parse LLM validation response from chain")
         except Exception as e:
-            logger.error(f"Entity validation failed: {e}")
+            logger.error(f"Entity validation with LangChain chain failed: {e}")
     
     return result

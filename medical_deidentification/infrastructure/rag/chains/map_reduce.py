@@ -2,9 +2,9 @@
 MapReduce Pattern for PHI Identification
 PHI 識別的 MapReduce 模式
 
-Implements MapReduce pattern for processing long medical texts:
-- Map stage: Extract PHI from each text chunk
-- Reduce stage: Merge and deduplicate results
+Implements MapReduce pattern using LangChain for processing long medical texts:
+- Map stage: Extract PHI from each text chunk using chain
+- Reduce stage: Merge and deduplicate results (pure data processing)
 """
 
 from typing import List, Tuple, Optional
@@ -12,19 +12,27 @@ from dataclasses import replace
 from loguru import logger
 
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import Runnable
 
 from ....domain import PHIEntity
 from ....domain.phi_identification_models import (
     PHIIdentificationResult,
     PHIDetectionResponse,
 )
+from ...prompts import get_phi_map_reduce_prompt, get_system_message
 from .utils import deduplicate_entities
 
 
-def build_map_chain(llm):
+def build_map_chain(llm) -> Runnable:
     """
-    Build Map chain for MapReduce pattern
-    為 MapReduce 模式構建 Map chain
+    Build Map chain for MapReduce pattern using centralized prompts
+    使用集中化 prompts 為 MapReduce 模式構建 Map chain
+    
+    This is a LangChain Runnable that:
+    1. Takes chunk text as input
+    2. Applies prompt template
+    3. Invokes LLM with structured output
+    4. Returns PHIDetectionResponse
     
     Map stage: Extract PHI entities from single chunk (NOT full text)
     Map 階段：從單個 chunk 提取 PHI 實體（不包含完整文本）
@@ -33,32 +41,27 @@ def build_map_chain(llm):
         llm: Language model with structured output support
         
     Returns:
-        LangChain chain that outputs PHIDetectionResponse
+        LangChain Runnable that outputs PHIDetectionResponse
     """
-    # Create minimal prompt for map stage
+    # Get prompt template from centralized prompts module
+    prompt_text = get_phi_map_reduce_prompt()
+    system_message = get_system_message("phi_expert")
+    
+    # Create ChatPromptTemplate using LangChain
     map_prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are a PHI identification expert. 
-Extract ONLY PHI entities from the medical text, not the full text.
-
-Identify these PHI types:
-- Names (patients, doctors, family members)
-- Dates (birth, admission, discharge, death)
-- Locations (addresses, cities, hospital names)
-- Contact info (phone, email, fax)
-- IDs (SSN, medical record number, account numbers)
-- Ages over 89 years"""),
-        ("user", """Identify all PHI in this medical text section:
-
-{page_content}
-
-Return ONLY the PHI entities found.""")
+        ("system", system_message),
+        ("user", prompt_text)
     ])
     
-    # Map chain: prompt → LLM with structured output
-    return (
+    # Build chain: prompt → LLM with structured output
+    # This creates a Runnable that can be invoked with {"page_content": "..."}
+    map_chain: Runnable = (
         map_prompt 
         | llm.with_structured_output(PHIDetectionResponse)
     )
+    
+    logger.debug("Built MapReduce map chain with centralized prompt and LangChain Runnable")
+    return map_chain
 
 
 def merge_phi_results(
@@ -72,12 +75,18 @@ def merge_phi_results(
     This is pure data processing - NO LLM calls needed
     這是純數據處理 - 不需要 LLM 調用
     
+    Process:
+    1. Iterate through all chunk results
+    2. Convert PHIIdentificationResult to PHIEntity
+    3. Adjust positions from chunk-relative to absolute
+    4. Deduplicate overlapping entities
+    
     Args:
         chunk_results: List of (detection_response, chunk_start_pos, chunk_text)
-        original_text: Original full text
+        original_text: Original full text for position verification
         
     Returns:
-        List of PHI entities with adjusted positions
+        List of PHIEntity with absolute positions
     """
     all_entities = []
     
@@ -102,7 +111,7 @@ def merge_phi_results(
                 # Verify entity exists at calculated position
                 if (absolute_start < len(original_text) and 
                     original_text[absolute_start:absolute_end] == entity_text):
-                    # Create adjusted entity
+                    # Create adjusted entity with absolute positions
                     adjusted_entity = replace(
                         entity,
                         start_pos=absolute_start,
@@ -127,7 +136,7 @@ def merge_phi_results(
             else:
                 logger.warning(f"Could not find entity '{entity_text[:30]}...' in chunk")
     
-    # Deduplicate entities (same text at same position)
+    # Deduplicate entities (same text at overlapping positions)
     unique_entities = deduplicate_entities(all_entities)
     
     logger.debug(
@@ -142,36 +151,35 @@ def identify_phi_with_map_reduce(
     llm,
     medical_retriever,
     language: Optional[str] = None
-) -> Tuple[List[PHIEntity], List[PHIIdentificationResult]]:
+) -> List[PHIEntity]:
     """
-    Process long text using MapReduce pattern
-    使用 MapReduce 模式處理長文本
+    Process long text using MapReduce pattern with LangChain
+    使用 LangChain 的 MapReduce 模式處理長文本
     
     Flow:
-    1. Split text into chunks
-    2. Map: Process each chunk → PHI entities (parallel-ready)
+    1. Split text into chunks (via medical_retriever)
+    2. Map: Build chain and process each chunk → PHI entities (parallel-ready)
     3. Reduce: Merge all PHI lists, deduplicate, adjust positions
-    4. Convert back to raw results
     
     Args:
         text: Medical text to process
         llm: Language model
-        medical_retriever: Text retriever for chunking
-        language: Language code (optional)
+        medical_retriever: MedicalTextRetriever for chunking
+        language: Language code (optional, for future multilingual support)
         
     Returns:
-        (entities, raw_results) tuple
+        List of PHIEntity with absolute positions
     """
-    logger.info(f"MapReduce: Processing {len(text)} chars")
+    logger.info(f"MapReduce: Processing {len(text)} chars with LangChain")
     
     # 1. Split text into chunks
     chunks = medical_retriever._split_text(text)
     logger.info(f"MapReduce: Split into {len(chunks)} chunks")
     
-    # 2. Build map chain
+    # 2. Build map chain (LangChain Runnable)
     map_chain = build_map_chain(llm)
     
-    # 3. Map stage: Process each chunk
+    # 3. Map stage: Process each chunk using the chain
     chunk_results = []
     current_pos = 0
     
@@ -182,7 +190,8 @@ def identify_phi_with_map_reduce(
         )
         
         try:
-            # Invoke map chain with chunk content
+            # Invoke LangChain Runnable with chunk content
+            # The chain will apply prompt template and call LLM
             detection_response = map_chain.invoke({"page_content": chunk})
             
             # Store result with position info
@@ -207,32 +216,10 @@ def identify_phi_with_map_reduce(
         # Update position for next chunk
         current_pos += len(chunk)
     
-    # 4. Reduce stage: Merge results
+    # 4. Reduce stage: Merge results (pure data processing, no LLM)
     logger.debug(f"MapReduce Reduce: Merging {len(chunk_results)} chunk results")
     entities = merge_phi_results(chunk_results, text)
     
-    # 5. Convert back to raw results (for backward compatibility)
-    raw_results = []
-    for entity in entities:
-        # Convert PHIEntity back to PHIIdentificationResult
-        raw_result = PHIIdentificationResult(
-            entity_text=entity.text,
-            phi_type=entity.type,
-            custom_type_name=entity.custom_type.name if entity.custom_type else None,
-            custom_type_description=entity.custom_type.description if entity.custom_type else None,
-            start_position=entity.start_pos,
-            end_position=entity.end_pos,
-            confidence=entity.confidence,
-            reason=entity.reason,
-            regulation_source=entity.regulation_source,
-            masking_action=None,
-            is_custom_from_regulation=False,
-        )
-        raw_results.append(raw_result)
+    logger.success(f"MapReduce complete: {len(entities)} PHI entities identified")
     
-    logger.success(
-        f"MapReduce complete: {len(entities)} unique PHI entities "
-        f"from {len(chunks)} chunks"
-    )
-    
-    return entities, raw_results
+    return entities

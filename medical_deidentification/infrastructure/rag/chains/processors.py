@@ -1,11 +1,11 @@
 """
-PHI Identification Processors
-PHI 識別處理器
+PHI Identification Processors using LangChain
+PHI 識別處理器使用 LangChain
 
-Core processors for PHI identification:
-- Direct processing (short texts)
-- Structured output processing (Ollama native)
-- JSON fallback processing
+Core processors for PHI identification, all returning LangChain Runnables:
+- Direct processing chain (short texts)
+- Structured output processing chain (Ollama native)
+- JSON fallback processing chain
 """
 
 from typing import List, Tuple, Dict, Any, Optional
@@ -13,12 +13,70 @@ import json
 import re
 from loguru import logger
 
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import Runnable
+from langchain_core.output_parsers import StrOutputParser
+
 from ....domain import PHIEntity
 from ....domain.phi_identification_models import (
     PHIIdentificationResult,
     PHIDetectionResponse,
 )
-from ...prompts import get_phi_identification_prompt
+from ...prompts import get_phi_identification_prompt, get_system_message
+
+
+def build_phi_identification_chain(
+    llm,
+    language: Optional[str] = None,
+    use_structured_output: bool = True
+) -> Runnable:
+    """
+    Build PHI identification chain using LangChain
+    使用 LangChain 構建 PHI 識別 chain
+    
+    Args:
+        llm: Language model
+        language: Language code (optional)
+        use_structured_output: Whether to use structured output
+        
+    Returns:
+        LangChain Runnable that takes {"context": str, "text": str}
+        and outputs PHIDetectionResponse or string
+    """
+    # Get prompt template from centralized prompts module
+    prompt_template_text = get_phi_identification_prompt(
+        language=language or "en",
+        structured=use_structured_output
+    )
+    system_message = get_system_message("phi_expert", language=language or "en")
+    
+    # Create ChatPromptTemplate
+    if use_structured_output:
+        # Structured prompt expects {context} and {text}
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_message),
+            ("user", prompt_template_text)
+        ])
+        
+        # Build chain with structured output
+        chain = (
+            prompt
+            | llm.with_structured_output(PHIDetectionResponse)
+        )
+    else:
+        # Non-structured prompt expects {context} and {question}
+        # Note: prompt_template_text already has {context} and {question} placeholders
+        prompt = ChatPromptTemplate.from_template(prompt_template_text)
+        
+        # Build chain with string output
+        chain = (
+            prompt
+            | llm
+            | StrOutputParser()
+        )
+    
+    logger.debug(f"Built PHI identification chain (structured={use_structured_output}, language={language})")
+    return chain
 
 
 def identify_phi_structured(
@@ -28,8 +86,8 @@ def identify_phi_structured(
     language: Optional[str] = None
 ) -> Tuple[List[PHIEntity], List[PHIIdentificationResult]]:
     """
-    Identify PHI using structured output (Ollama native or LangChain)
-    使用結構化輸出識別 PHI（Ollama 原生或 LangChain）
+    Identify PHI using structured output chain
+    使用結構化輸出 chain 識別 PHI
     
     Args:
         text: Medical text to analyze
@@ -40,15 +98,8 @@ def identify_phi_structured(
     Returns:
         Tuple of (PHIEntity list, PHIIdentificationResult list)
     """
-    # Get prompt template
-    prompt_template = get_phi_identification_prompt(
-        language=language or "en",
-        structured=True
-    )
-    prompt = prompt_template.format(context=context, text=text)
-    
     try:
-        # Check if using Ollama (check model name or endpoint)
+        # Check if using Ollama for native structured output
         if hasattr(llm, 'model') and 'llama' in str(llm.model).lower():
             try:
                 import ollama
@@ -58,13 +109,17 @@ def identify_phi_structured(
                 
                 logger.debug(f"Using Ollama native structured output with model: {model_name}")
                 
+                # Build prompt
+                prompt_text = get_phi_identification_prompt(language=language or "en", structured=True)
+                full_prompt = prompt_text.format(context=context, text=text)
+                
                 # Use Ollama native structured output with timeout
                 client = ollama.Client(host='http://localhost:11434', timeout=120.0)
                 response = client.chat(
                     model=model_name,
                     messages=[{
                         'role': 'user',
-                        'content': prompt
+                        'content': full_prompt
                     }],
                     format=PHIDetectionResponse.model_json_schema(),
                 )
@@ -85,10 +140,13 @@ def identify_phi_structured(
             except Exception as e:
                 logger.warning(f"Ollama native structured output failed: {e}, falling back to LangChain")
         
-        # Fallback to LangChain with_structured_output
-        logger.debug("Using LangChain with_structured_output")
-        llm_structured = llm.with_structured_output(PHIDetectionResponse)
-        detection_response: PHIDetectionResponse = llm_structured.invoke(prompt)
+        # Fallback to LangChain chain
+        logger.debug("Using LangChain structured output chain")
+        chain = build_phi_identification_chain(llm, language=language, use_structured_output=True)
+        detection_response: PHIDetectionResponse = chain.invoke({
+            "context": context,
+            "text": text
+        })
         
         # Convert to domain entities
         entities = [result.to_phi_entity() for result in detection_response.entities]
@@ -107,8 +165,8 @@ def identify_phi_json_fallback(
     language: Optional[str] = None
 ) -> Tuple[List[PHIEntity], List[PHIIdentificationResult]]:
     """
-    Fallback method using JSON parsing
-    降級方法使用 JSON 解析
+    Fallback method using JSON parsing chain
+    降級方法使用 JSON 解析 chain
     
     Args:
         text: Medical text to analyze
@@ -119,15 +177,17 @@ def identify_phi_json_fallback(
     Returns:
         Tuple of (PHIEntity list, PHIIdentificationResult list)
     """
-    prompt_template = get_phi_identification_prompt(language=language or "en")
-    prompt = prompt_template.format(context=context, question=text)
-    
     response_text = ""  # Initialize for error logging
     try:
-        # Use invoke() for compatibility with all LangChain chat models
-        response = llm.invoke(prompt)
-        # Get content from response
-        response_text = response.content if hasattr(response, 'content') else str(response)
+        # Build chain with string output
+        chain = build_phi_identification_chain(llm, language=language, use_structured_output=False)
+        
+        # Invoke chain
+        # Note: non-structured prompt uses {context} and {question}
+        response_text = chain.invoke({
+            "context": context,
+            "question": text
+        })
         
         # Clean markdown code blocks (```json ... ``` or ``` ... ```)
         response_text = re.sub(r'^```(?:json)?\s*', '', response_text.strip())
@@ -166,8 +226,13 @@ def identify_phi_direct(
     return_entities: bool = True
 ) -> Dict[str, Any]:
     """
-    Direct PHI identification for short texts
-    短文本的直接 PHI 識別
+    Direct PHI identification for short texts using LangChain
+    使用 LangChain 進行短文本的直接 PHI 識別
+    
+    This orchestrates the full workflow:
+    1. Retrieve regulation context (optional)
+    2. Build and invoke PHI identification chain
+    3. Package results
     
     Args:
         text: Medical text to analyze
@@ -206,7 +271,7 @@ def identify_phi_direct(
         # Use minimal context to reduce prompt length
         context = get_minimal_context_func()
     
-    # Step 2: Identify PHI using LLM
+    # Step 2: Identify PHI using LangChain chain
     if config.use_structured_output:
         entities, raw_results = identify_phi_structured(
             text=text,

@@ -360,3 +360,24 @@ This follows the principle: "Each module should export once, at the highest appr
 | 2025-11-22 | 移除 60+ 個未使用的套件以精簡依賴 | 分析代碼後發現多個套件類別完全未被使用：ChromaDB（我們用 FAISS）、Kubernetes、LangGraph（不用 agent）、FastAPI/Web（命令列工具）、PDF/文件處理、spaCy/NLP。移除這些套件後從 260+ 減少到 200 個套件，大幅降低依賴複雜度，且所有 import 仍正常運作 |
 | 2025-11-23 | Implement MapReduce pattern for PHI identification to fix Ollama timeout | Root cause analysis revealed the problem is NOT Ollama (works in 3-7 seconds for short prompts) but prompt length (1579 chars with 800-char context causes >150 second timeout). Current chain doesn't use LangChain mechanisms properly (no PromptTemplate, no token management, direct string concatenation). MapReduce solution: Map stage extracts PHI only from each chunk (~300-500 char prompts), Reduce stage merges results without LLM. This keeps individual requests short while processing long documents. |
 | 2025-11-23 | Fix CUSTOM PHI type validation to prevent "custom_type must be provided" errors | When LLM returns unknown PHI types (e.g., "身份證字號"), PHITypeMapper converts them to PHIType.CUSTOM but custom_type_name was not always set. Added fallback in normalize_phi_type validator to always ensure custom_type_name is populated (either from mapper or using original string). This prevents validation errors during PHI entity creation. |
+| 2025-11-23 | Modularize PHIIdentificationChain from 935 lines to 236 lines by extracting into chains/ submodule | Original phi_identification_chain.py violated Single Responsibility Principle with 16 methods (935 lines). Split into 4 specialized modules:
+1. chains/utils.py - Utility functions (context retrieval, entity deduplication, validation)
+2. chains/map_reduce.py - MapReduce pattern for long texts (3 functions: build_map_chain, merge_phi_results, identify_phi_with_map_reduce)
+3. chains/processors.py - Core processing logic (3 functions: identify_phi_structured, identify_phi_json_fallback, identify_phi_direct)
+4. chains/__init__.py - Unified exports
+
+Main class now only contains:
+- Public API (identify_phi)
+- Thin wrapper methods delegating to imported functions
+- Configuration and initialization
+
+Benefits:
+- 75% code reduction in main file (935 → 236 lines)
+- Single Responsibility Principle compliance
+- Improved testability (isolated functions)
+- Easier maintenance and extension
+- Better code organization
+
+Deleted obsolete code:
+- _old_identify_phi_chunked (replaced by MapReduce)
+- batch_identify (redundant with BatchPHIProcessor) |

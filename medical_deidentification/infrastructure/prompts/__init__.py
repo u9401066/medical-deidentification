@@ -46,6 +46,7 @@ from .templates import (
     PHI_IDENTIFICATION_STRUCTURED_PROMPT,
     PHI_VALIDATION_PROMPT,
     MASKING_STRATEGY_PROMPT,
+    PHI_MAP_REDUCE_PROMPT_V1,
     
     # System messages
     SYSTEM_MESSAGE_PHI_EXPERT,
@@ -71,6 +72,7 @@ from .templates import (
     get_phi_identification_prompt,
     get_phi_validation_prompt,
     get_masking_strategy_prompt,
+    get_phi_map_reduce_prompt,
     get_system_message,
     list_available_prompts,
     validate_prompt_format,
@@ -87,6 +89,7 @@ __all__ = [
     "PHI_IDENTIFICATION_STRUCTURED_PROMPT",
     "PHI_VALIDATION_PROMPT",
     "MASKING_STRATEGY_PROMPT",
+    "PHI_MAP_REDUCE_PROMPT_V1",
     
     # System messages
     "SYSTEM_MESSAGE_PHI_EXPERT",
@@ -112,6 +115,7 @@ __all__ = [
     "get_phi_identification_prompt",
     "get_phi_validation_prompt",
     "get_masking_strategy_prompt",
+    "get_phi_map_reduce_prompt",
     "get_system_message",
     "list_available_prompts",
     "validate_prompt_format",

@@ -31,6 +31,7 @@ class PromptType(str, Enum):
     PHI_IDENTIFICATION_STRUCTURED = "phi_identification_structured"
     PHI_VALIDATION = "phi_validation"
     MASKING_STRATEGY = "masking_strategy"
+    PHI_MAP_REDUCE = "phi_map_reduce"  # For MapReduce map stage
 
 
 class PromptLanguage(str, Enum):
@@ -193,6 +194,27 @@ PHI_IDENTIFICATION_PROMPT_ZH_TW = """您是一位醫療去識別化專家。根�
 
 
 # ============================================================================
+# MapReduce Map Stage Prompt | MapReduce Map 階段 Prompt
+# ============================================================================
+
+PHI_MAP_REDUCE_PROMPT_V1 = """You are a PHI identification expert. 
+Extract ONLY PHI entities from the medical text section, not the full text.
+
+Identify these PHI types:
+- Names (patients, doctors, family members)
+- Dates (birth, admission, discharge, death)
+- Locations (addresses, cities, hospital names)
+- Contact info (phone, email, fax)
+- IDs (SSN, medical record number, account numbers)
+- Ages over 89 years
+
+Medical Text Section:
+{page_content}
+
+Return ONLY the PHI entities found."""
+
+
+# ============================================================================
 # System Messages | 系統訊息
 # ============================================================================
 
@@ -217,6 +239,11 @@ PROMPT_REGISTRY: Dict[str, Dict[str, str]] = {
     },
     "phi_identification_structured_v1": {
         "en": PHI_IDENTIFICATION_STRUCTURED_PROMPT_V1,
+    },
+    
+    # PHI MapReduce
+    "phi_map_reduce_v1": {
+        "en": PHI_MAP_REDUCE_PROMPT_V1,
     },
     
     # PHI Validation
@@ -352,6 +379,26 @@ def get_masking_strategy_prompt(
         Prompt template
     """
     return get_prompt("masking_strategy", language=language, version=version)
+
+
+def get_phi_map_reduce_prompt(
+    language: str = "en",
+    version: str = "v1"
+) -> str:
+    """
+    Get PHI MapReduce map stage prompt
+    
+    Args:
+        language: Language code
+        version: Prompt version
+    
+    Returns:
+        Prompt template for MapReduce map stage
+    
+    Examples:
+        >>> prompt = get_phi_map_reduce_prompt()
+    """
+    return get_prompt("phi_map_reduce", language=language, version=version)
 
 
 def get_system_message(
