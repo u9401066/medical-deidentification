@@ -185,9 +185,7 @@ class ReportGenerator:
         total_rows = sum(r.total_rows for r in results if hasattr(r, 'total_rows'))
         processed_rows = sum(r.processed_rows for r in results if hasattr(r, 'processed_rows'))
         total_entities = sum(
-            r.total_entities if hasattr(r, 'total_entities')
-            else r.total_phi_entities if hasattr(r, 'total_phi_entities')
-            else 0
+            getattr(r, 'total_entities', 0) or getattr(r, 'total_phi_entities', 0)
             for r in results
         )
         
@@ -314,7 +312,7 @@ class ReportGenerator:
             "text_length": row_result.text_length,
             "entities": [
                 {
-                    "type": e.phi_type.value if hasattr(e.phi_type, 'value') else str(e.phi_type),
+                    "type": e.type.value if hasattr(e.type, 'value') else str(e.type),
                     "text": e.text,
                     "start": e.start_pos,
                     "end": e.end_pos,
