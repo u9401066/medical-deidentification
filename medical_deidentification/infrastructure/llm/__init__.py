@@ -37,6 +37,8 @@ from .config import (
     LLMPresets,
     OPENAI_MODELS,
     ANTHROPIC_MODELS,
+    OLLAMA_MODELS,
+    MINIMIND_MODELS,
 )
 
 # Factory
@@ -62,6 +64,8 @@ __all__ = [
     "LLMPresets",
     "OPENAI_MODELS",
     "ANTHROPIC_MODELS",
+    "OLLAMA_MODELS",
+    "MINIMIND_MODELS",
     
     # Factory
     "create_llm",

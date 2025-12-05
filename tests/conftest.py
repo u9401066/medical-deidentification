@@ -8,12 +8,14 @@ Shared fixtures and configuration for all tests.
 import pytest
 from typing import Generator
 
-from medical_deidentification.domain.models import (
+from medical_deidentification.domain import (
     MedicalDocument,
     DocumentMetadata,
     PHIEntity,
     PHIType,
     SupportedLanguage,
+    ValidationResult,
+    RegulationContext,
 )
 
 

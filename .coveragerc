@@ -1,0 +1,51 @@
+# .coveragerc - Coverage 配置
+
+[run]
+# 要測量的源碼目錄
+source = medical_deidentification
+
+# 要忽略的目錄/檔案
+omit = 
+    */tests/*
+    */__pycache__/*
+    */.venv/*
+    */site-packages/*
+    */__init__.py
+
+# 分支覆蓋率
+branch = True
+
+# 並行模式
+parallel = True
+
+[report]
+# 排除的行
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstractmethod
+    @abc.abstractmethod
+    pass
+
+# 顯示缺失的行
+show_missing = True
+
+# 精確度
+precision = 2
+
+# 忽略錯誤
+ignore_errors = True
+
+# 失敗閾值 (低於此百分比會失敗)
+# fail_under = 60
+
+[html]
+# HTML 報告目錄
+directory = coverage_html_report
+
+[xml]
+# XML 報告輸出
+output = coverage.xml

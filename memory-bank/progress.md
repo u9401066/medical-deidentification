@@ -2,10 +2,12 @@
 
 ## Done
 
-- DDD Architecture Refactoring - moved output/report modules to infrastructure layer
-- Updated all imports to use infrastructure.output
-- Added backward compatibility re-exports
-- Pushed to GitHub
+- MiniMind LLM integration (config.py updated)
+- Documentation restructure: new README.md, ARCHITECTURE.md, DEPLOYMENT.md
+- Deleted outdated diagnostic reports
+- Renamed docs for consistent kebab-case naming
+- Updated all GitHub URLs to u9401066
+- Pushed documentation changes to GitHub
 
 ## Doing
 
@@ -13,5 +15,6 @@
 
 ## Next
 
-- Add unit tests for output management
-- Implement additional report formats (HTML, PDF)
+- Add GitHub Actions CI/CD
+- Add Web UI
+- Improve performance
