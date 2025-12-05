@@ -36,11 +36,11 @@
 在本地倉庫執行：
 
 ```bash
-# 添加 GitHub 遠端倉庫（替換 YOUR_USERNAME）
-git remote add origin https://github.com/YOUR_USERNAME/medical-deidentification.git
+# 添加 GitHub 遠端倉庫
+git remote add origin https://github.com/u9401066/medical-deidentification.git
 
 # 或如果使用 SSH
-git remote add origin git@github.com:YOUR_USERNAME/medical-deidentification.git
+git remote add origin git@github.com:u9401066/medical-deidentification.git
 
 # 推送到 GitHub
 git push -u origin master

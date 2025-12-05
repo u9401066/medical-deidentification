@@ -5,8 +5,8 @@ description = "LLM-powered medical text de-identification toolkit with RAG-enhan
 authors = ["Medical De-identification Contributors"]
 readme = "README.md"
 license = "MIT"
-homepage = "https://github.com/YOUR_USERNAME/medical-deidentification"
-repository = "https://github.com/YOUR_USERNAME/medical-deidentification"
+homepage = "https://github.com/u9401066/medical-deidentification"
+repository = "https://github.com/u9401066/medical-deidentification"
 keywords = ["medical", "deidentification", "phi", "hipaa", "nlp", "llm", "rag"]
 classifiers = [
     "Development Status :: 4 - Beta",
