@@ -56,7 +56,8 @@ class PHIIdentificationResult(BaseModel):
     entity_text: str = Field(
         description="The exact text from the document that was identified as PHI"
     )
-    phi_type: PHIType = Field(
+    phi_type: Optional[PHIType] = Field(
+        default=PHIType.NAME,
         description="PHI type enum (e.g., PHIType.NAME, PHIType.AGE_OVER_89)"
     )
     custom_type_name: Optional[str] = Field(
@@ -67,20 +68,24 @@ class PHIIdentificationResult(BaseModel):
         default=None,
         description="Description of custom PHI type"
     )
-    start_position: int = Field(
+    start_position: Optional[int] = Field(
+        default=0,
         ge=0,
         description="Character position where entity starts (0-indexed)"
     )
-    end_position: int = Field(
+    end_position: Optional[int] = Field(
+        default=0,
         ge=0,
         description="Character position where entity ends (exclusive)"
     )
-    confidence: float = Field(
+    confidence: Optional[float] = Field(
+        default=1.0,
         ge=0.0,
         le=1.0,
         description="Confidence level (0.0-1.0)"
     )
-    reason: str = Field(
+    reason: Optional[str] = Field(
+        default="Identified as PHI",
         description="Explanation of why this is PHI according to regulations"
     )
     regulation_source: Optional[str] = Field(
@@ -98,13 +103,16 @@ class PHIIdentificationResult(BaseModel):
     
     @field_validator('end_position')
     @classmethod
-    def validate_position_range(cls, v: int, info) -> int:
+    def validate_position_range(cls, v: Optional[int], info) -> Optional[int]:
         """
         Ensure end_position >= start_position
         確保結束位置 >= 起始位置
         """
-        if 'start_position' in info.data and v < info.data['start_position']:
-            raise ValueError('end_position must be >= start_position')
+        if v is None:
+            return 0
+        if 'start_position' in info.data and info.data.get('start_position') is not None:
+            if v < info.data['start_position']:
+                return info.data['start_position']  # Auto-fix instead of raising error
         return v
     
     @field_validator('custom_type_name')
@@ -170,13 +178,20 @@ class PHIIdentificationResult(BaseModel):
         Returns:
             PHIEntity: Immutable domain entity
         """
+        # Handle optional fields with defaults
+        phi_type = self.phi_type or PHIType.NAME
+        start_pos = self.start_position or 0
+        end_pos = self.end_position or 0
+        confidence = self.confidence if self.confidence is not None else 1.0
+        reason = self.reason or "Identified as PHI"
+        
         custom_type = None
-        if self.phi_type == PHIType.CUSTOM and self.custom_type_name:
+        if phi_type == PHIType.CUSTOM and self.custom_type_name:
             # CustomPHIType is a dataclass with all fields
             from dataclasses import replace
             custom_type = CustomPHIType(
                 name=self.custom_type_name,
-                description=self.custom_type_description or self.reason,
+                description=self.custom_type_description or reason,
                 pattern=None,
                 examples=[],
                 regulation_source=self.regulation_source,
@@ -186,12 +201,12 @@ class PHIIdentificationResult(BaseModel):
             )
         
         return PHIEntity(
-            type=self.phi_type,
+            type=phi_type,
             text=self.entity_text,
-            start_pos=self.start_position,
-            end_pos=self.end_position,
-            confidence=self.confidence,
-            reason=self.reason,
+            start_pos=start_pos,
+            end_pos=end_pos,
+            confidence=confidence,
+            reason=reason,
             regulation_source=self.regulation_source,
             custom_type=custom_type,
         )

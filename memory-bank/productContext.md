@@ -69,6 +69,14 @@ A Python-based medical text de-identification toolkit that leverages LLM/Agent t
 
 ## Architecture
 
+DDD (Domain-Driven Design) 架構：Interface → Application → Infrastructure → Domain 四層。新增 DSPy 整合層 (infrastructure/dspy/) 用於自動 prompt 優化，metrics.py 追蹤完整混淆矩陣 (TP/FP/FN)。評估腳本在 scripts/ 目錄下。
+
+
+
+DDD (Domain-Driven Design) with 4 layers. Hybrid PHI Detection Pipeline: Level 1 (Regex) → Level 2 (SpaCy NER) → Level 3 (Small LLM for uncertain regions). RAG for regulation retrieval. Multi-provider LLM support.
+
+
+
 DDD (Domain-Driven Design) with 4 layers: Domain (models, entities, configs), Application (batch processing, pipelines), Infrastructure (RAG, LLM, loaders), Interface (CLI). 6 core modules: (1) Document Loader - multi-format support, (2) RAG Regulation Engine - retrieves 'what to mask' from regulations, (3) Core Processing Engine - pipeline orchestration, (4) LLM Integration - multi-provider support, (5) Output Module - multiple export formats, (6) Validation Module - quality metrics.
 
 
@@ -117,6 +125,30 @@ rich = "^13.0"    # Terminal UI
 - Documentation: Inline docstrings (Google style) + MkDocs
 
 ## Technologies
+
+- Python 3.11+
+- LangChain
+- Ollama
+- DSPy
+- FAISS
+- SpaCy
+- Pydantic
+- Multiprocessing
+
+
+
+- Python 3.10
+- LangChain 1.0+
+- SpaCy 3.8+ (NER)
+- FAISS (vector store)
+- Ollama (local LLM)
+- Qwen2.5-0.5B/1.5B (fast LLM)
+- Qwen2.5-7B (precise LLM)
+- OpenAI GPT-4o (cloud)
+- HuggingFace Transformers
+- Pydantic 2.x
+
+
 
 - Python 3.11+
 - LangChain 1.0+
@@ -170,6 +202,34 @@ rich = "^13.0"    # Terminal UI
 
 
 ## Libraries and Dependencies
+
+- langchain
+- langchain-ollama
+- dspy-ai
+- faiss-cpu
+- spacy
+- pandas
+- openpyxl
+- pydantic
+- loguru
+- pytest
+
+
+
+- langchain==1.0.8
+- langchain-ollama==1.0.0
+- langchain-openai==1.0.3
+- langchain-anthropic==1.1.0
+- langchain-huggingface==1.0.1
+- spacy==3.8.11 (zh_core_web_sm model)
+- faiss-cpu==1.13.0
+- sentence-transformers==2.7.0
+- pydantic==2.12.4
+- pandas==2.3.3
+- loguru==0.7.3
+- ollama==0.6.1
+
+
 
 - langchain==1.0.8
 - langchain-anthropic==1.1.0
@@ -232,6 +292,14 @@ rich = "^13.0"    # Terminal UI
 
 
 ## Project Description
+
+Medical De-identification Toolkit - LLM/RAG 驅動的醫療文本去識別化工具，使用 DSPy 進行自動 prompt 優化，支援 HIPAA/GDPR 合規
+
+
+
+LLM-powered medical text de-identification toolkit with hybrid PHI detection (SpaCy + Regex + LLM). 基於混合策略的醫療文本去識別化工具套件，結合傳統 NER (SpaCy)、正則表達式和 LLM 技術。
+
+
 
 Python-based medical text de-identification toolkit using LLM/RAG technology to automatically identify and mask Protected Health Information (PHI) from clinical records. 基於 Python 的醫療文本去識別化工具套件，透過 LLM/RAG 技術自動識別並遮蔽個人健康資訊。
 

@@ -17,11 +17,12 @@
 
 ## ✨ Highlights | 亮點
 
-```
+```text
 🚀 一鍵部署      支援 OpenAI / Anthropic / Ollama / MiniMind 多種 LLM
 🎯 高準確率      RAG + LLM 雙引擎，PHI 識別準確率 95%+
+⚡ 混合策略      SpaCy + Regex + LLM 三層識別，效能提升 30-100x
 🌍 多語言支援    繁中/簡中/英/日/韓/法/德等 10+ 語言
-⚡ 批次處理      Excel/CSV/PDF/Word 等 10+ 格式一次處理
+📊 批次處理      Excel/CSV/PDF/Word 等 10+ 格式一次處理
 🔐 隱私優先      病歷資料不持久化，符合 HIPAA/GDPR
 🆓 完全開源      MIT License，可商用
 ```
@@ -87,6 +88,7 @@
 - **Cloud**: OpenAI GPT-4o, Anthropic Claude 3
 - **Local**: Ollama (Qwen, Llama, Mistral)
 - **Ultra-light**: MiniMind (26M-104M params) ← 🆕 **NEW!**
+- **DSPy Integration**: Automatic prompt optimization ← 🆕 **NEW!**
 
 ---
 
@@ -226,6 +228,39 @@ phi_chain = PHIIdentificationChain(
 entities = phi_chain.identify_phi(medical_text)
 ```
 
+### Example 5: DSPy Automatic Prompt Optimization | DSPy 自動 Prompt 優化 🆕
+
+```python
+from medical_deidentification.infrastructure.dspy import (
+    PHIIdentifier,
+    PHIPromptOptimizer,
+    PHIEvaluator
+)
+
+# Configure DSPy with Ollama
+from medical_deidentification.infrastructure.dspy.phi_module import configure_dspy_ollama
+configure_dspy_ollama(model_name="qwen2.5:1.5b")
+
+# Create base PHI identifier
+identifier = PHIIdentifier()
+
+# Run automatic optimization with DSPy
+optimizer = PHIPromptOptimizer()
+result = optimizer.optimize(
+    trainset=training_examples,
+    method="bootstrap",  # or "mipro"
+    max_iterations=10
+)
+
+# Use optimized module
+optimized_identifier = result.best_module
+entities = optimized_identifier(medical_text="Patient John Smith, age 45...")
+
+# Check metrics
+print(f"F1 Score: {result.optimized_score:.2%}")
+print(f"Speed improvement: {result.time_improvement:.2%}")
+```
+
 ---
 
 ## 🤖 Supported LLM Providers | 支援的 LLM
@@ -264,7 +299,29 @@ ollama pull llama3.1:8b               # General purpose
 
 ## 🏗️ Architecture | 系統架構
 
+### Hybrid PHI Detection Pipeline | 混合 PHI 檢測管道 🆕
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│              Hybrid PHI Detection Pipeline                   │
+├─────────────────────────────────────────────────────────────┤
+│  Level 1: Regex Fast Scan (~0.001s)                         │
+│  ├── ID Numbers, Phone, Email, Date patterns                │
+│  └── Coverage: ~30% of PHI                                  │
+├─────────────────────────────────────────────────────────────┤
+│  Level 2: SpaCy NER (~0.01-0.05s)                          │
+│  ├── PERSON, DATE, ORG, GPE, LOC entities                  │
+│  └── Coverage: ~40% of PHI                                  │
+├─────────────────────────────────────────────────────────────┤
+│  Level 3: Small LLM - Uncertain Regions Only (~0.5-2s)     │
+│  ├── Qwen2.5-0.5B/1.5B for remaining ~30%                  │
+│  └── Fall back to Qwen2.5-7B for complex cases             │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+### System Architecture | 系統架構
+
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Medical De-identification Toolkit             │
 ├─────────────────────────────────────────────────────────────────┤

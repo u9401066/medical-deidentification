@@ -8,6 +8,23 @@ This document outlines the architectural design for the Medical Text De-identifi
 
 ## Architectural Decisions
 
+- 採用 Multi-Agent 架構而非固定管道
+- Router Agent 使用 Qwen-0.5B 快速分類
+- SpaCy 和 Regex 作為共享工具，所有 Agent 可調用
+- Fast Agent (MiniMind) 處理 70% 標準文本
+- Precise Agent (Qwen-1.5B) 處理 20% 複雜文本
+- 10% 純結構化 PHI 跨過 Agent 直接用工具
+
+
+
+- 放棄 Python 多線程並行優化（GIL 限制）
+- 採用混合 PHI 識別策略 (SpaCy + Regex + 小型 LLM)
+- 三層處理管道：Regex (0.001s) → SpaCy (0.01s) → LLM (0.5s)
+- 智能路由：僅對不確定區域使用 LLM
+- 小型 LLM 選擇：Qwen2.5-0.5B (快速) / Qwen2.5-1.5B (平衡)
+
+
+
 - RAG Chain 職責分離：將原 RegulationRAGChain (716 lines) 拆分為 RegulationRetrievalChain (280 lines) 和 PHIIdentificationChain (430 lines)
 - 職責分離原則：RegulationRetrievalChain 負責法規檢索，PHIIdentificationChain 負責醫療文本 PHI 識別
 - 共用模組：兩個 chain 都使用 infrastructure/llm 和 infrastructure/prompts 模組
@@ -565,6 +582,22 @@ Redaction  Masking  Generalization Custom
 
 ## Design Considerations
 
+- Router 開銷必須極小 (< 0.3s)
+- Agent 可自主決定是否調用工具
+- 工具結果可被多個 Agent 重用
+- 需要結果合併和去重機制
+- 快取可減少重複計算
+
+
+
+- Python 3.10 GIL 限制多線程真正並行
+- SpaCy 覆蓋約 70% 標準 PHI (NAME, DATE, ORG)
+- Regex 覆蓋結構化 PHI (ID, Phone, Email)
+- LLM 僅處理醫療特有詞彙和上下文敏感 PHI
+- 預期整體效能：0.1-0.5s/行（比純 LLM 快 30-100x）
+
+
+
 - 原始 RegulationRAGChain 混淆了「法規檢索」和「醫療文本 PHI 識別」兩個不同職責
 - 716 行代碼過長，難以維護和測試
 - 無法靈活組合使用（例如只想檢索法規而不識別 PHI）
@@ -581,6 +614,113 @@ Redaction  Masking  Generalization Custom
 
 
 ## Components
+
+### Router Agent
+
+快速分類器，決定 chunk 交給誰處理
+
+**Responsibilities:**
+
+- 使用 Qwen-0.5B 快速分類
+- 輸出: skip | fast | precise
+- 判斷文本複雜度
+- 最小化路由開銷 (~0.1-0.3s)
+
+### Fast PHI Agent
+
+快速 PHI 識別 Agent，處理標準文本
+
+**Responsibilities:**
+
+- 使用 MiniMind (104M) 模型
+- 可調用 RegexPHITool 和 SpaCyNERTool
+- ReAct 模式工具調用
+- 處理 70% 標準醫療文本
+
+### Precise PHI Agent
+
+精確 PHI 識別 Agent，處理複雜文本
+
+**Responsibilities:**
+
+- 使用 Qwen-1.5B 模型
+- 可調用相同工具
+- 深度分析模糊案例
+- 處理 20% 複雜/模糊文本
+
+### RegexPHITool
+
+正則表達式 PHI 掃描工具
+
+**Responsibilities:**
+
+- 台灣身分證、電話模式
+- Email、日期、URL 模式
+- 醫療編號模式
+- LangChain @tool 裝飾器
+
+### SpaCyNERTool
+
+SpaCy NER PHI 掃描工具
+
+**Responsibilities:**
+
+- 載入 zh_core_web_sm 模型
+- PERSON/DATE/ORG/GPE 實體
+- 映射到 PHIType enum
+- LangChain @tool 裝飾器
+
+### PHI Orchestrator
+
+多 Agent 協調器
+
+**Responsibilities:**
+
+- 管理 Router → Agent 流程
+- 結果合併與去重
+- 錯誤處理與 fallback
+- 快取層管理
+
+
+
+
+
+### FastPHIScanner
+
+快速 PHI 掃描器，結合 Regex 和 SpaCy
+
+**Responsibilities:**
+
+- 執行正則表達式模式匹配
+- 調用 SpaCy NER 模型
+- 合併和去重結果
+- 計算覆蓋率
+
+### HybridPHIChain
+
+混合 PHI 識別鏈，智能路由到 LLM
+
+**Responsibilities:**
+
+- 判斷是否需要 LLM 補充
+- 管理多級處理管道
+- 結果合併與驗證
+- 效能監控
+
+### PHIPatternRegistry
+
+PHI 正則表達式模式註冊表
+
+**Responsibilities:**
+
+- 台灣特有模式（身分證、電話）
+- 國際通用模式（Email、日期）
+- 醫療編號模式
+- 可擴展的模式定義
+
+
+
+
 
 ### RegulationRetrievalChain
 
