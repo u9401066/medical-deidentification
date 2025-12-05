@@ -47,6 +47,17 @@ OLLAMA_MODELS = [
     "gemma2:27b",
 ]
 
+# MiniMind local models (ultra-lightweight, good for resource-constrained environments)
+# MiniMind 本地模型（超輕量，適合資源受限環境）
+# Source: https://github.com/jingyaogong/minimind
+MINIMIND_MODELS = [
+    "jingyaogong/minimind2",           # Default MiniMind2 (0.1B, 104M params)
+    "jingyaogong/minimind2-small",     # Small version (0.02B, 26M params)
+    "jingyaogong/minimind2-moe",       # MoE version (0.15B, 145M params)
+    "jingyaogong/minimind2-r1",        # Reasoning version (R1-distilled)
+    "jingyaogong/minimind2-small-r1",  # Small reasoning version
+]
+
 
 class LLMConfig(BaseModel):
     """
@@ -169,7 +180,8 @@ class LLMConfig(BaseModel):
         elif self.provider == "anthropic":
             valid_models = ANTHROPIC_MODELS
         elif self.provider == "ollama":
-            valid_models = OLLAMA_MODELS
+            # Combine standard Ollama models and MiniMind models
+            valid_models = OLLAMA_MODELS + MINIMIND_MODELS
         else:
             raise ValueError(f"Unknown provider: {self.provider}")
         
@@ -349,4 +361,72 @@ class LLMPresets:
             model_name="llama3.1:8b",
             temperature=0.0,
             max_tokens=2048,
+        )
+    
+    @staticmethod
+    def local_minimind() -> LLMConfig:
+        """
+        Preset for local MiniMind2 (best performance, ~104M params)
+        本地 MiniMind2 預設配置（效能最佳，約 104M 參數）
+        
+        MiniMind2 is the recommended default - best balance of quality and speed.
+        Still ultra-lightweight compared to typical LLMs (GPT-3 is ~17000x larger).
+        
+        Ideal for:
+        - Default local LLM for PHI identification
+        - Low resource environments
+        - Quick local experiments
+        - Edge deployment scenarios
+        
+        Source: https://github.com/jingyaogong/minimind
+        
+        Note: First run will pull the model via `ollama pull jingyaogong/minimind2`
+        """
+        return LLMConfig(
+            provider="ollama",
+            model_name="jingyaogong/minimind2",
+            temperature=0.0,
+            max_tokens=1024,  # MiniMind trained with 512 context, extended to 1024
+            use_gpu=True,     # Enables GPU if available, falls back to CPU
+        )
+    
+    @staticmethod
+    def local_minimind_small() -> LLMConfig:
+        """
+        Preset for local MiniMind2-Small (smallest, ~26M params)
+        本地 MiniMind2-Small 預設配置（最小，約 26M 參數）
+        
+        The smallest MiniMind variant - can run on almost any hardware.
+        Trade-off: Less capable but extremely fast and lightweight.
+        
+        Ideal for:
+        - Extremely resource-constrained environments
+        - Raspberry Pi or similar edge devices
+        - Quick prototyping and testing
+        """
+        return LLMConfig(
+            provider="ollama",
+            model_name="jingyaogong/minimind2-small",
+            temperature=0.0,
+            max_tokens=512,
+            use_gpu=True,
+        )
+    
+    @staticmethod
+    def local_minimind_reasoning() -> LLMConfig:
+        """
+        Preset for local MiniMind2-R1 (reasoning capability)
+        本地 MiniMind2-R1 預設配置（推理能力版）
+        
+        MiniMind with reasoning capabilities distilled from DeepSeek-R1.
+        Uses <think>...</think><answer>...</answer> format.
+        
+        Note: Slightly higher temperature for reasoning exploration.
+        """
+        return LLMConfig(
+            provider="ollama",
+            model_name="jingyaogong/minimind2-r1",
+            temperature=0.1,  # Slightly higher for reasoning
+            max_tokens=1024,
+            use_gpu=True,
         )

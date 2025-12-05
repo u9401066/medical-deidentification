@@ -1,11 +1,11 @@
-# Progress (Updated: 2025-11-27)
+# Progress (Updated: 2025-12-05)
 
 ## Done
 
-- Implemented centralized OutputManager and ReportGenerator modules
-- Fixed PHIEntity attribute names in report_generator
-- Verified .env and sensitive files are not tracked
-- Project ready for push
+- DDD Architecture Refactoring - moved output/report modules to infrastructure layer
+- Updated all imports to use infrastructure.output
+- Added backward compatibility re-exports
+- Pushed to GitHub
 
 ## Doing
 
@@ -13,5 +13,5 @@
 
 ## Next
 
-- Test output management with actual processing
-- Add more report formats (HTML, PDF)
+- Add unit tests for output management
+- Implement additional report formats (HTML, PDF)
