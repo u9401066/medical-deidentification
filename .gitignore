@@ -44,6 +44,7 @@ poetry.lock
 # Testing
 .pytest_cache/
 .coverage
+coverage_html_report/
 htmlcov/
 .tox/
 .nox/
@@ -55,7 +56,8 @@ htmlcov/
 
 # Logs
 *.log
-logs/
+logs/*
+!logs/.gitkeep
 
 # Test outputs
 test_batch_*.log
@@ -65,8 +67,12 @@ test_phi_model_fix.py
 # Medical data (never commit real PHI!)
 data/raw/*
 data/test/*
+data/output/results/*
+data/output/reports/*
 !data/raw/.gitkeep
 !data/test/.gitkeep
+!data/output/results/.gitkeep
+!data/output/reports/.gitkeep
 
 # Temporary files
 tmp/
