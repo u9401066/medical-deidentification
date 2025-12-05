@@ -17,8 +17,7 @@ from loguru import logger
 
 from ...domain import PHIEntity
 from ...infrastructure.rag.phi_identification_chain import PHIIdentificationChain
-from .output_manager import OutputManager, get_default_output_manager
-from .report_generator import ReportGenerator
+from ...infrastructure.output import OutputManager, get_default_output_manager, ReportGenerator
 
 
 @dataclass

@@ -19,11 +19,10 @@ from .masking import MaskingProcessor
 from ..context import ProcessingContext, DocumentContext
 from ..pipeline import DeidentificationPipeline, PipelineStage, StageResult, create_language_detection_handler, create_validation_handler
 from ..strategies import create_masking_strategy, get_default_strategy_for_phi_type, MaskingStrategy
-from ..output_manager import OutputManager, OutputConfig
-from ..report_generator import ReportGenerator
 
 from ....domain import PHIType
 from ....infrastructure.loader import DocumentLoaderFactory
+from ....infrastructure.output import OutputManager, OutputConfig, ReportGenerator
 from ....infrastructure.rag import (
     EmbeddingsManager,
     RegulationVectorStore,

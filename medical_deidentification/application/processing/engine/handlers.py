@@ -11,8 +11,7 @@ from loguru import logger
 
 from ..context import ProcessingContext, RegulationContext
 from ..pipeline import StageResult, PipelineStage
-from ..output_manager import OutputManager, get_default_output_manager
-from ..report_generator import ReportGenerator
+from ....infrastructure.output import OutputManager, get_default_output_manager, ReportGenerator
 from ....domain import PHIEntity
 from ....infrastructure.rag import (
     RegulationRetrievalChain,
