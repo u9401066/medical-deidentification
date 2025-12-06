@@ -1,27 +1,21 @@
-# Progress (Updated: 2025-12-05)
+# Progress (Updated: 2025-12-06)
 
 ## Done
 
-- Performance bottleneck analysis
-- GIL limitation acknowledged
-- Multi-Agent architecture design
-- ROADMAP.md creation with phased approach
-- Safety Net architecture design
-- Phase 1-4 detailed planning
-- DSPy integration module (infrastructure/dspy/) - phi_module.py, metrics.py, optimizer.py
-- PHI evaluation scripts - compare_phi_models.py, dspy_phi_optimizer.py, evaluate_langchain_phi.py, evaluate_minimind_phi.py, evaluate_public_dataset.py
-- Confusion matrix metrics with TP/FP/FN tracking
+- Implemented FIFO streaming PHI chain with checkpoint/resume support
+- Created PHI detection tools module (RegexPHITool, IDValidatorTool, PhoneTool, SpaCyNERTool)
+- Created ToolRunner with multiprocessing support
+- Refactored processors.py to use pure LangChain (no manual JSON parsing)
+- Created PHI Agent with tool-calling capability
+- Updated streaming_phi_chain to use new identify_phi function
 
 ## Doing
 
-- Integrating DSPy optimization with existing Chain architecture
-- Phase 1: Adding Tool Workers to existing PHIIdentificationChain
+- Testing streaming chain with tagged test data (blocked by Ollama structured output slowness)
 
 ## Next
 
-- Create infrastructure/tools/base_tool.py
-- Create infrastructure/tools/tool_runner.py
-- Create individual tools (regex, id_validator, phone, spacy_ner)
-- Modify chains/processors.py to accept tool_results
-- Modify phi_identification_chain.py to integrate ToolRunner
-- Write tests for Phase 1 components
+- Optimize LLM prompt for faster structured output
+- Test with preloaded Ollama model
+- Run full integration test with 5 tagged test cases
+- Consider PydanticOutputParser fallback for Ollama

@@ -2,23 +2,31 @@
 
 ## Current Goals
 
-- ## 當前工作重點：Phase 1 擴展計劃
-- 已完成現有 Chain 架構分析，決定擴展策略：
-- - **不重寫**，基於現有 `PHIIdentificationChain` 擴展
-- - 主要擴展點：`chains/processors.py` (加入 tool_results 參數)
-- - 新增模組：`infrastructure/tools/` (Tool Worker Pool)
-- ### 關鍵發現
-- 1. 現有 `identify_phi_structured()` 可直接加入 `tool_results` 參數
-- 2. 現有 `map_reduce.py` 的 `merge_phi_results()` 可復用
-- 3. 現有 `PHIDetectionResponse` Pydantic model 無需修改
-- ### Phase 1 開發順序
-- 1. 建立 `tools/base_tool.py` 和 `tool_runner.py`
-- 2. 實作 Regex/ID/Phone/SpaCy 各 Tool
-- 3. 修改 `chains/processors.py` 加入 tool_results
-- 4. 修改 `phi_identification_chain.py` 整合 ToolRunner
-- 5. 撰寫測試
-- ### 下一步
-- 開始實作 Phase 1 的 Tool 基礎架構
+- ## Current Session Focus (Dec 6, 2025)
+- ### Streaming PHI Chain Integration Test
+- - Created streaming PHI chain with FIFO stateless processing
+- - Test blocked by Ollama `with_structured_output` being extremely slow
+- - Debug tests showed: simple prompts ~0.6s, structured output stuck/timeout
+- ### Architecture Changes Today
+- 1. **processors.py completely rewritten**:
+- - Removed manual JSON parsing (json.loads, re.search)
+- - Uses `with_structured_output(PHIDetectionResponse)` as primary
+- - Uses `PydanticOutputParser` as fallback
+- - LangChain fail = report error (no silent fallback)
+- 2. **streaming_phi_chain.py updated**:
+- - `_identify_with_llm` now calls `identify_phi()` from processors
+- - Simplified branching logic
+- 3. **New modules created**:
+- - `infrastructure/tools/` - RegexPHITool, IDValidatorTool, PhoneTool, SpaCyNERTool
+- - `infrastructure/rag/phi_agent.py` - Agent-based PHI identification
+- ### Known Issue
+- - Ollama with `with_structured_output` is slow with qwen2.5:1.5b
+- - Need to either preload model or use simpler prompts
+- - May need to fall back to PydanticOutputParser instead
+- ### Next Steps
+- 1. Preload Ollama model before testing
+- 2. Consider shorter prompts for structured output
+- 3. Run integration test after model warm-up
 
 ## Current Blockers
 

@@ -322,3 +322,55 @@ RAG Chain 應該按照數據來源和用途分離：(1) RegulationRetrievalChain
 - masking.py - MaskingProcessor class
 - handlers.py - PipelineHandlers factory
 - core.py - DeidentificationEngine (主引擎)
+
+
+## FIFO Streaming Pattern
+
+Process data in chunks with immediate output and memory release. Pattern: iterate → process → output → release → next. Enables unlimited input size with constant memory usage. Checkpoint saves after each chunk for resume capability.
+
+### Examples
+
+- StreamingChunkProcessor.chunk_iterator() - yields one chunk at a time
+- StreamingPHIChain.process_file() - FIFO PHI detection
+- ProcessingCheckpoint - resume from last completed chunk
+
+
+
+## Python Virtual Environment
+
+Project uses pure Python 3.11 venv (not Anaconda) at `.venv/`. Always use `D:/workspace251122/.venv/Scripts/python.exe` or `py -3.11` to run Python commands. This ensures clean dependencies without Anaconda path pollution.
+
+### Examples
+
+- D:/workspace251122/.venv/Scripts/python.exe -m pytest tests/
+- D:/workspace251122/.venv/Scripts/pip.exe install package
+- py -3.11 -m venv .venv
+
+
+Project uses venv at `.venv/`. Always use `D:/workspace251122/.venv/Scripts/python.exe` to run Python commands instead of system Python. This ensures correct dependencies and isolation.
+
+### Examples
+
+- D:/workspace251122/.venv/Scripts/python.exe -m pytest tests/
+- D:/workspace251122/.venv/Scripts/python.exe script.py
+
+
+
+## LLM Model Priority
+
+Default LLM models: qwen2.5:1.5b or minimind first, llama3.1:8b as backup only. Smaller models are preferred for faster response and lower resource usage.
+
+### Examples
+
+- jingyaogong/minimind2:latest (208MB)
+- qwen2.5:1.5b (986MB)
+- qwen2.5:3b (1.9GB)
+- llama3.1:8b (4.9GB) - backup only
+
+
+Default LLM models: Primary is qwen:1.5b + minimind for speed. Backup is llama3.1:8b for quality. Always try smaller models first.
+
+### Examples
+
+- LLMConfig(provider='ollama', model_name='qwen:1.5b')
+- LLMConfig(provider='ollama', model_name='minimind')

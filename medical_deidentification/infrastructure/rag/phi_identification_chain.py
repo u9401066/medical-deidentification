@@ -14,6 +14,9 @@ Chain for identifying PHI entities in medical text using regulation context.
 - 支援結構化輸出（Pydantic 模型）
 - 協調 MapReduce 處理長文本
 
+For Agent-based approach with tool-calling, see:
+- phi_agent.py: PHIIdentificationAgent (LLM decides when to use tools)
+
 NOT responsible for:
 - Storing or managing regulation documents (use RegulationRetrievalChain)
 - Persisting medical text (uses MedicalTextRetriever for ephemeral processing)
@@ -90,6 +93,10 @@ class PHIIdentificationChain:
             chunk_size: Text chunk size for MapReduce splitting (default: 500)
             chunk_overlap: Overlap between chunks (default: 50)
             max_text_length: Maximum text length before chunking (default: 2000)
+            
+        Note:
+            For tool-calling agent approach, use PHIIdentificationAgent instead.
+            該 Chain 使用純 LLM 方式，如需工具呼叫請改用 PHIIdentificationAgent。
         """
         self.regulation_chain = regulation_chain
         self.config = config or PHIIdentificationConfig()
@@ -179,6 +186,10 @@ class PHIIdentificationChain:
         """
         Direct PHI identification for short texts
         Delegates to chains.processors.identify_phi_direct
+        
+        Note:
+            This is a pure LLM approach without tool pre-scanning.
+            For tool-calling agent approach, use PHIIdentificationAgent.
         """
         return identify_phi_direct(
             text=text,
@@ -188,7 +199,7 @@ class PHIIdentificationChain:
             config=self.config,
             get_minimal_context_func=lambda: get_minimal_context(self.config.retrieve_regulation_context),
             return_source=return_source,
-            return_entities=return_entities
+            return_entities=return_entities,
         )
     
     def _identify_phi_chunked(

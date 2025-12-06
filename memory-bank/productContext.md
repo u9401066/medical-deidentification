@@ -69,6 +69,10 @@ A Python-based medical text de-identification toolkit that leverages LLM/Agent t
 
 ## Architecture
 
+DDD (Domain-Driven Design) with streaming FIFO chunk processing for unlimited file sizes
+
+
+
 DDD (Domain-Driven Design) 架構：Interface → Application → Infrastructure → Domain 四層。新增 DSPy 整合層 (infrastructure/dspy/) 用於自動 prompt 優化，metrics.py 追蹤完整混淆矩陣 (TP/FP/FN)。評估腳本在 scripts/ 目錄下。
 
 
@@ -125,6 +129,14 @@ rich = "^13.0"    # Terminal UI
 - Documentation: Inline docstrings (Google style) + MkDocs
 
 ## Technologies
+
+- Python 3.10
+- LangChain
+- DSPy
+- FAISS
+- Pydantic
+
+
 
 - Python 3.11+
 - LangChain
@@ -202,6 +214,17 @@ rich = "^13.0"    # Terminal UI
 
 
 ## Libraries and Dependencies
+
+- langchain
+- langchain-ollama
+- dspy
+- faiss-cpu
+- pydantic
+- loguru
+- pytest
+- pytest-cov
+
+
 
 - langchain
 - langchain-ollama
@@ -292,6 +315,10 @@ rich = "^13.0"    # Terminal UI
 
 
 ## Project Description
+
+Medical de-identification toolkit using LLM-based PHI detection with DSPy integration
+
+
 
 Medical De-identification Toolkit - LLM/RAG 驅動的醫療文本去識別化工具，使用 DSPy 進行自動 prompt 優化，支援 HIPAA/GDPR 合規
 

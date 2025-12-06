@@ -16,14 +16,12 @@ class TestLLMConfig:
         
         # Cloud presets
         assert hasattr(LLMPresets, 'gpt_4o')
-        assert hasattr(LLMPresets, 'gpt_4o_mini')
-        assert hasattr(LLMPresets, 'claude_3_opus')
-        assert hasattr(LLMPresets, 'claude_3_sonnet')
+        assert hasattr(LLMPresets, 'claude_opus')
+        assert hasattr(LLMPresets, 'claude_sonnet')
         
         # Local presets
         assert hasattr(LLMPresets, 'local_qwen')
         assert hasattr(LLMPresets, 'local_llama')
-        assert hasattr(LLMPresets, 'local_mistral')
         
         # MiniMind presets
         assert hasattr(LLMPresets, 'local_minimind')

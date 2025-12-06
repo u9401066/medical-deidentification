@@ -6,18 +6,22 @@ Provides handler functions for each stage of the de-identification pipeline.
 提供去識別化 pipeline 每個階段的處理函數。
 """
 
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, TYPE_CHECKING
 from loguru import logger
 
 from ..context import ProcessingContext, RegulationContext
 from ..pipeline import StageResult, PipelineStage
 from ....infrastructure.output import OutputManager, get_default_output_manager, ReportGenerator
 from ....domain import PHIEntity
-from ....infrastructure.rag import (
-    RegulationRetrievalChain,
-    PHIIdentificationChain
-)
 from .masking import MaskingProcessor
+
+# Lazy import to avoid torch/transformers conflicts
+# 延遲導入以避免 torch/transformers 衝突
+if TYPE_CHECKING:
+    from ....infrastructure.rag import (
+        RegulationRetrievalChain,
+        PHIIdentificationChain
+    )
 
 
 class PipelineHandlers:
@@ -34,8 +38,8 @@ class PipelineHandlers:
     
     def __init__(
         self,
-        regulation_chain: Optional[RegulationRetrievalChain] = None,
-        phi_chain: Optional[PHIIdentificationChain] = None,
+        regulation_chain: Optional["RegulationRetrievalChain"] = None,
+        phi_chain: Optional["PHIIdentificationChain"] = None,
         masking_processor: Optional[MaskingProcessor] = None,
         use_rag: bool = True,
         output_manager: Optional[OutputManager] = None

@@ -1,0 +1,17 @@
+{
+  "file_path": "CASE-004",
+  "file_hash": "f07dc5f07096b6ff7aae59f3b9bc0cd0",
+  "total_size": 203,
+  "last_completed_chunk": 1,
+  "total_chunks": 1,
+  "processed_chunks": [
+    0,
+    1
+  ],
+  "started_at": "2025-12-06T08:36:40.411181",
+  "last_updated_at": "2025-12-06T08:36:40.634682",
+  "chunk_size": 1500,
+  "chunk_overlap": 100,
+  "output_file": "",
+  "metadata": {}
+}

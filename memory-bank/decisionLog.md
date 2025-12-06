@@ -573,3 +573,7 @@ This follows the same modular pattern as chains/ submodule. |
 2. 提供可量化的優化指標：F1 Score、Detection Time、Prompt Length
 3. 與 LangChain 並存：DSPy 用於優化 prompt，LangChain 用於結構化輸出
 4. 評估腳本提供完整混淆矩陣 (TP/FP/FN) 追蹤過度檢測和漏檢 |
+| 2025-12-05 | Import PHIType from domain layer instead of redefining in tools module | DDD principle - domain types should only be defined in domain layer. Tools module is infrastructure layer and should import from domain. |
+| 2025-12-05 | Implement Agent-based tool calling (PHIIdentificationAgent) where LLM decides when to use tools | Following ReAct pattern - LLM should decide intelligently when tools are needed based on text content, rather than always pre-scanning. This allows: 1) Skip unnecessary tool calls for simple texts, 2) LLM can request specific tools based on context, 3) Better integration of tool results with LLM reasoning. |
+| 2025-12-05 | Implement FIFO stateless streaming architecture for unlimited file processing | User requirement to process arbitrarily large files without OOM. FIFO approach processes one chunk at a time, outputs immediately, releases memory. Checkpoint support enables resume after interruption. |
+| 2025-12-06 | Use LangChain tools only for JSON parsing - no manual json.loads/re.search fallbacks | User explicitly requested: "json處理都用langchain我們自己寫也不會更完整(如果langchain fail就直接報錯!!)" - LangChain's with_structured_output and PydanticOutputParser should handle all JSON parsing. If they fail, report error rather than trying manual parsing which is error-prone. |

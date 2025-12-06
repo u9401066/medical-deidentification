@@ -20,56 +20,113 @@ Components:
 - RegulationRetrievalChain: Retrieve PHI definitions from regulations
 - PHIIdentificationChain: Identify PHI in medical text
 - MedicalTextRetriever: Ephemeral medical document processing
+
+Note: Uses lazy imports to avoid torch/transformers import conflicts.
+注意：使用延遲導入以避免 torch/transformers 導入衝突。
 """
 
-# Re-export embeddings components
-from .embeddings import (
-    EmbeddingsManager,
-    EmbeddingsConfig,
-    PretrainedModels,
-    create_embeddings_manager
-)
+from typing import TYPE_CHECKING
 
-from .regulation_store import (
-    RegulationVectorStore,
-    RegulationStoreConfig,
-    InMemoryDocumentProcessor
-)
+# Lazy imports to avoid torch/transformers conflicts at module load time
+# 延遲導入以避免模組載入時的 torch/transformers 衝突
 
-from .regulation_retriever import (
-    RegulationRetriever,
-    RegulationRetrieverConfig,
-    create_regulation_retriever
-)
+if TYPE_CHECKING:
+    # Type hints only (not imported at runtime)
+    from .embeddings import (
+        EmbeddingsManager,
+        EmbeddingsConfig,
+        PretrainedModels,
+        create_embeddings_manager
+    )
+    from .regulation_store import (
+        RegulationVectorStore,
+        RegulationStoreConfig,
+        InMemoryDocumentProcessor
+    )
+    from .regulation_retriever import (
+        RegulationRetriever,
+        RegulationRetrieverConfig,
+        create_regulation_retriever
+    )
+    from .text_splitter import (
+        MedicalTextSplitter,
+        create_medical_splitter
+    )
+    from .medical_retriever import (
+        MedicalTextRetriever,
+        MedicalRetrieverConfig,
+        create_medical_retriever
+    )
+    from .regulation_retrieval_chain import (
+        RegulationRetrievalChain,
+        RegulationRetrievalConfig,
+        create_regulation_retrieval_chain
+    )
+    from .phi_identification_chain import PHIIdentificationChain
+    from .phi_agent import PHIIdentificationAgent
 
-# Text Splitting (for MapReduce and chunking)
-from .text_splitter import (
-    MedicalTextSplitter,
-    create_medical_splitter
-)
 
-# Medical Retriever (for future RAG use cases)
-from .medical_retriever import (
-    MedicalTextRetriever,
-    MedicalRetrieverConfig,
-    create_medical_retriever
-)
+def __getattr__(name: str):
+    """
+    Lazy import implementation to avoid torch/transformers conflicts
+    延遲導入實現以避免 torch/transformers 衝突
+    """
+    # Embeddings (requires torch/transformers)
+    if name in ("EmbeddingsManager", "EmbeddingsConfig", "PretrainedModels", "create_embeddings_manager"):
+        from . import embeddings
+        return getattr(embeddings, name)
+    
+    # Regulation Store
+    if name in ("RegulationVectorStore", "RegulationStoreConfig", "InMemoryDocumentProcessor"):
+        from . import regulation_store
+        return getattr(regulation_store, name)
+    
+    # Regulation Retriever
+    if name in ("RegulationRetriever", "RegulationRetrieverConfig", "create_regulation_retriever"):
+        from . import regulation_retriever
+        return getattr(regulation_retriever, name)
+    
+    # Text Splitter
+    if name in ("MedicalTextSplitter", "create_medical_splitter"):
+        from . import text_splitter
+        return getattr(text_splitter, name)
+    
+    # Medical Retriever
+    if name in ("MedicalTextRetriever", "MedicalRetrieverConfig", "create_medical_retriever"):
+        from . import medical_retriever
+        return getattr(medical_retriever, name)
+    
+    # Regulation Retrieval Chain
+    if name in ("RegulationRetrievalChain", "RegulationRetrievalConfig", "create_regulation_retrieval_chain"):
+        from . import regulation_retrieval_chain
+        return getattr(regulation_retrieval_chain, name)
+    
+    # PHI Identification Chain
+    if name == "PHIIdentificationChain":
+        from .phi_identification_chain import PHIIdentificationChain
+        return PHIIdentificationChain
+    
+    # PHI Agent
+    if name == "PHIIdentificationAgent":
+        from .phi_agent import PHIIdentificationAgent
+        return PHIIdentificationAgent
+    
+    # Domain models (safe to import directly - no torch dependency)
+    if name in ("PHIIdentificationConfig", "PHIIdentificationResult", "PHIDetectionResponse"):
+        from ...domain.phi_identification_models import (
+            PHIIdentificationConfig,
+            PHIIdentificationResult,
+            PHIDetectionResponse,
+        )
+        mapping = {
+            "PHIIdentificationConfig": PHIIdentificationConfig,
+            "PHIIdentificationResult": PHIIdentificationResult,
+            "PHIDetectionResponse": PHIDetectionResponse,
+        }
+        return mapping[name]
+    
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-# New modular chains (recommended)
-from .regulation_retrieval_chain import (
-    RegulationRetrievalChain,
-    RegulationRetrievalConfig,
-    create_regulation_retrieval_chain
-)
-
-from .phi_identification_chain import PHIIdentificationChain
-
-# Re-export domain models for convenience
-from ...domain.phi_identification_models import (
-    PHIIdentificationConfig,
-    PHIIdentificationResult,
-    PHIDetectionResponse,
-)
 
 __all__ = [
     # Embeddings
@@ -102,6 +159,7 @@ __all__ = [
     "RegulationRetrievalConfig",
     "create_regulation_retrieval_chain",
     "PHIIdentificationChain",
+    "PHIIdentificationAgent",  # Agent with tool-calling
     "PHIIdentificationConfig",
     "PHIIdentificationResult",
     "PHIDetectionResponse",
