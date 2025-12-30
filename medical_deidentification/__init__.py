@@ -9,7 +9,7 @@ technology with RAG-enhanced regulation retrieval.
 
 __version__ = "0.1.0"
 __author__ = "u9401066"
-__license__ = "MIT"
+__license__ = "Apache-2.0"
 
 # Core domain models (no dependencies)
 from medical_deidentification.domain import (

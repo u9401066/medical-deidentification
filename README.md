@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![LangChain](https://img.shields.io/badge/LangChain-1.0+-orange.svg)](https://langchain.com/)
 [![uv](https://img.shields.io/badge/uv-package%20manager-blueviolet.svg)](https://github.com/astral-sh/uv)
@@ -267,7 +267,7 @@ ruff check . --fix
 
 ## 📄 License | 授權
 
-[MIT License](LICENSE) - 可商用、可修改、可分發
+[Apache 2.0 License](LICENSE) - 可商用、可修改、可分發
 
 ---
 

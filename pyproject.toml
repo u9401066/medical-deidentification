@@ -8,7 +8,7 @@ name = "medical-deidentification"
 version = "0.1.0-beta"
 description = "LLM-powered medical text de-identification toolkit with RAG-enhanced regulation retrieval | 基於 LLM 與 RAG 的醫療文本去識別化工具套件"
 readme = "README.md"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 requires-python = ">=3.12"
 authors = [
     { name = "u9401066", email = "u9401066@gap.kmu.edu.tw" }
@@ -20,7 +20,7 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
     "Topic :: Text Processing :: Linguistic",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",

@@ -724,9 +724,9 @@ help(RegulationRAGChain)
 
 ## 授權與貢獻 | License and Contributing
 
-本項目採用 MIT 授權。歡迎提交 Issue 和 Pull Request！
+本項目採用 Apache 2.0 授權。歡迎提交 Issue 和 Pull Request！
 
-This project is licensed under MIT. Issues and Pull Requests are welcome!
+This project is licensed under Apache 2.0. Issues and Pull Requests are welcome!
 
 ---
 

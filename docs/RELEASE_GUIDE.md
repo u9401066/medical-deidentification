@@ -3,7 +3,7 @@
 ## ✅ 發佈前檢查清單
 
 ### 已完成項目
-- ✅ LICENSE 文件 (MIT)
+- ✅ LICENSE 文件 (Apache-2.0)
 - ✅ README.md (完整說明、安裝、快速開始)
 - ✅ CHANGELOG.md (版本歷史)
 - ✅ CONTRIBUTING.md (貢獻指南)
