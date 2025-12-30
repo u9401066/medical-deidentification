@@ -11,7 +11,7 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
 authors = [
-    { name = "Medical De-identification Contributors" }
+    { name = "u9401066", email = "u9401066@gap.kmu.edu.tw" }
 ]
 keywords = ["medical", "deidentification", "phi", "hipaa", "nlp", "llm", "rag"]
 classifiers = [
