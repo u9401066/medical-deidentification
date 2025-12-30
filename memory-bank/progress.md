@@ -4,21 +4,22 @@
 
 - Python 3.12 升級完成
 - LangChain json_schema 方法修復
-- async_processors.py 異步模組建立
-- 單元測試 85/85 passed
-- Apache 2.0 授權變更
-- 作者資訊更正為 u9401066
-- Benchmark 計畫文檔建立
+- License 更新為 Apache 2.0
+- Author 修正為 u9401066
+- Benchmark 計畫文件 (docs/benchmark-plan.md)
+- 建立 benchmark 評估模組 (scripts/benchmark/)
+- 安裝 presidio-evaluator + spacy + langchain-community
+- 產生 100 筆 Presidio 合成 PHI 資料
+- 執行 granite4:1b benchmark: F1=0.69, 9.57s/sample
+- 執行 qwen2.5:1.5b benchmark: F1=0.37, 3.49s/sample
+- 建立 optimized_evaluator.py 優化版評估器
 
 ## Doing
 
-- 建立 PHI Benchmark 評估框架
+- Git commit 和 push
 
 ## Next
 
-- 申請 i2b2 資料集 (DUA)
-- 下載 CBLUE CMeEE 中文資料集
-- 實作台灣 PHI 生成器
-- 整合 Presidio Evaluator
-- 設定 Synthea 生成流程
-- 建立 scripts/benchmark/ 評估框架
+- 建立台灣 PHI 產生器
+- 取得 i2b2 資料集 (需 DUA)
+- 考慮 GPU 加速或更小模型

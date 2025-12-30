@@ -1,0 +1,673 @@
+{
+  "timestamp": "2025-12-30T19:05:04.031611",
+  "config": {
+    "data_path": "data/benchmark/presidio_synthetic.jsonl",
+    "format": "presidio",
+    "match_type": "partial",
+    "limit": 20
+  },
+  "metrics": {
+    "overall": {
+      "true_positives": 18,
+      "false_positives": 10,
+      "false_negatives": 6,
+      "precision": 0.6428571428571429,
+      "recall": 0.75,
+      "f1": 0.6923076923076924
+    },
+    "by_type": {
+      "STREET_ADDRESS": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "LOCATION": {
+        "true_positives": 0,
+        "false_positives": 6,
+        "false_negatives": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "PERSON/NAME": {
+        "true_positives": 0,
+        "false_positives": 9,
+        "false_negatives": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "NAME": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 11,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "LOCATION/GPE": {
+        "true_positives": 0,
+        "false_positives": 4,
+        "false_negatives": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "GPE": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 5,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "FACILITY": {
+        "true_positives": 0,
+        "false_positives": 3,
+        "false_negatives": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "NRP": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 3,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "CREDIT_CARD": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "ID": {
+        "true_positives": 0,
+        "false_positives": 3,
+        "false_negatives": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "ID/SSN": {
+        "true_positives": 0,
+        "false_positives": 1,
+        "false_negatives": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "PHONE_NUMBER": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "AGE": {
+        "true_positives": 0,
+        "false_positives": 2,
+        "false_negatives": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "total_samples": 20,
+    "total_time": 191.32831120491028,
+    "avg_time_per_sample": 9.566415560245513
+  },
+  "success_rate": 1.0,
+  "total_samples": 20,
+  "results": [
+    {
+      "sample_id": "0",
+      "ground_truth": [
+        [
+          "Držislav and Avenue des Sartiaux 318",
+          "STREET_ADDRESS"
+        ]
+      ],
+      "predictions": [
+        [
+          "Držislav",
+          "PERSON/NAME"
+        ],
+        [
+          "Avenue des Sartiaux",
+          "ADDRESS"
+        ]
+      ],
+      "metrics": {
+        "true_positives": 1,
+        "false_positives": 1,
+        "false_negatives": 0,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666
+      },
+      "inference_time": 22.37653398513794,
+      "error": null
+    },
+    {
+      "sample_id": "1",
+      "ground_truth": [
+        [
+          "Gherardo",
+          "PERSON"
+        ]
+      ],
+      "predictions": [],
+      "metrics": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inference_time": 2.3724000453948975,
+      "error": null
+    },
+    {
+      "sample_id": "2",
+      "ground_truth": [
+        [
+          "Jeknić",
+          "PERSON"
+        ],
+        [
+          "New Zealand",
+          "GPE"
+        ]
+      ],
+      "predictions": [
+        [
+          "New Zealand",
+          "LOCATION/GPE"
+        ],
+        [
+          "Jeknić",
+          "PERSON/NAME"
+        ]
+      ],
+      "metrics": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "inference_time": 11.776689529418945,
+      "error": null
+    },
+    {
+      "sample_id": "3",
+      "ground_truth": [
+        [
+          "62143 Jiráskova 986\n Apt. 509\n Chomutice u Horic v Podkrkonoší\n Czech Republic 81811",
+          "STREET_ADDRESS"
+        ]
+      ],
+      "predictions": [
+        [
+          "62143",
+          "ADDRESS"
+        ],
+        [
+          "986",
+          "ADDRESS"
+        ],
+        [
+          "509",
+          "ADDRESS"
+        ],
+        [
+          "Chomutice u Horic v Podkrkonoší",
+          "LOCATION/GPE"
+        ],
+        [
+          "Czech Republic",
+          "FACILITY"
+        ],
+        [
+          "81811",
+          "ADDRESS"
+        ]
+      ],
+      "metrics": {
+        "true_positives": 1,
+        "false_positives": 5,
+        "false_negatives": 0,
+        "precision": 0.16666666666666666,
+        "recall": 1.0,
+        "f1": 0.2857142857142857
+      },
+      "inference_time": 29.202350616455078,
+      "error": null
+    },
+    {
+      "sample_id": "4",
+      "ground_truth": [
+        [
+          "Lejla Jonsson",
+          "PERSON"
+        ],
+        [
+          "Germany",
+          "GPE"
+        ]
+      ],
+      "predictions": [
+        [
+          "Germany",
+          "LOCATION/GPE"
+        ],
+        [
+          "Lejla Jonsson",
+          "PERSON/NAME"
+        ]
+      ],
+      "metrics": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "inference_time": 13.440866947174072,
+      "error": null
+    },
+    {
+      "sample_id": "5",
+      "ground_truth": [
+        [
+          "congoleses",
+          "NRP"
+        ]
+      ],
+      "predictions": [],
+      "metrics": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inference_time": 2.4760971069335938,
+      "error": null
+    },
+    {
+      "sample_id": "6",
+      "ground_truth": [
+        [
+          "4678637983790959",
+          "CREDIT_CARD"
+        ]
+      ],
+      "predictions": [
+        [
+          "credit card",
+          "ID"
+        ],
+        [
+          "4678637983790959",
+          "ID/SSN"
+        ]
+      ],
+      "metrics": {
+        "true_positives": 1,
+        "false_positives": 1,
+        "false_negatives": 0,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666
+      },
+      "inference_time": 12.06380820274353,
+      "error": null
+    },
+    {
+      "sample_id": "7",
+      "ground_truth": [
+        [
+          "676322616340",
+          "CREDIT_CARD"
+        ]
+      ],
+      "predictions": [
+        [
+          "#",
+          "ID"
+        ],
+        [
+          "676322616340",
+          "ID"
+        ]
+      ],
+      "metrics": {
+        "true_positives": 1,
+        "false_positives": 1,
+        "false_negatives": 0,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666
+      },
+      "inference_time": 11.87533950805664,
+      "error": null
+    },
+    {
+      "sample_id": "8",
+      "ground_truth": [
+        [
+          "Rio de Janeiro",
+          "GPE"
+        ]
+      ],
+      "predictions": [
+        [
+          "Rio de Janeiro",
+          "LOCATION/GPE"
+        ]
+      ],
+      "metrics": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "inference_time": 6.555526256561279,
+      "error": null
+    },
+    {
+      "sample_id": "9",
+      "ground_truth": [
+        [
+          "Aimée",
+          "PERSON"
+        ]
+      ],
+      "predictions": [],
+      "metrics": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inference_time": 4.41348671913147,
+      "error": null
+    },
+    {
+      "sample_id": "10",
+      "ground_truth": [
+        [
+          "DeRose",
+          "PERSON"
+        ]
+      ],
+      "predictions": [
+        [
+          "DeRose",
+          "PERSON/NAME"
+        ]
+      ],
+      "metrics": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "inference_time": 6.536604404449463,
+      "error": null
+    },
+    {
+      "sample_id": "11",
+      "ground_truth": [
+        [
+          "(72) 745-680",
+          "PHONE_NUMBER"
+        ]
+      ],
+      "predictions": [
+        [
+          "(72)",
+          "AGE"
+        ],
+        [
+          "72",
+          "AGE"
+        ]
+      ],
+      "metrics": {
+        "true_positives": 1,
+        "false_positives": 1,
+        "false_negatives": 0,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666
+      },
+      "inference_time": 11.661137104034424,
+      "error": null
+    },
+    {
+      "sample_id": "12",
+      "ground_truth": [
+        [
+          "Harold",
+          "PERSON"
+        ],
+        [
+          "Cecilie",
+          "PERSON"
+        ],
+        [
+          "Cecilie",
+          "PERSON"
+        ]
+      ],
+      "predictions": [
+        [
+          "Cecilie",
+          "PERSON/NAME"
+        ],
+        [
+          "Harold",
+          "FACILITY"
+        ]
+      ],
+      "metrics": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8
+      },
+      "inference_time": 11.88094449043274,
+      "error": null
+    },
+    {
+      "sample_id": "13",
+      "ground_truth": [],
+      "predictions": [],
+      "metrics": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inference_time": 2.785811185836792,
+      "error": null
+    },
+    {
+      "sample_id": "14",
+      "ground_truth": [
+        [
+          "Gomez",
+          "PERSON"
+        ],
+        [
+          "Lanoie",
+          "PERSON"
+        ]
+      ],
+      "predictions": [
+        [
+          "Lanoie",
+          "PERSON/NAME"
+        ],
+        [
+          "Gomez",
+          "PERSON/NAME"
+        ]
+      ],
+      "metrics": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "inference_time": 11.728415489196777,
+      "error": null
+    },
+    {
+      "sample_id": "15",
+      "ground_truth": [
+        [
+          "Jonathan Laursen",
+          "PERSON"
+        ]
+      ],
+      "predictions": [
+        [
+          "Jonathan",
+          "PERSON/NAME"
+        ],
+        [
+          "Laursen",
+          "PERSON/NAME"
+        ]
+      ],
+      "metrics": {
+        "true_positives": 1,
+        "false_positives": 1,
+        "false_negatives": 0,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666
+      },
+      "inference_time": 11.330070734024048,
+      "error": null
+    },
+    {
+      "sample_id": "16",
+      "ground_truth": [
+        [
+          "GROSSMENGERSDORF",
+          "GPE"
+        ]
+      ],
+      "predictions": [
+        [
+          "GROSSMENGERSDORF",
+          "FACILITY"
+        ]
+      ],
+      "metrics": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "inference_time": 8.022655248641968,
+      "error": null
+    },
+    {
+      "sample_id": "17",
+      "ground_truth": [
+        [
+          "zambians",
+          "NRP"
+        ]
+      ],
+      "predictions": [],
+      "metrics": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inference_time": 2.3829426765441895,
+      "error": null
+    },
+    {
+      "sample_id": "18",
+      "ground_truth": [
+        [
+          "nicaraguans",
+          "NRP"
+        ]
+      ],
+      "predictions": [],
+      "metrics": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "inference_time": 2.1725122928619385,
+      "error": null
+    },
+    {
+      "sample_id": "19",
+      "ground_truth": [
+        [
+          "Jändja",
+          "GPE"
+        ]
+      ],
+      "predictions": [
+        [
+          "Jändja",
+          "ADDRESS"
+        ]
+      ],
+      "metrics": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "inference_time": 6.274118661880493,
+      "error": null
+    }
+  ]
+}

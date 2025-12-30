@@ -31,31 +31,29 @@ dependencies = [
     # Core LLM | 核心 LLM（僅 Ollama 本地推理）
     "langchain-core>=1.0.0",
     "langchain-ollama>=1.0.0",
-
     # DSPy | 自動 Prompt 優化
     "dspy>=2.5.0",
-
     # RAG (可選，如需 RAG 功能)
     "faiss-cpu>=1.7.4",
     "sentence-transformers>=2.3.1",
-
     # Data Processing | 資料處理
     "pydantic>=2.6.0",
     "pydantic-settings>=2.1.0",
-
     # I/O | 輸入輸出
     "pyyaml>=6.0.1",
     "pandas>=2.2.0",
     "openpyxl>=3.1.0",
-
     # Utilities | 工具
     "rich>=13.7.0",
     "loguru>=0.7.2",
     "tenacity>=8.2.3",
     "python-dotenv>=1.0.0",
-    
     # Template | 模板引擎
     "jinja2>=3.1.0",
+    "presidio-evaluator>=0.2.5",
+    "spacy>=3.8.11",
+    "langchain-huggingface>=1.2.0",
+    "langchain-community>=0.4.1",
 ]
 
 # === 可選依賴 ===

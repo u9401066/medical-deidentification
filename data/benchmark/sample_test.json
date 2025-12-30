@@ -1,0 +1,73 @@
+[
+  {
+    "id": "sample_001",
+    "text": "Patient John Smith was admitted on 2024-01-15 with chest pain. Contact: 555-123-4567, email: john.smith@email.com",
+    "annotations": [
+      {"text": "John Smith", "phi_type": "NAME", "start": 8, "end": 18},
+      {"text": "2024-01-15", "phi_type": "DATE", "start": 35, "end": 45},
+      {"text": "555-123-4567", "phi_type": "PHONE", "start": 73, "end": 85},
+      {"text": "john.smith@email.com", "phi_type": "EMAIL", "start": 94, "end": 114}
+    ]
+  },
+  {
+    "id": "sample_002",
+    "text": "Dr. Jane Wilson examined the patient at City Hospital on March 3, 2024.",
+    "annotations": [
+      {"text": "Jane Wilson", "phi_type": "NAME", "start": 4, "end": 15},
+      {"text": "City Hospital", "phi_type": "FACILITY", "start": 41, "end": 54},
+      {"text": "March 3, 2024", "phi_type": "DATE", "start": 58, "end": 71}
+    ]
+  },
+  {
+    "id": "sample_003",
+    "text": "Medical Record #MRN-2024-001234 for patient aged 67 years, DOB: 05/15/1956",
+    "annotations": [
+      {"text": "MRN-2024-001234", "phi_type": "ID", "start": 16, "end": 31},
+      {"text": "67", "phi_type": "AGE", "start": 49, "end": 51},
+      {"text": "05/15/1956", "phi_type": "DATE", "start": 64, "end": 74}
+    ]
+  },
+  {
+    "id": "sample_004",
+    "text": "Send records to 123 Main Street, Apt 4B, New York, NY 10001",
+    "annotations": [
+      {"text": "123 Main Street, Apt 4B, New York, NY 10001", "phi_type": "ADDRESS", "start": 16, "end": 59}
+    ]
+  },
+  {
+    "id": "sample_005",
+    "text": "Insurance ID: INS-ABC-123456, SSN: 123-45-6789, Medicare: 1EG4-TE5-MK72",
+    "annotations": [
+      {"text": "INS-ABC-123456", "phi_type": "ID", "start": 14, "end": 28},
+      {"text": "123-45-6789", "phi_type": "ID", "start": 35, "end": 46},
+      {"text": "1EG4-TE5-MK72", "phi_type": "ID", "start": 58, "end": 71}
+    ]
+  },
+  {
+    "id": "sample_006_zh",
+    "text": "病患王小明，身分證字號A123456789，於民國113年1月15日就診",
+    "annotations": [
+      {"text": "王小明", "phi_type": "NAME", "start": 2, "end": 5},
+      {"text": "A123456789", "phi_type": "ID", "start": 12, "end": 22},
+      {"text": "民國113年1月15日", "phi_type": "DATE", "start": 24, "end": 35}
+    ]
+  },
+  {
+    "id": "sample_007_zh",
+    "text": "張醫師於台大醫院為55歲女性病患進行手術，聯絡電話0912-345-678",
+    "annotations": [
+      {"text": "張醫師", "phi_type": "NAME", "start": 0, "end": 3},
+      {"text": "台大醫院", "phi_type": "FACILITY", "start": 4, "end": 8},
+      {"text": "55", "phi_type": "AGE", "start": 9, "end": 11},
+      {"text": "0912-345-678", "phi_type": "PHONE", "start": 26, "end": 38}
+    ]
+  },
+  {
+    "id": "sample_008_zh",
+    "text": "病歷號：H2024001234，地址：台北市大安區忠孝東路四段100號",
+    "annotations": [
+      {"text": "H2024001234", "phi_type": "ID", "start": 4, "end": 15},
+      {"text": "台北市大安區忠孝東路四段100號", "phi_type": "ADDRESS", "start": 20, "end": 36}
+    ]
+  }
+]
