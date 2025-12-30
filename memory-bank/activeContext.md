@@ -3,28 +3,32 @@
 ## Current Goals
 
 - ## 當前工作焦點 (2025-12-30)
-- ### Python 3.12 升級完成
-- - 使用 `uv python install 3.12` 安裝 Python 3.12.12
-- - 重建虛擬環境 `uv venv --python 3.12`
-- - 所有依賴已通過 `uv sync` 安裝
-- ### 核心技術棧
+- ### Benchmark 建立計畫
+- #### 黃金標準資料集 (Gold Standards)
+- 1. **i2b2 2006 De-identification Challenge**
+- - 889 份出院摘要 (Discharge Summaries)
+- - HIPAA 18 類 PHI 標註
+- - 業界標準 baseline
+- 2. **i2b2 2014 De-identification Challenge**
+- - 1,304 份病歷，更多樣的 PHI 格式
+- - 取得方式：DBMI Data Portal (n2c2) 註冊申請
+- 3. **CBLUE CMeEE (中文)**
+- - 中文醫療實體識別 Benchmark
+- - 可測試「醫療機構」、「部位」等欄位
+- - GitHub: CBLUE
+- #### 合成資料工具
+- 1. **Synthea** - 合成病患生成器 (Java)
+- - 可生成 HL7/FHIR 標準病歷
+- - 英文為主，結構完整
+- 2. **Microsoft Presidio Evaluator**
+- - 假資料生成 + F1-Score 計算
+- - 完整評估流程
+- ### 技術棧
 - - **Python**: 3.12.12
-- - **Package Manager**: uv 0.9.17 (唯一)
-- - **LLM**: granite4:1b (131K context, 1.6B params)
+- - **Package Manager**: uv 0.9.17
+- - **LLM**: granite4:1b (131K context)
 - - **LangChain**: with_structured_output(method="json_schema")
-- - **Ollama**: systemd 服務, keep_alive=30m
-- ### 關鍵發現
-- 1. `with_structured_output` 使用 `function_calling` 方法會卡住
-- 2. 改用 `method="json_schema"` 解決，使用 Ollama 原生 structured output API
-- 3. LLM 推理是瓶頸，Python 版本對效能影響有限
-- 4. 單文檔 PHI 識別 ~35s，並行處理可用但受 Ollama 單實例限制
-- ### 新增檔案
-- - `async_processors.py`: Python 3.12 異步 PHI 識別 (TaskGroup)
-- - `docs/python312-optimization.md`: 優化指南
-- ### 下一步
-- - 部署 GPU 加速 Ollama
-- - 測試更大模型 (8B+)
-- - 優化 Prompt 長度
+- - **單元測試**: 85/85 passed (100%)
 
 ## Current Session Focus (Dec 30, 2025)
 

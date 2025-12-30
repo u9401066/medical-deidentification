@@ -2,23 +2,23 @@
 
 ## Done
 
-- Python 3.12 升級完成 (uv python install 3.12)
-- pyproject.toml 更新 requires-python>=3.12
-- LangChain with_structured_output 使用 method="json_schema" (修復卡住問題)
-- 建立 async_processors.py - Python 3.12 異步處理模組 (TaskGroup)
-- 建立 python312-optimization.md 優化文檔
-- 修復 id_validator_tool.py SyntaxWarning (raw string)
-- 更新 LLMConfig 新增 keep_alive 和 num_ctx 參數
-- PHI 識別測試成功 (~35s 單文檔)
-- README.md 更新 - Python 3.12+ badge, uv 安裝方式
+- Python 3.12 升級完成
+- LangChain json_schema 方法修復
+- async_processors.py 異步模組建立
+- 單元測試 85/85 passed
+- Apache 2.0 授權變更
+- 作者資訊更正為 u9401066
+- Benchmark 計畫文檔建立
 
 ## Doing
 
-- 準備 Git commit 和 push
+- 建立 PHI Benchmark 評估框架
 
 ## Next
 
-- 測試 async_processors 在生產環境
-- GPU 加速 Ollama 部署
-- 測試更大模型 (8B+)
-- 優化 Prompt 長度
+- 申請 i2b2 資料集 (DUA)
+- 下載 CBLUE CMeEE 中文資料集
+- 實作台灣 PHI 生成器
+- 整合 Presidio Evaluator
+- 設定 Synthea 生成流程
+- 建立 scripts/benchmark/ 評估框架
