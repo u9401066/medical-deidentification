@@ -1,0 +1,330 @@
+{
+  "qwen2.5:1.5b": {
+    "avg_response_time": 4.206243574619293,
+    "json_success_rate": 1.0,
+    "phi_precision": 1.0,
+    "phi_recall": 0.5,
+    "f1_score": 0.6666666666666666,
+    "total_runs": 8,
+    "results": [
+      {
+        "test_case": "simple_name",
+        "response_time": 7.383475303649902,
+        "json_valid": true,
+        "phi_correct": 2,
+        "phi_expected": 2,
+        "raw_output": "```json\n[\n    {\n        \"text\": \"Patient John Smith\",\n        \"type\": \"NAME\"\n    },\n    {\n        \"text\": \"2024-01-15\",\n        \"type\": \"DATE\"\n    }\n]\n```",
+        "error": null
+      },
+      {
+        "test_case": "simple_name",
+        "response_time": 3.0960187911987305,
+        "json_valid": true,
+        "phi_correct": 2,
+        "phi_expected": 2,
+        "raw_output": "```json\n[\n    {\n        \"text\": \"Patient John Smith\",\n        \"type\": \"NAME\"\n    },\n    {\n        \"text\": \"2024-01-15\",\n        \"type\": \"DATE\"\n    }\n]\n```",
+        "error": null
+      },
+      {
+        "test_case": "complex_medical",
+        "response_time": 4.8197691440582275,
+        "json_valid": true,
+        "phi_correct": 2,
+        "phi_expected": 5,
+        "raw_output": "```json\n[\n    {\n        \"text\": \"Wang Wei\",\n        \"type\": \"NAME\"\n    },\n    {\n        \"text\": \"A12345678\",\n        \"type\": \"ID\"\n    }\n]\n```",
+        "error": null
+      },
+      {
+        "test_case": "complex_medical",
+        "response_time": 0.19541668891906738,
+        "json_valid": true,
+        "phi_correct": 0,
+        "phi_expected": 5,
+        "raw_output": "[]",
+        "error": null
+      },
+      {
+        "test_case": "chinese_text",
+        "response_time": 6.811339855194092,
+        "json_valid": true,
+        "phi_correct": 3,
+        "phi_expected": 4,
+        "raw_output": "[\n    {\n        \"text\": \"陳大明\",\n        \"type\": \"NAME\"\n    },\n    {\n        \"text\": \"台北市信義區松仁路100號\",\n        \"type\": \"LOCATION\"\n    },\n    {\n        \"text\": \"2024年3月1日\",\n        \"type\": \"DATE\"\n    }\n]",
+        "error": null
+      },
+      {
+        "test_case": "chinese_text",
+        "response_time": 0.4287254810333252,
+        "json_valid": true,
+        "phi_correct": 0,
+        "phi_expected": 4,
+        "raw_output": "```json\n[]\n```",
+        "error": null
+      },
+      {
+        "test_case": "email_mixed",
+        "response_time": 7.502532720565796,
+        "json_valid": true,
+        "phi_correct": 3,
+        "phi_expected": 3,
+        "raw_output": "```json\n[\n    {\n        \"text\": \"john.doe@email.com\",\n        \"type\": \"EMAIL\"\n    },\n    {\n        \"text\": \"02-2345-6789\",\n        \"type\": \"PHONE\"\n    },\n    {\n        \"text\": \"1985-06-15\",\n        \"type\": \"DATE\"\n    }\n]\n```",
+        "error": null
+      },
+      {
+        "test_case": "email_mixed",
+        "response_time": 3.412670612335205,
+        "json_valid": true,
+        "phi_correct": 2,
+        "phi_expected": 3,
+        "raw_output": "[\n    {\n        \"text\": \"john.doe@email.com\",\n        \"type\": \"EMAIL\"\n    },\n    {\n        \"text\": \"02-2345-6789\",\n        \"type\": \"PHONE\"\n    }\n]",
+        "error": null
+      }
+    ]
+  },
+  "granite4:1b": {
+    "avg_response_time": 15.773392379283905,
+    "json_success_rate": 1.0,
+    "phi_precision": 1.105263157894737,
+    "phi_recall": 0.75,
+    "f1_score": 0.8936170212765957,
+    "total_runs": 8,
+    "results": [
+      {
+        "test_case": "simple_name",
+        "response_time": 29.278878927230835,
+        "json_valid": true,
+        "phi_correct": 2,
+        "phi_expected": 2,
+        "raw_output": "[\n  {\"text\":\"John Smith\",\"type\":\"NAME\"},\n  {\"text\":\"2024-01-15\",\"type\":\"DATE\"}\n]",
+        "error": null
+      },
+      {
+        "test_case": "simple_name",
+        "response_time": 8.0993332862854,
+        "json_valid": true,
+        "phi_correct": 2,
+        "phi_expected": 2,
+        "raw_output": "[\n  {\n    \"text\": \"Patient John Smith\",\n    \"type\": \"NAME\"\n  },\n  {\n    \"text\": \"2024-01-15\",\n    \"type\": \"DATE\"\n  }\n]",
+        "error": null
+      },
+      {
+        "test_case": "complex_medical",
+        "response_time": 15.971425533294678,
+        "json_valid": true,
+        "phi_correct": 2,
+        "phi_expected": 5,
+        "raw_output": "[\n  {\"text\": \"MRN: A12345678\", \"type\": \"ID\"},\n  {\"text\": \"Taipei General Hospital\", \"type\": \"FACILITY\"}\n]",
+        "error": null
+      },
+      {
+        "test_case": "complex_medical",
+        "response_time": 7.2637224197387695,
+        "json_valid": true,
+        "phi_correct": 2,
+        "phi_expected": 5,
+        "raw_output": "[\n  {\"text\": \"MRN: A12345678\", \"type\": \"ID\"},\n  {\"text\": \"Taipei General Hospital\", \"type\": \"FACILITY\"}\n]",
+        "error": null
+      },
+      {
+        "test_case": "chinese_text",
+        "response_time": 25.465641260147095,
+        "json_valid": true,
+        "phi_correct": 4,
+        "phi_expected": 4,
+        "raw_output": "[\n  {\"text\": \"病患陳大明，男性，92歲\", \"type\": \"NAME\"},\n  {\"text\": \"台北市信義區松仁路100號\", \"type\": \"ADDRESS\"},\n  {\"text\": \"2024年3月1日入院\", \"type\": \"DATE\"}\n]",
+        "error": null
+      },
+      {
+        "test_case": "chinese_text",
+        "response_time": 13.80188798904419,
+        "json_valid": true,
+        "phi_correct": 4,
+        "phi_expected": 4,
+        "raw_output": "[\n  {\"text\": \"病患陳大明，男性，92歲\", \"type\": \"NAME\"},\n  {\"text\": \"台北市信義區松仁路100號\", \"type\": \"ADDRESS\"},\n  {\"text\": \"2024年3月1日\", \"type\": \"DATE\"}\n]",
+        "error": null
+      },
+      {
+        "test_case": "email_mixed",
+        "response_time": 19.28851819038391,
+        "json_valid": true,
+        "phi_correct": 3,
+        "phi_expected": 3,
+        "raw_output": "[\n  {\"text\": \"john.doe@email.com\", \"type\": \"EMAIL\"},\n  {\"text\": \"02-2345-6789\", \"type\": \"PHONE\"},\n  {\"text\": \"1985-06-15\", \"type\": \"DATE\"}\n]",
+        "error": null
+      },
+      {
+        "test_case": "email_mixed",
+        "response_time": 7.017731428146362,
+        "json_valid": true,
+        "phi_correct": 2,
+        "phi_expected": 3,
+        "raw_output": "[\n  {\"text\": \"john.doe@email.com\", \"type\": \"EMAIL\"},\n  {\"text\": \"02-2345-6789\", \"type\": \"PHONE\"}\n]",
+        "error": null
+      }
+    ]
+  },
+  "llama3.2:1b": {
+    "avg_response_time": 8.303807020187378,
+    "json_success_rate": 1.0,
+    "phi_precision": 0.4230769230769231,
+    "phi_recall": 0.7857142857142857,
+    "f1_score": 0.55,
+    "total_runs": 8,
+    "results": [
+      {
+        "test_case": "simple_name",
+        "response_time": 8.233577013015747,
+        "json_valid": true,
+        "phi_correct": 2,
+        "phi_expected": 2,
+        "raw_output": "[ {\"text\": \"Patient John Smith was admitted on 2024-01-15\", \"type\": \"DATE\" }, \n    {\"text\": \"exact PHI text\", \"type\": \"PHONE\"}, \n    {\"text\": \"Patient John Smith was admitted on 2024-01-15\", \"type\": \"ID\"} ]",
+        "error": null
+      },
+      {
+        "test_case": "simple_name",
+        "response_time": 9.9702730178833,
+        "json_valid": true,
+        "phi_correct": 2,
+        "phi_expected": 2,
+        "raw_output": "[{\"text\": \"John Smith\", \"type\": \"NAME\"}, {\"text\": \"2024-01-15\", \"type\": \"DATE\"}, {\"text\": \"2020-05-22\", \"type\": \"DATE\"}, {\"text\": \"5551234567\", \"type\": \"PHONE\"}, {\"text\": \"john.smith@example.com\", \"type\": \"EMAIL\"}, {\"text\": \"1234-5678-9012-3456\", \"type\": \"ID\"}, {\"text\": \"1001-001-2345\", \"type\": \"ID\"}, {\"text\": \"New York, NY\", \"type\": \"LOCATION\"}, {\"text\": \"Hartwood Hospital\", \"type\": \"FACILITY\"}]",
+        "error": null
+      },
+      {
+        "test_case": "complex_medical",
+        "response_time": 7.903044700622559,
+        "json_valid": true,
+        "phi_correct": 5,
+        "phi_expected": 5,
+        "raw_output": "[\n    {\"text\": \"Dr. Mary Johnson treated patient Wang Wei (MRN: A12345678) at Taipei General Hospital.\", \"type\": \"NAME\"},\n    {\"text\": \"Contact: 0912-345-678.\", \"type\": \"PHONE\"},\n    {\"text\": \"Wang Wei\", \"type\": \"NAME\"},\n    {\"text\": \"A12345678\", \"type\": \"ID\"},\n    {\"text\": \"Taipei General Hospital\", \"type\": \"FACILITY\"}\n]",
+        "error": null
+      },
+      {
+        "test_case": "complex_medical",
+        "response_time": 4.014973163604736,
+        "json_valid": true,
+        "phi_correct": 0,
+        "phi_expected": 5,
+        "raw_output": "[\n  {\"text\": \"exact PHI text\", \"type\": \"PHONE\"},\n  {\"text\": \"exact PHI text\", \"type\": \"EMAIL\"},\n  {\"text\": \"exact PHI text\", \"type\": \"ID\"},\n  {\"text\": \"exact PHI text\", \"type\": \"DATE\"}\n]",
+        "error": null
+      },
+      {
+        "test_case": "chinese_text",
+        "response_time": 10.721874713897705,
+        "json_valid": true,
+        "phi_correct": 3,
+        "phi_expected": 4,
+        "raw_output": "[\n  {\"text\": \"台北市信義區松仁路100號\", \"type\": \"ADDRESS\"},\n  {\"text\": \"2024年3月1日\", \"type\": \"DATE\"},\n  {\"text\": \"92歲\", \"type\": \"AGE\"},\n  {\"text\": \"台北市\", \"type\": \"CITY\"},\n  {\"text\": \"信義區\", \"type\": \"LOCATION\"},\n  {\"text\": \"松仁路100號\", \"type\": \"ADDRESS\"},\n  {\"text\": \"2024年3月1日\", \"type\": \"DATE\"},\n  {\"text\": \"92歲\", \"type\": \"AGE\"},\n  {\"text\": \"台北市信義區\", \"type\": \"LOCATION\"}\n]",
+        "error": null
+      },
+      {
+        "test_case": "chinese_text",
+        "response_time": 6.538461208343506,
+        "json_valid": true,
+        "phi_correct": 4,
+        "phi_expected": 4,
+        "raw_output": "[ {\"text\": \"陳大明\", \"type\": \"NAME\" }, {\"text\": \"台北市信義區松仁路100號\", \"type\": \"LOCATION\" }, {\"text\": \"2024年3月1日\", \"type\": \"DATE\" }, {\"text\": \"92歲\", \"type\": \"AGE\"}, {\"text\": \"信義區\", \"type\": \"PHONE\" }, {\"text\": \"[insert email address]\", \"type\": \"EMAIL\"} ]",
+        "error": null
+      },
+      {
+        "test_case": "email_mixed",
+        "response_time": 8.478069067001343,
+        "json_valid": true,
+        "phi_correct": 3,
+        "phi_expected": 3,
+        "raw_output": "[\n    {\"text\": \"exact PHI text\", \"type\": \"NAME\"},\n    {\"text\": \"john.doe@email.com\", \"type\": \"PHONE\"},\n    {\"text\": \"02-2345-6789\", \"type\": \"EMAIL\"},\n    {\"text\": \"1985-06-15\", \"type\": \"DATE\"},\n    {\"text\": \"exact PHI text\", \"type\": \"ID\"},\n    {\"text\": \"john.doe\", \"type\": \"NAME\"},\n    {\"text\": \"02-2345-6789\", \"type\": \"PHONE\"}\n]",
+        "error": null
+      },
+      {
+        "test_case": "email_mixed",
+        "response_time": 10.570183277130127,
+        "json_valid": true,
+        "phi_correct": 3,
+        "phi_expected": 3,
+        "raw_output": "[\n  {\"text\": \"contact patient's family at john.doe@email.com or call 02-2345-6789\", \"type\": \"PHONE\"},\n  {\"text\": \"Patient DOB: 1985-06-15\", \"type\": \"DATE\"},\n  {\"text\": \"\", \"type\": \"AGE\"},\n  {\"text\": \"john.doe@email.com\", \"type\": \"EMAIL\"},\n  {\"text\": \"02-2345-6789\", \"type\": \"PHONE\"},\n  {\"text\": \"1985-06-15\", \"type\": \"DATE\"},\n  {\"text\": \"\", \"type\": \"AGE\"},\n  {\"text\": \"john.doe@email.com\", \"type\": \"EMAIL\"},\n  {\"text\": \"02-2345-6789\", \"type\": \"PHONE\"}\n]",
+        "error": null
+      }
+    ]
+  },
+  "smollm2:360m": {
+    "avg_response_time": 3.7786769568920135,
+    "json_success_rate": 0.875,
+    "phi_precision": 0.0,
+    "phi_recall": 0.0,
+    "f1_score": 0,
+    "total_runs": 8,
+    "results": [
+      {
+        "test_case": "simple_name",
+        "response_time": 6.6107776165008545,
+        "json_valid": true,
+        "phi_correct": 0,
+        "phi_expected": 2,
+        "raw_output": "[{\"text\": \"exact PHI text\", \"type\": \"PHI_TYPE\"}]",
+        "error": null
+      },
+      {
+        "test_case": "simple_name",
+        "response_time": 1.50581955909729,
+        "json_valid": true,
+        "phi_correct": 0,
+        "phi_expected": 2,
+        "raw_output": "[{\"text\": \"exact PHI text\", \"type\": \"PHI_TYPE\"}]",
+        "error": null
+      },
+      {
+        "test_case": "complex_medical",
+        "response_time": 3.267632484436035,
+        "json_valid": true,
+        "phi_correct": 0,
+        "phi_expected": 5,
+        "raw_output": "[{\"text\": \"exact PHI text\", \"type\": \"PHI_TYPE\"}]",
+        "error": null
+      },
+      {
+        "test_case": "complex_medical",
+        "response_time": 1.5563457012176514,
+        "json_valid": true,
+        "phi_correct": 0,
+        "phi_expected": 5,
+        "raw_output": "[\"{\n  \"text\":\"exact PHI text\",\"type\":\"PHI_TYPE\"\n}\"]",
+        "error": null
+      },
+      {
+        "test_case": "chinese_text",
+        "response_time": 11.07096529006958,
+        "json_valid": false,
+        "phi_correct": 0,
+        "phi_expected": 4,
+        "raw_output": "\"['病患陳大明，男性，92歲，住址：台北市信義區松仁路100號；如果有其他PHI類型文字，則對其的表達可以直接檢討。否則尋找其報錯資料，並尋找其何一種日期檢討。\"]",
+        "error": null
+      },
+      {
+        "test_case": "chinese_text",
+        "response_time": 1.1694040298461914,
+        "json_valid": true,
+        "phi_correct": 0,
+        "phi_expected": 4,
+        "raw_output": "[{\"text\":\"exact PHI text\",\"type\":\"PHI_TYPE\"}]",
+        "error": null
+      },
+      {
+        "test_case": "email_mixed",
+        "response_time": 3.1699812412261963,
+        "json_valid": true,
+        "phi_correct": 0,
+        "phi_expected": 3,
+        "raw_output": "[\"{\"text\":\"exact PHI text\",\"type\":\"PHI_TYPE\"}\"]",
+        "error": null
+      },
+      {
+        "test_case": "email_mixed",
+        "response_time": 1.8784897327423096,
+        "json_valid": true,
+        "phi_correct": 0,
+        "phi_expected": 3,
+        "raw_output": "```json\n{\n  \"text\": \"exact PHI text\",\n  \"type\": \"PHI_TYPE\"\n}\n```",
+        "error": null
+      }
+    ]
+  }
+}

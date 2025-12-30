@@ -29,7 +29,11 @@ env.bak/
 venv.bak/
 .venv/
 
-# Poetry
+# uv (package manager)
+uv.lock
+.uv/
+
+# Poetry (legacy, migrated to uv)
 poetry.lock
 .poetry/
 

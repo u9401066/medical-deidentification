@@ -209,8 +209,54 @@ if not DSPY_AVAILABLE:
             return []
 
 
+# Recommended lightweight models for CPU inference
+# Benchmarked on 2024-12-30 with PHI extraction task
+LIGHTWEIGHT_MODELS = {
+    "granite4:1b": {
+        "size": "3.3GB", 
+        "json_capable": True,
+        "f1_score": 0.894,
+        "avg_time": 15.77,
+        "recommended": True,
+        "description": "🏆 Best quality - IBM model, excellent JSON/tool support, F1=89.4%",
+    },
+    "qwen2.5:1.5b": {
+        "size": "986MB",
+        "json_capable": True,
+        "f1_score": 0.667,
+        "avg_time": 4.21,
+        "recommended": True,
+        "description": "⭐ Best balance - Fast (4s), good quality, F1=66.7%",
+    },
+    "llama3.2:1b": {
+        "size": "1.3GB",
+        "json_capable": True,
+        "f1_score": 0.550,
+        "avg_time": 8.30,
+        "recommended": False,
+        "description": "Meta model, high recall (79%) but lower precision",
+    },
+    "smollm2:360m": {
+        "size": "725MB",
+        "json_capable": False,
+        "f1_score": 0.0,
+        "avg_time": 3.78,
+        "recommended": False,
+        "description": "❌ Too small - Cannot understand PHI extraction task",
+    },
+    "qwen2.5:0.5b": {
+        "size": "395MB",
+        "json_capable": True,
+        "f1_score": None,  # Not benchmarked
+        "avg_time": None,
+        "recommended": False,
+        "description": "Smallest Qwen, may have similar issues as smollm2",
+    },
+}
+
+
 def configure_dspy_ollama(
-    model_name: str = "qwen2.5:1.5b",
+    model_name: str = "granite4:1b",
     api_base: str = "http://localhost:11434",
     temperature: float = 0.1,
     max_tokens: int = 1024,
@@ -218,6 +264,12 @@ def configure_dspy_ollama(
     """
     Configure DSPy to use Ollama
     配置 DSPy 使用 Ollama
+    
+    Recommended lightweight models for CPU (Benchmarked 2024-12-30):
+    - granite4:1b (3.3GB) - 🏆 Best quality, F1=89.4%
+    - qwen2.5:1.5b (986MB) - ⭐ Best balance, F1=66.7%, ~4s
+    - llama3.2:1b (1.3GB) - Good recall but lower precision
+    - smollm2:360m (725MB) - ❌ Too small, cannot do PHI extraction
     
     Args:
         model_name: Ollama model name
@@ -227,6 +279,11 @@ def configure_dspy_ollama(
     """
     if not DSPY_AVAILABLE:
         raise ImportError("DSPy not installed. Install with: pip install dspy-ai")
+    
+    # Log model info if it's a known lightweight model
+    if model_name in LIGHTWEIGHT_MODELS:
+        info = LIGHTWEIGHT_MODELS[model_name]
+        logger.info(f"Using lightweight model: {model_name} ({info['size']}) - {info['description']}")
     
     # DSPy supports Ollama via OpenAI-compatible API
     lm = dspy.LM(

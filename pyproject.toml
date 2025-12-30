@@ -1,12 +1,18 @@
-[tool.poetry]
+# ============================================================
+# pyproject.toml - Medical De-identification Project
+# 使用 uv 套件管理器 (https://github.com/astral-sh/uv)
+# ============================================================
+
+[project]
 name = "medical-deidentification"
 version = "0.1.0-beta"
 description = "LLM-powered medical text de-identification toolkit with RAG-enhanced regulation retrieval | 基於 LLM 與 RAG 的醫療文本去識別化工具套件"
-authors = ["Medical De-identification Contributors"]
 readme = "README.md"
-license = "MIT"
-homepage = "https://github.com/u9401066/medical-deidentification"
-repository = "https://github.com/u9401066/medical-deidentification"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Medical De-identification Contributors" }
+]
 keywords = ["medical", "deidentification", "phi", "hipaa", "nlp", "llm", "rag"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -20,125 +26,218 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
-[tool.poetry.dependencies]
-python = "^3.10"
+# === 正式依賴 ===
+dependencies = [
+    # Deep Learning Framework | 深度學習框架
+    # IMPORTANT: torch 2.2.0+cpu required for Windows compatibility
+    "torch==2.2.0",
+    "numpy>=1.26.0,<2.0",  # torch 2.2.0 requires numpy < 2.0
 
-# Deep Learning Framework | 深度學習框架
-# IMPORTANT: torch 2.2.0+cpu required for Windows compatibility
-# Install from: pip install torch==2.2.0 --index-url https://download.pytorch.org/whl/cpu
-torch = "2.2.0"
-numpy = "^1.26.0,<2.0"  # torch 2.2.0 requires numpy < 2.0
+    # LLM Integration | LLM 整合
+    "langchain>=1.0.0",
+    "langchain-community>=0.4.0",
+    "langchain-core>=1.0.0",
+    "langchain-anthropic>=1.0.0",
+    "langchain-openai>=1.0.0",
+    "langchain-ollama>=1.0.0",
+    "langchain-huggingface>=1.0.0",
+    "langchain-text-splitters>=1.0.0",
+    "openai>=1.12.0",
+    "anthropic>=0.74.0",
 
-# LLM Integration | LLM 整合
-langchain = "^1.0.0"
-langchain-community = "^0.4.0"
-langchain-core = "^1.0.0"
-langchain-anthropic = "^1.0.0"
-langchain-openai = "^1.0.0"
-langchain-ollama = "^1.0.0"
-langchain-huggingface = "^1.0.0"
-langchain-text-splitters = "^1.0.0"
-openai = "^1.12.0"
-anthropic = "^0.74.0"
+    # RAG & Vector Store | RAG 與向量儲存
+    "sentence-transformers>=2.3.1",
+    "faiss-cpu>=1.7.4",
+    "transformers>=4.57.0",
+    "tokenizers>=0.22.0",
+    "huggingface-hub>=0.36.0",
 
-# RAG & Vector Store | RAG 與向量儲存
-sentence-transformers = "^2.3.1"
-faiss-cpu = "^1.7.4"
-transformers = "^4.57.0"
-tokenizers = "^0.22.0"
-huggingface-hub = "^0.36.0"
+    # Data Processing | 資料處理
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.1.0",
 
-# Data Processing | 資料處理
-pydantic = "^2.6.0"
-pydantic-settings = "^2.1.0"
+    # UI | 使用者介面
+    "rich>=13.7.0",
+    "tqdm>=4.66.1",
 
-# UI | 使用者介面
-rich = "^13.7.0"
-tqdm = "^4.66.1"
+    # I/O & Data Formats | 輸入輸出與資料格式
+    "pyyaml>=6.0.1",
+    "python-dotenv>=1.0.0",
+    "pandas>=2.2.0",
+    "openpyxl>=3.1.0",
 
-# I/O & Data Formats | 輸入輸出與資料格式
-pyyaml = "^6.0.1"
-python-dotenv = "^1.0.0"
-pandas = "^2.2.0"
+    # Utilities | 工具
+    "tenacity>=8.2.3",   # Retry logic | 重試邏輯
+    "loguru>=0.7.2",     # Logging | 日誌
+]
 
-# Utilities | 工具
-tenacity = "^8.2.3"  # Retry logic | 重試邏輯
-loguru = "^0.7.2"    # Logging | 日誌
+# === 開發依賴 ===
+[project.optional-dependencies]
+dev = [
+    # Testing | 測試
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.23.5",
+    "pytest-mock>=3.12.0",
+    "pytest-xdist>=3.3.0",
 
-[tool.poetry.group.dev.dependencies]
-# Testing | 測試
-pytest = "^8.0.0"
-pytest-cov = "^4.1.0"
-pytest-asyncio = "^0.23.5"
-pytest-mock = "^3.12.0"
+    # Static Analysis & Security | 靜態分析與安全
+    "ruff>=0.8.0",
+    "mypy>=1.8.0",
+    "bandit[toml]>=1.7.5",
 
-# Code Quality | 程式碼品質
-black = "^24.2.0"
-isort = "^5.13.2"
-mypy = "^1.8.0"
-pylint = "^3.0.3"
-ruff = "^0.2.1"
+    # Type stubs
+    "types-requests",
+    "types-PyYAML",
 
-# Documentation | 文件
-mkdocs = "^1.5.3"
-mkdocs-material = "^9.5.9"
-mkdocstrings = {extras = ["python"], version = "^0.24.0"}
+    # Documentation | 文件
+    "mkdocs>=1.5.3",
+    "mkdocs-material>=9.5.9",
+    "mkdocstrings[python]>=0.24.0",
 
-# Development Tools | 開發工具
-ipython = "^8.21.0"
-jupyter = "^1.0.0"
+    # Development Tools | 開發工具
+    "ipython>=8.21.0",
+    "jupyter>=1.0.0",
+]
 
-[tool.poetry.scripts]
+# === 入口點（CLI 工具）===
+[project.scripts]
 med-deid = "medical_deidentification.cli:app"
 
+[project.urls]
+Homepage = "https://github.com/u9401066/medical-deidentification"
+Repository = "https://github.com/u9401066/medical-deidentification"
+Documentation = "https://github.com/u9401066/medical-deidentification#readme"
+
+# === 建置系統 ===
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-# Black Configuration
-[tool.black]
+[tool.hatch.build.targets.wheel]
+packages = ["medical_deidentification"]
+
+# ============================================================
+# 工具配置
+# ============================================================
+
+# === uv 配置 ===
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "ruff>=0.8.0",
+    "mypy>=1.8.0",
+    "bandit[toml]>=1.7.5",
+]
+
+# === Ruff (Linter + Formatter，取代 black/isort/flake8/pylint) ===
+[tool.ruff]
+target-version = "py310"
 line-length = 100
-target-version = ['py310']
-include = '\.pyi?$'
 
-# isort Configuration
-[tool.isort]
-profile = "black"
-line_length = 100
-multi_line_output = 3
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "PTH",    # flake8-use-pathlib
+    "S",      # flake8-bandit (security)
+    "PL",     # pylint
+    "RUF",    # ruff-specific
+]
+ignore = [
+    "E501",    # line too long (handled by formatter)
+    "PLR0913", # too many arguments
+    "S101",    # assert used (OK in tests)
+]
 
-# mypy Configuration
+[tool.ruff.lint.isort]
+known-first-party = ["medical_deidentification"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "ARG", "PLR2004"]
+"scripts/**/*.py" = ["S101", "T201"]  # allow print in scripts
+
+# === MyPy (Type Checker) ===
 [tool.mypy]
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
+warn_unused_ignores = true
 disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+show_error_codes = true
 plugins = ["pydantic.mypy"]
 
-# pytest Configuration
+[[tool.mypy.overrides]]
+module = ["tests.*", "scripts.*"]
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = [
+    "faiss",
+    "faiss.*",
+    "sentence_transformers",
+    "sentence_transformers.*",
+    "transformers",
+    "transformers.*",
+    "torch",
+    "torch.*",
+    "langchain",
+    "langchain.*",
+    "langchain_core.*",
+    "langchain_community.*",
+    "langchain_openai.*",
+    "langchain_anthropic.*",
+    "langchain_ollama.*",
+    "langchain_huggingface.*",
+]
+ignore_missing_imports = true
+
+# === Pytest ===
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+asyncio_mode = "auto"
 addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+    "-ra",
     "--cov=medical_deidentification",
     "--cov-report=html",
     "--cov-report=term-missing",
-    "--strict-markers",
-    "-v"
 ]
 markers = [
     "unit: Unit tests",
-    "integration: Integration tests",
-    "e2e: End-to-end tests",
+    "integration: Integration tests (require external services)",
+    "e2e: End-to-end tests (require running application)",
     "slow: Slow-running tests",
 ]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
 
-# Coverage Configuration
+# === Coverage ===
 [tool.coverage.run]
 source = ["medical_deidentification"]
-omit = ["*/tests/*", "*/test_*.py"]
+branch = true
+parallel = true
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -146,25 +245,21 @@ exclude_lines = [
     "def __repr__",
     "raise AssertionError",
     "raise NotImplementedError",
-    "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "@abstractmethod",
 ]
+fail_under = 60
+show_missing = true
+skip_covered = true
 
-# Ruff Configuration
-[tool.ruff]
-line-length = 100
-target-version = "py310"
+[tool.coverage.html]
+directory = "htmlcov"
 
-[tool.ruff.lint]
-select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "B",  # flake8-bugbear
-    "C4", # flake8-comprehensions
-]
-ignore = [
-    "E501", # line too long (handled by black)
-    "B008", # do not perform function calls in argument defaults
-]
+[tool.coverage.xml]
+output = "coverage.xml"
+
+# === Bandit (Security Scanner) ===
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "venv"]
+skips = ["B101"]  # assert used (OK in production for this project)

@@ -5,303 +5,211 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![LangChain](https://img.shields.io/badge/LangChain-1.0+-orange.svg)](https://langchain.com/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![DSPy](https://img.shields.io/badge/DSPy-2.0+-purple.svg)](https://github.com/stanfordnlp/dspy)
 
-**🔒 LLM/RAG 驅動的醫療文本去識別化工具 | AI-Powered Medical Text De-identification**
+**🔒 LLM-Native Medical PHI De-identification | LLM 原生醫療 PHI 去識別化**
 
-[English](#overview) | [繁體中文](#專案概述)
+[English](#-why-this-tool) | [繁體中文](#-為何選擇這個工具)
 
 </div>
 
 ---
 
-## ✨ Highlights | 亮點
+## ⚡ Highlights | 核心亮點
 
-```text
-🚀 一鍵部署      支援 OpenAI / Anthropic / Ollama / MiniMind 多種 LLM
-🎯 高準確率      RAG + LLM 雙引擎，PHI 識別準確率 95%+
-⚡ 混合策略      SpaCy + Regex + LLM 三層識別，效能提升 30-100x
-🌍 多語言支援    繁中/簡中/英/日/韓/法/德等 10+ 語言
-📊 批次處理      Excel/CSV/PDF/Word 等 10+ 格式一次處理
-🔐 隱私優先      病歷資料不持久化，符合 HIPAA/GDPR
-🆓 完全開源      MIT License，可商用
+```
+🧠 LLM-Native      語義理解驅動，非傳統 NER/Regex 規則匹配
+🎯 DSPy 優化       自動 prompt 工程，無需手動調參
+💻 CPU 友好        支援 1B 參數輕量模型，無需 GPU
+🔐 隱私優先        100% 本地運行，資料不離開你的設備
+🌏 多語言          繁中/簡中/英/日/韓 等 10+ 語言
+⚡ 高效混合        SpaCy + Regex + LLM 三層策略
 ```
 
 ---
 
-## 📋 Table of Contents | 目錄
+## 🆚 Why This Tool? | 為何選擇這個工具？
 
-- [Overview | 概述](#overview--專案概述)
-- [Key Features | 主要功能](#-key-features--主要功能)
-- [Quick Start | 快速開始](#-quick-start--快速開始)
-- [Installation | 安裝](#-installation--安裝)
-- [Usage Examples | 使用範例](#-usage-examples--使用範例)
-- [Supported LLM Providers | 支援的 LLM](#-supported-llm-providers--支援的-llm)
-- [Architecture | 系統架構](#-architecture--系統架構)
-- [Documentation | 文檔](#-documentation--文檔)
-- [Contributing | 貢獻](#-contributing--貢獻)
-- [License | 授權](#-license--授權)
+### 與現有方案的比較
 
----
+| 特性 | **本專案** | Microsoft Presidio | SpaCy NER | Cloud APIs |
+|------|-----------|-------------------|-----------|------------|
+| **技術核心** | 🧠 LLM 語義理解 | Rule + NER | NER 模型 | LLM API |
+| **Prompt 優化** | ✅ DSPy 自動化 | ❌ 手動規則 | ❌ N/A | ❌ 手動 |
+| **本地運行** | ✅ 100% 離線 | ✅ 可離線 | ✅ 可離線 | ❌ 需網路 |
+| **CPU 推理** | ✅ 1B 模型 | ✅ | ✅ | ❌ |
+| **隱私保護** | 🔐 資料不外傳 | 🔐 | 🔐 | ⚠️ 資料上雲 |
+| **中文支援** | ✅ 繁/簡中優化 | ⚠️ 基本 | ⚠️ 需額外模型 | ✅ |
+| **醫療專用** | ✅ PHI 20+ 類型 | ⚠️ 通用 PII | ⚠️ 通用 NER | ⚠️ 通用 |
+| **上下文理解** | ✅ 語義分析 | ❌ 規則匹配 | ⚠️ 有限 | ✅ |
 
-## Overview | 專案概述
+### 本專案的核心優勢
 
-**Medical De-identification Toolkit** is an open-source Python library that uses **LLM (Large Language Model)** and **RAG (Retrieval-Augmented Generation)** technology to automatically identify and mask **Protected Health Information (PHI)** in medical records.
-
-**醫療去識別化工具套件** 是一個開源 Python 函式庫，使用 **LLM（大型語言模型）** 與 **RAG（檢索增強生成）** 技術，自動識別並遮蔽醫療病歷中的 **個人健康資訊（PHI）**。
-
-### 🎯 Why This Tool? | 為何選擇這個工具？
-
-| Challenge | Traditional Approach | Our Solution |
-|-----------|---------------------|--------------|
-| PHI Detection | Rule-based regex | 🤖 LLM + RAG semantic understanding |
-| Multi-language | Separate models | 🌍 Single multilingual pipeline |
-| Custom Rules | Hard-coded | 📚 RAG retrieves from regulation docs |
-| Deployment | Heavy dependencies | ⚡ Supports ultra-light MiniMind (26M params) |
-
----
-
-## 🌟 Key Features | 主要功能
-
-### 🔍 PHI Detection | PHI 識別
-- **20+ PHI Types**: Name, Date, Location, Medical Record Number, Age >89, Rare Diseases, etc.
-- **Multi-language**: Traditional Chinese, Simplified Chinese, English, Japanese, Korean, and more
-- **Context-aware**: Understands medical context for accurate detection
-
-### 🛡️ De-identification Strategies | 去識別化策略
-| Strategy | Description | Example |
-|----------|-------------|---------|
-| **Redaction** | Complete removal | `張三` → `[REDACTED]` |
-| **Masking** | Type-based placeholder | `張三` → `[NAME]` |
-| **Generalization** | Reduce precision | `1990-05-15` → `1990` |
-| **Pseudonymization** | Consistent replacement | `張三` → `Patient_A` |
-
-### 📁 Supported Formats | 支援格式
 ```
-📄 Text: TXT, CSV, JSON
-📊 Office: XLSX, XLS, DOCX
-📑 Document: PDF, HTML, XML
-🏥 Healthcare: FHIR R4 JSON
-```
-
-### 🤖 Multiple LLM Backends | 多種 LLM 後端
-- **Cloud**: OpenAI GPT-4o, Anthropic Claude 3
-- **Local**: Ollama (Qwen, Llama, Mistral)
-- **Ultra-light**: MiniMind (26M-104M params) ← 🆕 **NEW!**
-- **DSPy Integration**: Automatic prompt optimization ← 🆕 **NEW!**
-
----
-
-## 🚀 Quick Start | 快速開始
-
-### 30-Second Demo | 30 秒上手
-
-```python
-from medical_deidentification.application.processing import DeidentificationEngine
-from medical_deidentification.infrastructure.llm import LLMPresets, create_llm
-
-# 1. Choose your LLM (pick one)
-llm = create_llm(LLMPresets.local_minimind())  # Free, runs locally!
-# llm = create_llm(LLMPresets.local_qwen())    # Better quality
-# llm = create_llm(LLMPresets.gpt_4o())        # Best quality (requires API key)
-
-# 2. Create engine
-engine = DeidentificationEngine(llm=llm)
-
-# 3. Process medical text
-text = """
-病患姓名：王大明，身分證字號：A123456789
-出生日期：1985年3月15日，聯絡電話：0912-345-678
-診斷：法布瑞氏症（罕見疾病）
-主治醫師：陳醫師，台北榮民總醫院
-"""
-
-result = engine.process(text)
-print(result.deidentified_text)
-# Output: 病患姓名：[NAME]，身分證字號：[ID]...
+┌─────────────────────────────────────────────────────────────┐
+│  🎯 核心差異化                                               │
+├─────────────────────────────────────────────────────────────┤
+│  1. LLM-Native: 用語義理解取代規則匹配                       │
+│     - "王醫師" vs "王大明" 能正確區分                        │
+│     - 上下文感知：「聯絡家屬王先生」→ NAME                  │
+│                                                              │
+│  2. DSPy 自動優化: 無需手動調 prompt                         │
+│     - BootstrapFewShot: 自動選擇最佳 few-shot 範例          │
+│     - MIPRO: 多階段指令優化                                  │
+│                                                              │
+│  3. 本地 CPU 推理: 無需 GPU，隱私優先                        │
+│     - granite4:1b (3.3GB) → F1=89.4%                        │
+│     - qwen2.5:1.5b (986MB) → 4 秒/請求                      │
+│                                                              │
+│  4. 醫療專用 PHI: 20+ 類型，符合 HIPAA/台灣 PDPA            │
+│     - 罕見疾病名稱識別                                       │
+│     - 高齡 (>89歲) 特殊處理                                  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📦 Installation | 安裝
+## 🚀 Quick Start | 30 秒上手
 
-### Option 1: pip (Recommended)
+### 1. 安裝
+
 ```bash
-pip install medical-deidentification
-```
-
-### Option 2: From Source
-```bash
+# Clone
 git clone https://github.com/u9401066/medical-deidentification.git
 cd medical-deidentification
+
+# Install
 pip install -e .
+
+# 或使用 uv (推薦)
+uv sync
 ```
 
-### Option 3: Poetry (Development)
+### 2. 設定本地 LLM
+
 ```bash
-git clone https://github.com/u9401066/medical-deidentification.git
-cd medical-deidentification
-poetry install
-poetry shell
+# 安裝 Ollama (https://ollama.ai)
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 下載推薦模型 (選一個)
+ollama pull granite4:1b    # 🏆 最佳品質 (F1=89.4%)
+ollama pull qwen2.5:1.5b   # ⭐ 最佳平衡 (快 4x)
+```
+
+### 3. 執行範例
+
+```bash
+python examples/quick_start.py
+```
+
+```python
+# 或在程式碼中使用
+from medical_deidentification.infrastructure.rag import PHIIdentificationChain
+
+chain = PHIIdentificationChain()
+entities = chain.identify_phi("""
+    病患王大明，身分證 A123456789，
+    電話 0912-345-678
+""")
+
+for entity in entities:
+    print(f"[{entity.phi_type}] {entity.text}")
+# Output:
+# [NAME] 王大明
+# [ID] A123456789  
+# [PHONE] 0912-345-678
 ```
 
 ---
 
-## 💡 Usage Examples | 使用範例
+## 🤖 Recommended Models | 推薦模型
 
-### Example 1: Basic PHI Identification | 基本 PHI 識別
+經過 benchmark 測試的 CPU 友好模型：
 
-```python
-from medical_deidentification.infrastructure.rag import PHIIdentificationChain
-from medical_deidentification.infrastructure.llm import LLMConfig, create_llm
+| 模型 | 大小 | F1 Score | 速度 | JSON 成功率 | 推薦場景 |
+|------|------|----------|------|-------------|----------|
+| **granite4:1b** | 3.3GB | **89.4%** | ~16s | 100% | 🏆 生產環境 |
+| **qwen2.5:1.5b** | 986MB | 66.7% | ~4s | 100% | ⭐ 開發測試 |
+| llama3.2:1b | 1.3GB | 55.0% | ~8s | 100% | 高召回需求 |
+| smollm2:360m | 725MB | 0% | ~4s | 87.5% | ❌ 不推薦 |
 
-# Configure LLM
-config = LLMConfig(
-    provider="ollama",
-    model_name="qwen2.5:7b",
-    temperature=0.0
-)
-llm = create_llm(config)
+> 📊 完整 benchmark 報告：[docs/llm-benchmark-results.md](docs/llm-benchmark-results.md)
 
-# Identify PHI entities
-entities = phi_chain.identify_phi(medical_text)
-for entity in entities:
-    print(f"Found: {entity.text} ({entity.phi_type}, confidence: {entity.confidence})")
-```
+---
 
-### Example 2: Batch Processing Excel | 批次處理 Excel
+## 🛡️ Supported PHI Types | 支援的 PHI 類型
 
-```python
-from medical_deidentification.application.processing import (
-    BatchPHIProcessor,
-    BatchProcessingConfig
-)
+| 類別 | PHI 類型 | 範例 |
+|------|----------|------|
+| **身份** | NAME, ID, SSN | 王大明, A123456789 |
+| **聯絡** | PHONE, EMAIL, FAX | 0912-345-678 |
+| **地點** | LOCATION, ADDRESS | 台北市信義區 |
+| **日期** | DATE, DOB, ADMISSION_DATE | 2024-01-15 |
+| **年齡** | AGE, AGE_OVER_89 | 92歲 |
+| **醫療** | FACILITY, MRN, DEVICE_ID | 台北榮總, A12345 |
+| **其他** | URL, IP_ADDRESS, VEHICLE | http://..., 192.168.1.1 |
 
-# Configure batch processor
-batch_config = BatchProcessingConfig(
-    max_rows=100,           # Process first 100 rows
-    language="zh-TW",       # Traditional Chinese
-    skip_empty_rows=True
-)
+---
 
-processor = BatchPHIProcessor(phi_chain, batch_config)
-result = processor.process_excel_file("patient_records.xlsx")
+## 🧠 DSPy Integration | DSPy 整合
 
-# Export results
-result.to_excel("phi_results.xlsx")
-print(f"Found {result.total_entities} PHI entities in {result.processed_rows} rows")
-```
-
-### Example 3: Using MiniMind (Ultra-light Local LLM) | 使用 MiniMind
-
-```python
-from medical_deidentification.infrastructure.llm import LLMPresets, create_llm
-
-# MiniMind: Only 104M parameters, runs on any hardware!
-config = LLMPresets.local_minimind()
-llm = create_llm(config)
-
-# First, pull the model (one-time setup)
-# $ ollama pull jingyaogong/minimind2
-```
-
-### Example 4: RAG-Enhanced Detection | RAG 增強識別
-
-```python
-from medical_deidentification.infrastructure.rag import (
-    RegulationRetrievalChain,
-    PHIIdentificationChain
-)
-
-# Load regulation documents (HIPAA, GDPR, Taiwan PDPA, etc.)
-regulation_chain = RegulationRetrievalChain(
-    regulation_dir="./regulations"
-)
-
-# PHI detection with regulation context
-phi_chain = PHIIdentificationChain(
-    regulation_chain=regulation_chain,
-    llm=llm
-)
-
-# The system now retrieves relevant regulations to guide PHI detection
-entities = phi_chain.identify_phi(medical_text)
-```
-
-### Example 5: DSPy Automatic Prompt Optimization | DSPy 自動 Prompt 優化 🆕
+本專案使用 [DSPy](https://github.com/stanfordnlp/dspy) 實現自動 prompt 優化：
 
 ```python
 from medical_deidentification.infrastructure.dspy import (
     PHIIdentifier,
     PHIPromptOptimizer,
-    PHIEvaluator
+    configure_dspy_ollama,
 )
 
-# Configure DSPy with Ollama
-from medical_deidentification.infrastructure.dspy.phi_module import configure_dspy_ollama
-configure_dspy_ollama(model_name="qwen2.5:1.5b")
+# 配置 DSPy
+configure_dspy_ollama(model_name="granite4:1b")
 
-# Create base PHI identifier
+# 創建識別器
 identifier = PHIIdentifier()
 
-# Run automatic optimization with DSPy
+# (可選) 使用訓練資料優化
 optimizer = PHIPromptOptimizer()
-result = optimizer.optimize(
-    trainset=training_examples,
-    method="bootstrap",  # or "mipro"
-    max_iterations=10
-)
+result = optimizer.optimize(trainset=your_data, method="bootstrap")
 
-# Use optimized module
-optimized_identifier = result.best_module
-entities = optimized_identifier(medical_text="Patient John Smith, age 45...")
-
-# Check metrics
-print(f"F1 Score: {result.optimized_score:.2%}")
-print(f"Speed improvement: {result.time_improvement:.2%}")
+# 使用優化後的模組
+optimized = result.best_module
+entities = optimized.forward(medical_text="...")
 ```
 
 ---
 
-## 🤖 Supported LLM Providers | 支援的 LLM
+## 📁 Project Structure | 專案結構
 
-### Cloud Providers | 雲端服務
-
-| Provider | Models | Structured Output | Setup |
-|----------|--------|-------------------|-------|
-| **OpenAI** | GPT-4o, GPT-4o-mini, GPT-3.5 | ✅ Native | `OPENAI_API_KEY` |
-| **Anthropic** | Claude 3 Opus/Sonnet/Haiku | ✅ Native | `ANTHROPIC_API_KEY` |
-
-### Local Models (via Ollama) | 本地模型
-
-| Model | Parameters | Speed | Quality | GPU VRAM |
-|-------|------------|-------|---------|----------|
-| **MiniMind2** 🆕 | 104M | ⚡⚡⚡⚡⚡ | ⭐⭐ | 1GB |
-| **MiniMind2-Small** | 26M | ⚡⚡⚡⚡⚡ | ⭐ | <1GB |
-| **Qwen 2.5 7B** | 7B | ⚡⚡⚡ | ⭐⭐⭐⭐ | 4GB |
-| **Llama 3.1 8B** | 8B | ⚡⚡⚡ | ⭐⭐⭐⭐ | 4GB |
-| **Mistral 7B** | 7B | ⚡⚡⚡⭐ | ⭐⭐⭐ | 4GB |
-
-### Quick Setup for Local Models
-
-```bash
-# Install Ollama (https://ollama.ai)
-# Then pull your preferred model:
-
-ollama pull jingyaogong/minimind2     # Ultra-light (recommended for testing)
-ollama pull qwen2.5:7b                # Balanced (recommended for production)
-ollama pull llama3.1:8b               # General purpose
 ```
-
-> 📖 See [Ollama Setup Guide](./docs/ollama-setup.md) for detailed instructions.
+medical-deidentification/
+├── examples/                    # 📚 使用範例
+│   ├── quick_start.py          # 30 秒上手
+│   ├── batch_example.py        # 批次處理
+│   └── dspy_optimization.py    # DSPy 優化
+├── medical_deidentification/
+│   ├── application/            # 應用層
+│   │   └── processing/         # 批次處理器
+│   ├── domain/                 # 領域層 (DDD)
+│   │   ├── entities.py         # PHI 實體定義
+│   │   └── phi_types.py        # PHI 類型
+│   └── infrastructure/         # 基礎設施層
+│       ├── dspy/               # 🧠 DSPy 整合
+│       ├── llm/                # LLM 配置
+│       ├── rag/                # RAG 鏈
+│       └── loader/             # 文件載入器
+├── docs/                       # 📖 文檔
+├── scripts/                    # 🔧 工具腳本
+└── data/                       # 測試資料
+```
 
 ---
 
-## 🏗️ Architecture | 系統架構
+## 📊 Architecture | 系統架構
 
-### Hybrid PHI Detection Pipeline | 混合 PHI 檢測管道 🆕
+### 混合 PHI 檢測管道
 
-```text
+```
 ┌─────────────────────────────────────────────────────────────┐
 │              Hybrid PHI Detection Pipeline                   │
 ├─────────────────────────────────────────────────────────────┤
@@ -313,139 +221,59 @@ ollama pull llama3.1:8b               # General purpose
 │  ├── PERSON, DATE, ORG, GPE, LOC entities                  │
 │  └── Coverage: ~40% of PHI                                  │
 ├─────────────────────────────────────────────────────────────┤
-│  Level 3: Small LLM - Uncertain Regions Only (~0.5-2s)     │
-│  ├── Qwen2.5-0.5B/1.5B for remaining ~30%                  │
-│  └── Fall back to Qwen2.5-7B for complex cases             │
+│  Level 3: LLM Semantic Analysis (~1-15s)                   │
+│  ├── Context-aware PHI detection                            │
+│  ├── granite4:1b / qwen2.5:1.5b                            │
+│  └── DSPy optimized prompts                                 │
 └─────────────────────────────────────────────────────────────┘
 ```
-
-### Streaming PHI Chain | 串流 PHI 處理鏈 🆕
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│          FIFO Stateless Streaming Architecture               │
-├─────────────────────────────────────────────────────────────┤
-│  Large File → [Chunk Iterator] → Process → Output → Next    │
-│                                                              │
-│  Features:                                                   │
-│  ├── 🔄 FIFO: Process chunks in order, one at a time        │
-│  ├── 💾 Checkpoint: Resume from last processed chunk        │
-│  ├── 🚫 No accumulation: Immediate output, low memory       │
-│  ├── 📁 Unlimited file size: Stream processing              │
-│  └── ⚡ Tools: Pre-scan with Regex/SpaCy before LLM         │
-├─────────────────────────────────────────────────────────────┤
-│  Usage:                                                      │
-│    chain = StreamingPHIChain(llm, config)                   │
-│    for result in chain.process_file("large.txt"):           │
-│        print(f"Chunk {result.chunk_id}: {len(result.phi)}") │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### System Architecture | 系統架構
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                    Medical De-identification Toolkit             │
-├─────────────────────────────────────────────────────────────────┤
-│  Interface Layer                                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │     CLI     │  │   Python    │  │  REST API   │              │
-│  │   (Typer)   │  │   Library   │  │  (Future)   │              │
-│  └─────────────┘  └─────────────┘  └─────────────┘              │
-├─────────────────────────────────────────────────────────────────┤
-│  Application Layer                                               │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  DeidentificationEngine  │  BatchPHIProcessor           │    │
-│  │  PHI Detection Pipeline  │  Report Generator            │    │
-│  └─────────────────────────────────────────────────────────┘    │
-├─────────────────────────────────────────────────────────────────┤
-│  Infrastructure Layer                                            │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│  │   LLM    │  │   RAG    │  │  Loader  │  │  Output  │        │
-│  │ Factory  │  │  Engine  │  │ (10 fmt) │  │ Manager  │        │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
-├─────────────────────────────────────────────────────────────────┤
-│  Domain Layer                                                    │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  PHIEntity  │  PHIType  │  MaskingStrategy  │  Config   │    │
-│  └─────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-> 📖 See [Architecture Guide](./docs/ARCHITECTURE.md) for detailed design.
 
 ---
 
 ## 📚 Documentation | 文檔
 
-| Document | Description |
-|----------|-------------|
-| 📖 [Architecture Guide](./docs/ARCHITECTURE.md) | System design & DDD structure |
-| 🚀 [Deployment Guide](./docs/DEPLOYMENT.md) | Installation & configuration |
-| 🔧 [Ollama Setup](./docs/ollama-setup.md) | Local LLM setup guide |
-| 📊 [Batch Processing](./docs/batch-processing.md) | Excel/CSV batch processing |
-| 🔍 [RAG Usage Guide](./docs/rag-usage.md) | Regulation retrieval system |
-
----
-
-## 📊 Performance | 效能
-
-### Processing Speed (per document, ~1500 chars)
-
-| LLM Provider | Model | Time | Hardware |
-|--------------|-------|------|----------|
-| MiniMind | minimind2 | ~2-5s | CPU only |
-| Ollama | qwen2.5:7b | ~15-25s | RTX 3090 |
-| OpenAI | gpt-4o-mini | ~3-5s | API |
-| Anthropic | claude-3-haiku | ~2-4s | API |
-
-### Accuracy Benchmarks
-
-| PHI Type | Precision | Recall | F1 Score |
-|----------|-----------|--------|----------|
-| Name | 96% | 94% | 95% |
-| Date | 98% | 97% | 97.5% |
-| ID Number | 99% | 98% | 98.5% |
-| Location | 92% | 90% | 91% |
-| Age >89 | 100% | 99% | 99.5% |
+| 文檔 | 說明 |
+|------|------|
+| [Architecture](docs/ARCHITECTURE.md) | 系統設計與 DDD 架構 |
+| [Deployment](docs/DEPLOYMENT.md) | 安裝與配置指南 |
+| [LLM Benchmark](docs/llm-benchmark-results.md) | 模型效能測試報告 |
+| [Ollama Setup](docs/ollama-setup.md) | 本地 LLM 設定 |
+| [Batch Processing](docs/batch-processing.md) | 批次處理指南 |
 
 ---
 
 ## 🤝 Contributing | 貢獻
 
-We welcome contributions! 歡迎貢獻！
+歡迎貢獻！請參閱 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+```bash
+# 開發安裝
+git clone https://github.com/u9401066/medical-deidentification.git
+cd medical-deidentification
+uv sync --dev
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
+# 執行測試
+pytest tests/
+
+# 程式碼格式化
+ruff format .
+ruff check . --fix
+```
 
 ---
 
 ## 📄 License | 授權
 
-This project is licensed under the **MIT License** - see the [LICENSE](./LICENSE) file for details.
+[MIT License](LICENSE) - 可商用、可修改、可分發
 
 ---
 
 ## ⚠️ Privacy Notice | 隱私聲明
 
-- **Never commit real PHI** to this repository
-- Medical data is processed **in-memory only** (not persisted)
-- Designed for **HIPAA** and **GDPR** compliance
-- Users are responsible for proper usage in their context
-
----
-
-## 🙏 Acknowledgments | 致謝
-
-- [LangChain](https://langchain.com/) - LLM framework
-- [Ollama](https://ollama.ai/) - Local LLM runtime
-- [MiniMind](https://github.com/jingyaogong/minimind) - Ultra-lightweight LLM
-- [FAISS](https://github.com/facebookresearch/faiss) - Vector similarity search
+- 🔐 所有資料處理 **100% 本地**，不外傳任何資料
+- 🚫 **永遠不要** 將真實 PHI 提交到版本控制
+- ✅ 設計符合 **HIPAA** 和 **台灣個資法 (PDPA)**
+- 👤 使用者需自行確保在其使用情境中的合規性
 
 ---
 

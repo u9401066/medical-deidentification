@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Lightweight LLM Benchmark & Recommendation** - CPU 環境輕量 LLM 效能評測
+  - 🏆 `granite4:1b` - 最佳品質 (F1=89.4%, JSON 100% 成功)
+  - ⭐ `qwen2.5:1.5b` - 最佳平衡 (F1=66.7%, 速度 ~4s)
+  - `llama3.2:1b` - 高召回率 (79%) 但精確度較低
+  - ❌ `smollm2:360m` - 太小無法理解 PHI 任務
+- Benchmark script: `scripts/benchmark_lightweight_llms.py`
+- DSPy 預設模型更新為 `granite4:1b`
 - **MiniMind Ultra-Lightweight LLM Support** - 僅 26M-104M 參數的超輕量本地模型
   - `jingyaogong/minimind2` (104M, best performance)
   - `jingyaogong/minimind2-small` (26M, ultra-fast)
