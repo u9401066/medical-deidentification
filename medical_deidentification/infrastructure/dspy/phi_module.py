@@ -12,6 +12,11 @@ DSPy vs LangChain:
 DSPy 與 LangChain 的區別：
 - LangChain: 手動 prompt 工程
 - DSPy: 基於指標的自動 prompt 優化
+
+NEW in v1.1.0:
+- YAML-based prompt configuration support
+- Model-specific prompt selection
+- Optimization result persistence
 """
 
 from typing import List, Optional
@@ -27,6 +32,15 @@ except ImportError:
     dspy = None
 
 from loguru import logger
+
+# Import prompt management
+try:
+    from ..prompts import load_prompt_config, PromptConfig
+    PROMPT_MANAGER_AVAILABLE = True
+except ImportError:
+    PROMPT_MANAGER_AVAILABLE = False
+    load_prompt_config = None
+    PromptConfig = None
 
 
 @dataclass
@@ -328,3 +342,222 @@ def configure_dspy_openai(
     
     dspy.configure(lm=lm)
     logger.info(f"DSPy configured with OpenAI model: {model_name}")
+
+
+# ============================================================
+# NEW: YAML-based Prompt Configuration Integration
+# 新增：YAML 格式 Prompt 配置整合
+# ============================================================
+
+def create_phi_identifier_from_yaml(
+    config_name: str = "phi_identification",
+    model_name: str = "granite4:1b",
+    config_version: Optional[str] = None,
+) -> "PHIIdentifierWithConfig":
+    """
+    Create PHI identifier with YAML configuration
+    使用 YAML 配置創建 PHI 識別器
+    
+    This function loads prompt configuration from YAML and creates
+    a DSPy module that uses the configured prompts and settings.
+    
+    此函數從 YAML 載入 prompt 配置，並創建使用配置的 prompts 和設定的 DSPy 模組。
+    
+    Args:
+        config_name: Name of YAML config file (without .yaml)
+        model_name: Model to use (affects prompt selection)
+        config_version: Specific version to load
+        
+    Returns:
+        PHIIdentifierWithConfig instance
+        
+    Example:
+        >>> identifier = create_phi_identifier_from_yaml(
+        ...     model_name="granite4:1b"
+        ... )
+        >>> entities = identifier("病患王大明...")
+    """
+    if not PROMPT_MANAGER_AVAILABLE:
+        raise ImportError("Prompt manager not available. Check prompts module.")
+    
+    config = load_prompt_config(config_name, config_version)
+    return PHIIdentifierWithConfig(config, model_name)
+
+
+if DSPY_AVAILABLE:
+    
+    class ConfigurablePHISignature(dspy.Signature):
+        """
+        Configurable PHI Identification Signature
+        可配置的 PHI 識別 Signature
+        
+        This signature's docstring can be dynamically set from YAML config.
+        此 signature 的 docstring 可以從 YAML 配置動態設定。
+        """
+        medical_text: str = dspy.InputField(
+            desc="Medical text to analyze for PHI"
+        )
+        phi_entities: str = dspy.OutputField(
+            desc='JSON array of PHI entities with text, phi_type, and reason'
+        )
+    
+    
+    class PHIIdentifierWithConfig(dspy.Module):
+        """
+        DSPy PHI Identifier with YAML Configuration Support
+        支援 YAML 配置的 DSPy PHI 識別器
+        
+        This module loads its configuration from YAML files, allowing:
+        - Easy prompt customization without code changes
+        - Version control of prompts
+        - Model-specific prompt selection
+        - Optimization result persistence
+        
+        此模組從 YAML 檔案載入配置，允許：
+        - 無需修改程式碼即可自訂 prompts
+        - Prompt 版本控制
+        - 模型特定的 prompt 選擇
+        - 優化結果持久化
+        
+        Usage:
+            >>> # Method 1: Use factory function
+            >>> identifier = create_phi_identifier_from_yaml(model_name="granite4:1b")
+            >>> 
+            >>> # Method 2: Direct instantiation
+            >>> from medical_deidentification.infrastructure.prompts import load_prompt_config
+            >>> config = load_prompt_config("phi_identification")
+            >>> identifier = PHIIdentifierWithConfig(config, "granite4:1b")
+            >>> 
+            >>> # Identify PHI
+            >>> entities = identifier("病患王大明，身分證A123456789...")
+        """
+        
+        def __init__(
+            self, 
+            config: "PromptConfig",
+            model_name: str = "granite4:1b",
+        ):
+            """
+            Initialize with YAML configuration
+            
+            Args:
+                config: PromptConfig loaded from YAML
+                model_name: Model name for model-specific settings
+            """
+            super().__init__()
+            self.config = config
+            self.model_name = model_name
+            
+            # Get model-specific configuration
+            self.model_config = config.get_model_config(model_name)
+            
+            # Create signature with configured prompt
+            self._setup_signature()
+            
+            # Use ChainOfThought if configured, else Predict
+            if self.model_config.use_cot:
+                self.identify = dspy.ChainOfThought(self._signature_class)
+            else:
+                self.identify = dspy.Predict(self._signature_class)
+            
+            logger.info(
+                f"PHIIdentifierWithConfig initialized: "
+                f"config={config.name} v{config.version}, "
+                f"model={model_name}, "
+                f"prompt_style={self.model_config.prompt_style}"
+            )
+        
+        def _setup_signature(self):
+            """Setup DSPy signature from config"""
+            # Get PHI types from config
+            phi_types_str = ", ".join(self.config.get_phi_type_list())
+            
+            # Create dynamic signature class with configured docstring
+            prompt_template = self.config.get_prompt(
+                name=self.model_config.prompt_style,
+                medical_text="{medical_text}",  # Placeholder
+            )
+            
+            # Use the first line of template as description
+            description = prompt_template.split("\n")[0][:200]
+            
+            class DynamicPHISignature(dspy.Signature):
+                __doc__ = f"""
+                {description}
+                
+                PHI Types: {phi_types_str}
+                
+                Output: JSON array of PHI entities
+                """
+                medical_text: str = dspy.InputField(
+                    desc="Medical text to analyze for PHI"
+                )
+                phi_entities: str = dspy.OutputField(
+                    desc=f'JSON array: [{{"text": "...", "phi_type": "{phi_types_str.split(",")[0]}|...", "reason": "..."}}]'
+                )
+            
+            self._signature_class = DynamicPHISignature
+        
+        def forward(self, medical_text: str) -> List[PHIEntity]:
+            """
+            Identify PHI entities in medical text
+            識別醫療文本中的 PHI 實體
+            
+            Args:
+                medical_text: Medical text to analyze
+                
+            Returns:
+                List of PHIEntity objects
+            """
+            try:
+                # Call DSPy predictor
+                result = self.identify(medical_text=medical_text)
+                
+                # Parse JSON output
+                entities = parse_phi_entities(result.phi_entities, medical_text)
+                
+                return entities
+                
+            except Exception as e:
+                logger.error(f"PHI identification failed: {e}")
+                return []
+        
+        def __call__(self, medical_text: str) -> List[PHIEntity]:
+            """Convenience method to call forward"""
+            return self.forward(medical_text)
+        
+        def get_few_shot_examples(self) -> List[dict]:
+            """Get few-shot examples from config"""
+            return [
+                {"input": ex.input, "output": ex.output, "note": ex.note}
+                for ex in self.config.get_few_shot_examples()
+            ]
+        
+        def get_optimization_settings(self) -> dict:
+            """Get optimization settings from config"""
+            opt = self.config.optimization
+            return {
+                "method": opt.default_method,
+                "targets": opt.targets,
+                "weights": opt.weights,
+            }
+
+
+# Fallback when DSPy not available
+if not DSPY_AVAILABLE:
+    
+    class PHIIdentifierWithConfig:
+        """Fallback when DSPy not available"""
+        
+        def __init__(self, config, model_name: str = "granite4:1b"):
+            logger.warning("DSPy not installed. Install with: pip install dspy-ai")
+            self.config = config
+            self.model_name = model_name
+        
+        def forward(self, medical_text: str) -> List[PHIEntity]:
+            logger.error("DSPy not available")
+            return []
+        
+        def __call__(self, medical_text: str) -> List[PHIEntity]:
+            return self.forward(medical_text)
+

@@ -11,6 +11,11 @@ What is DSPy?
 - 基於訓練資料優化 prompt
 - 無需手動調整 prompt 模板
 
+NEW: YAML-based Prompt Configuration
+- Prompt 配置存儲在 YAML 檔案中
+- 支援版本控制
+- 優化結果可保存到新版本 YAML
+
 Prerequisites:
     1. pip install -e .
     2. ollama pull granite4:1b
@@ -18,6 +23,7 @@ Prerequisites:
 Usage:
     python examples/dspy_optimization.py
     python examples/dspy_optimization.py --optimize  # Run optimization
+    python examples/dspy_optimization.py --yaml      # Use YAML config
 """
 
 import argparse
@@ -28,6 +34,10 @@ from medical_deidentification.infrastructure.dspy import (
     PHIPromptOptimizer,
     configure_dspy_ollama,
     LIGHTWEIGHT_MODELS,
+    # NEW: YAML integration
+    PHIIdentifierWithConfig,
+    create_phi_identifier_from_yaml,
+    optimize_and_save_to_yaml,
 )
 
 
@@ -75,6 +85,79 @@ def basic_usage():
         print(f"   [{entity.phi_type:15}] {entity.text}")
 
 
+def yaml_config_demo():
+    """NEW: 使用 YAML 配置的 PHI 識別"""
+    print("\n" + "=" * 60)
+    print("📄 NEW: YAML-based Prompt Configuration")
+    print("=" * 60)
+    
+    print("""
+    YAML Prompt Configuration provides:
+    
+    ✅ Version control for prompts
+    ✅ Easy customization without code changes
+    ✅ Model-specific prompt selection
+    ✅ Optimization result persistence
+    """)
+    
+    # Configure DSPy
+    configure_dspy_ollama(model_name="granite4:1b")
+    
+    # Method 1: Use factory function
+    print("\n📌 Method 1: Factory Function")
+    print("-" * 40)
+    print("""
+    identifier = create_phi_identifier_from_yaml(
+        config_name="phi_identification",
+        model_name="granite4:1b",
+    )
+    entities = identifier("病患王大明...")
+    """)
+    
+    try:
+        identifier = create_phi_identifier_from_yaml(
+            config_name="phi_identification",
+            model_name="granite4:1b",
+        )
+        
+        # Test
+        test_text = "病患王大明，身分證 A123456789，電話 0912-345-678"
+        print(f"\n📝 Test: {test_text}")
+        
+        entities = identifier(test_text)
+        print(f"✅ Found {len(entities)} PHI:")
+        for e in entities:
+            print(f"   [{e.phi_type}] {e.text}")
+            
+    except Exception as e:
+        print(f"⚠️ Demo skipped: {e}")
+        print("   (Run `ollama serve` and `ollama pull granite4:1b` first)")
+    
+    # Method 2: Load prompt config directly
+    print("\n📌 Method 2: Direct Config Access")
+    print("-" * 40)
+    
+    try:
+        from medical_deidentification.infrastructure.prompts import load_prompt_config
+        
+        config = load_prompt_config("phi_identification")
+        
+        print(f"Config: {config.name} v{config.version}")
+        print(f"PHI Types: {config.get_phi_type_list()[:5]}...")
+        print(f"Few-shot Examples: {len(config.few_shot_examples)}")
+        
+        # Get prompt for specific model
+        prompt = config.get_prompt(
+            name="simplified",
+            medical_text="[示例文本]",
+        )
+        print(f"\nPrompt preview (first 200 chars):")
+        print(f"   {prompt[:200]}...")
+        
+    except Exception as e:
+        print(f"⚠️ Config not available: {e}")
+
+
 def optimization_demo():
     """進階用法：使用 DSPy 優化"""
     print("\n" + "=" * 60)
@@ -87,66 +170,64 @@ def optimization_demo():
     1. Prepare training data (labeled examples)
     2. Configure optimizer (BootstrapFewShot or MIPRO)
     3. Run optimization
-    4. Evaluate and save optimized module
+    4. Save optimized config to new YAML version
     
     Benefits:
     - Automatic prompt improvement
     - No manual prompt engineering
-    - Adapts to your specific data
+    - Results persisted to YAML
     """)
     
     # Example training data format
-    print("\n📚 Training Data Format:")
+    print("\n📚 Training Data Format (Tagged Text):")
     print("-" * 40)
     
-    example_data = [
-        {
-            "medical_text": "病患王大明，身分證 A123456789，電話 0912-345-678",
-            "expected_phi": [
-                {"text": "王大明", "type": "NAME"},
-                {"text": "A123456789", "type": "ID"},
-                {"text": "0912-345-678", "type": "PHONE"},
-            ]
-        },
-        {
-            "medical_text": "Dr. Smith treated patient at Taipei Hospital on 2024-01-15",
-            "expected_phi": [
-                {"text": "Smith", "type": "NAME"},
-                {"text": "Taipei Hospital", "type": "FACILITY"},
-                {"text": "2024-01-15", "type": "DATE"},
-            ]
-        },
+    tagged_examples = [
+        "病患【PHI:NAME:1】王大明【/PHI】，身分證【PHI:ID:2】A123456789【/PHI】",
+        "主治醫師【PHI:NAME:3】張明華【/PHI】，入院日【PHI:DATE:4】2024-05-15【/PHI】",
+        "【PHI:AGE_OVER_89:5】92歲【/PHI】女性，於【PHI:FACILITY:6】台北榮總【/PHI】就醫",
     ]
     
-    import json
-    print(json.dumps(example_data[0], indent=2, ensure_ascii=False))
+    for ex in tagged_examples[:2]:
+        print(f"  {ex}")
     
     print("""
     
-    📖 To run actual optimization:
+    📖 To run optimization and save to YAML:
     
     ```python
-    from medical_deidentification.infrastructure.dspy import PHIPromptOptimizer
-    
-    optimizer = PHIPromptOptimizer()
-    result = optimizer.optimize(
-        trainset=training_examples,
-        method="bootstrap",  # or "mipro"
-        max_iterations=10
+    from medical_deidentification.infrastructure.dspy import (
+        optimize_and_save_to_yaml,
+        load_optimized_identifier,
     )
     
-    # Use optimized module
-    optimized_identifier = result.best_module
-    print(f"F1 improved: {result.baseline_score:.2%} → {result.optimized_score:.2%}")
+    # Optimize and save to new YAML version
+    result, yaml_path = optimize_and_save_to_yaml(
+        tagged_texts=tagged_examples,
+        model_name="granite4:1b",
+        config_name="phi_identification",
+        method="bootstrap",
+    )
+    
+    print(f"F1: {result.original_score:.2%} → {result.optimized_score:.2%}")
+    print(f"Saved to: {yaml_path}")
+    
+    # Load optimized identifier
+    identifier = load_optimized_identifier(
+        config_name="phi_identification",
+        version="1.1.0",  # Or None for latest
+    )
     ```
     
-    See scripts/dspy_phi_optimizer.py for full implementation.
+    📁 YAML files saved to:
+       medical_deidentification/infrastructure/prompts/phi_identification.v*.yaml
     """)
 
 
 def main():
     parser = argparse.ArgumentParser(description="DSPy PHI Optimization Demo")
     parser.add_argument("--optimize", action="store_true", help="Show optimization demo")
+    parser.add_argument("--yaml", action="store_true", help="Show YAML config demo")
     parser.add_argument("--models", action="store_true", help="Show available models")
     args = parser.parse_args()
     
@@ -158,7 +239,9 @@ def main():
         show_available_models()
         return
     
-    if args.optimize:
+    if args.yaml:
+        yaml_config_demo()
+    elif args.optimize:
         optimization_demo()
     else:
         basic_usage()
@@ -166,8 +249,9 @@ def main():
     print("\n" + "=" * 60)
     print("✨ Done!")
     print("=" * 60)
-    print("\nNext steps:")
+    print("\nOptions:")
     print("  --models    Show available lightweight models")
+    print("  --yaml      Show YAML prompt configuration (NEW)")
     print("  --optimize  Show optimization workflow")
 
 

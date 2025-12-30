@@ -7,14 +7,25 @@ de-identification system.
 集中管理醫療去識別化系統的所有 prompt 模板。
 
 This module provides:
+- YAML-based prompt configuration (NEW)
 - Prompt templates for PHI identification
 - Prompt templates for validation
 - Multilingual support
 - Version management
-- Easy access functions
+- DSPy integration support
 
 Examples:
-    >>> # Get PHI identification prompt
+    >>> # NEW: Load YAML-based prompt config
+    >>> from medical_deidentification.infrastructure.prompts import (
+    ...     load_prompt_config,
+    ...     PromptManager,
+    ... )
+    >>> 
+    >>> # Load default PHI identification config
+    >>> config = load_prompt_config("phi_identification")
+    >>> prompt = config.get_prompt(model_name="granite4:1b", medical_text="...")
+    >>> 
+    >>> # Legacy: Get PHI identification prompt
     >>> from medical_deidentification.infrastructure.prompts import (
     ...     get_phi_identification_prompt
     ... )
@@ -36,6 +47,19 @@ Examples:
     >>> print(prompts)
 """
 
+# NEW: YAML-based prompt management
+from .prompt_manager import (
+    PromptManager,
+    PromptConfig,
+    PromptTemplate,
+    PHITypeConfig,
+    FewShotExample,
+    ModelConfig,
+    OptimizationConfig,
+    load_prompt_config,
+)
+
+# Legacy: Template-based prompts (for backward compatibility)
 from .templates import (
     # Enums
     PromptType,
@@ -80,6 +104,16 @@ from .templates import (
 
 
 __all__ = [
+    # NEW: YAML-based prompt management
+    "PromptManager",
+    "PromptConfig",
+    "PromptTemplate",
+    "PHITypeConfig",
+    "FewShotExample",
+    "ModelConfig",
+    "OptimizationConfig",
+    "load_prompt_config",
+    
     # Enums
     "PromptType",
     "PromptLanguage",

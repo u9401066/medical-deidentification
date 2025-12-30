@@ -1,0 +1,184 @@
+# ============================================================
+# Prompt Configuration Schema
+# Prompt 配置 Schema
+# ============================================================
+# This file defines the structure of prompt configuration files.
+# All prompt YAML files should follow this schema.
+# ============================================================
+
+# Schema Version
+schema_version: "1.0.0"
+
+# Required Fields
+required_fields:
+  - metadata
+  - prompts
+
+# Field Definitions
+fields:
+  metadata:
+    type: object
+    required: true
+    description: "Prompt metadata and versioning"
+    properties:
+      name:
+        type: string
+        required: true
+        description: "Unique prompt identifier"
+      version:
+        type: string
+        required: true
+        pattern: "^\\d+\\.\\d+\\.\\d+$"
+        description: "Semantic version (e.g., 1.0.0)"
+      description:
+        type: string
+        required: true
+        description: "Description of the prompt's purpose"
+      author:
+        type: string
+        required: false
+        description: "Prompt author or team"
+      created_at:
+        type: string
+        format: date
+        required: false
+        description: "Creation date (YYYY-MM-DD)"
+      updated_at:
+        type: string
+        format: date
+        required: false
+        description: "Last update date (YYYY-MM-DD)"
+      benchmark:
+        type: object
+        required: false
+        description: "Benchmark results for this prompt"
+        properties:
+          model:
+            type: string
+            description: "Model used for benchmark"
+          f1_score:
+            type: number
+            min: 0.0
+            max: 1.0
+            description: "F1 score achieved"
+          avg_time_ms:
+            type: number
+            description: "Average response time in ms"
+
+  phi_types:
+    type: object
+    required: false
+    description: "PHI type definitions"
+    additionalProperties:
+      type: object
+      properties:
+        description:
+          type: string
+          required: true
+        examples:
+          type: array
+          items:
+            type: string
+          required: false
+        regex_patterns:
+          type: array
+          items:
+            type: string
+          required: false
+        priority:
+          type: string
+          enum: [critical, high, medium, low]
+          required: false
+
+  prompts:
+    type: object
+    required: true
+    description: "Prompt templates"
+    additionalProperties:
+      type: object
+      properties:
+        template:
+          type: string
+          required: true
+          description: "Jinja2 template string"
+        variables:
+          type: array
+          items:
+            type: string
+          required: false
+          description: "Variables used in template"
+
+  few_shot_examples:
+    type: array
+    required: false
+    description: "Few-shot examples for optimization"
+    items:
+      type: object
+      properties:
+        input:
+          type: string
+          required: true
+        output:
+          type: string
+          required: true
+        note:
+          type: string
+          required: false
+
+  optimization:
+    type: object
+    required: false
+    description: "DSPy optimization settings"
+    properties:
+      dspy:
+        type: object
+        properties:
+          default_method:
+            type: string
+            enum: [bootstrap_fewshot, mipro, miprov2]
+          bootstrap_fewshot:
+            type: object
+          mipro:
+            type: object
+      targets:
+        type: object
+        properties:
+          min_f1_score:
+            type: number
+            min: 0.0
+            max: 1.0
+          max_response_time_ms:
+            type: number
+          max_prompt_tokens:
+            type: integer
+      weights:
+        type: object
+        properties:
+          f1_score:
+            type: number
+          time_factor:
+            type: number
+          prompt_factor:
+            type: number
+
+  model_configs:
+    type: object
+    required: false
+    description: "Model-specific configurations"
+    additionalProperties:
+      type: object
+      properties:
+        prompt_style:
+          type: string
+          description: "Which prompt template to use"
+        temperature:
+          type: number
+          min: 0.0
+          max: 2.0
+        max_tokens:
+          type: integer
+        use_cot:
+          type: boolean
+          description: "Use chain-of-thought reasoning"
+        notes:
+          type: string
