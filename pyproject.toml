@@ -9,7 +9,7 @@ version = "0.1.0-beta"
 description = "LLM-powered medical text de-identification toolkit with RAG-enhanced regulation retrieval | 基於 LLM 與 RAG 的醫療文本去識別化工具套件"
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
     { name = "Medical De-identification Contributors" }
 ]
@@ -26,78 +26,61 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
-# === 正式依賴 ===
+# === 正式依賴 (精簡版) ===
 dependencies = [
-    # Deep Learning Framework | 深度學習框架
-    # IMPORTANT: torch 2.2.0+cpu required for Windows compatibility
-    "torch==2.2.0",
-    "numpy>=1.26.0,<2.0",  # torch 2.2.0 requires numpy < 2.0
-
-    # LLM Integration | LLM 整合
-    "langchain>=1.0.0",
-    "langchain-community>=0.4.0",
+    # Core LLM | 核心 LLM（僅 Ollama 本地推理）
     "langchain-core>=1.0.0",
-    "langchain-anthropic>=1.0.0",
-    "langchain-openai>=1.0.0",
     "langchain-ollama>=1.0.0",
-    "langchain-huggingface>=1.0.0",
-    "langchain-text-splitters>=1.0.0",
-    "openai>=1.12.0",
-    "anthropic>=0.74.0",
 
-    # RAG & Vector Store | RAG 與向量儲存
-    "sentence-transformers>=2.3.1",
+    # DSPy | 自動 Prompt 優化
+    "dspy>=2.5.0",
+
+    # RAG (可選，如需 RAG 功能)
     "faiss-cpu>=1.7.4",
-    "transformers>=4.57.0",
-    "tokenizers>=0.22.0",
-    "huggingface-hub>=0.36.0",
+    "sentence-transformers>=2.3.1",
 
     # Data Processing | 資料處理
     "pydantic>=2.6.0",
     "pydantic-settings>=2.1.0",
 
-    # UI | 使用者介面
-    "rich>=13.7.0",
-    "tqdm>=4.66.1",
-
-    # I/O & Data Formats | 輸入輸出與資料格式
+    # I/O | 輸入輸出
     "pyyaml>=6.0.1",
-    "python-dotenv>=1.0.0",
     "pandas>=2.2.0",
     "openpyxl>=3.1.0",
 
     # Utilities | 工具
-    "tenacity>=8.2.3",   # Retry logic | 重試邏輯
-    "loguru>=0.7.2",     # Logging | 日誌
+    "rich>=13.7.0",
+    "loguru>=0.7.2",
+    "tenacity>=8.2.3",
+    "python-dotenv>=1.0.0",
+    
+    # Template | 模板引擎
+    "jinja2>=3.1.0",
 ]
 
-# === 開發依賴 ===
+# === 可選依賴 ===
 [project.optional-dependencies]
+# 雲端 LLM 支援
+cloud = [
+    "langchain-openai>=1.0.0",
+    "langchain-anthropic>=1.0.0",
+    "openai>=1.12.0",
+    "anthropic>=0.74.0",
+]
+
+# 完整 RAG 功能（含 HuggingFace）
+rag = [
+    "langchain-huggingface>=1.0.0",
+    "transformers>=4.40.0",
+    "torch>=2.2.0",
+]
+
+# 開發依賴
 dev = [
-    # Testing | 測試
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
-    "pytest-asyncio>=0.23.5",
-    "pytest-mock>=3.12.0",
-    "pytest-xdist>=3.3.0",
-
-    # Static Analysis & Security | 靜態分析與安全
     "ruff>=0.8.0",
     "mypy>=1.8.0",
-    "bandit[toml]>=1.7.5",
-
-    # Type stubs
-    "types-requests",
-    "types-PyYAML",
-
-    # Documentation | 文件
-    "mkdocs>=1.5.3",
-    "mkdocs-material>=9.5.9",
-    "mkdocstrings[python]>=0.24.0",
-
-    # Development Tools | 開發工具
-    "ipython>=8.21.0",
-    "jupyter>=1.0.0",
 ]
 
 # === 入口點（CLI 工具）===
@@ -132,7 +115,7 @@ dev-dependencies = [
 
 # === Ruff (Linter + Formatter，取代 black/isort/flake8/pylint) ===
 [tool.ruff]
-target-version = "py310"
+target-version = "py312"
 line-length = 100
 
 [tool.ruff.lint]
@@ -167,7 +150,7 @@ known-first-party = ["medical_deidentification"]
 
 # === MyPy (Type Checker) ===
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 warn_unused_ignores = true

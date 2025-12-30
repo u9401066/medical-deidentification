@@ -1,278 +1,449 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-PHI Evaluation with LangChain Structured Output
-使用 LangChain 結構化輸出的 PHI 評估
+LangChain PHI Detection Evaluation (使用專案內部 chain)
 
-This script uses the existing LangChain structured output (PHIDetectionResponse)
-to evaluate PHI detection performance with full confusion matrix metrics.
-
-此腳本使用現有的 LangChain 結構化輸出 (PHIDetectionResponse)
-來評估 PHI 檢測性能，包含完整的混淆矩陣指標。
+使用專案內部的 LangChain structured output chain 進行評估
+- 只使用 LangChain with_structured_output（不用 Ollama JSON mode）
+- 支援多 worker 並行處理
+- 使用專案已有的 identify_phi 函數
 
 Usage:
     python scripts/evaluate_langchain_phi.py
-    python scripts/evaluate_langchain_phi.py --model qwen2.5:3b
+    python scripts/evaluate_langchain_phi.py --model granite4:1b --workers 4 --limit 3
 """
 
+import re
 import sys
 import time
-import re
-from pathlib import Path
-from typing import List, Tuple, Dict, Any
-from dataclasses import dataclass
-
-# Add project root
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
+import json
 import pandas as pd
+from pathlib import Path
+from typing import List, Tuple, Optional
+from dataclasses import dataclass, field
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from loguru import logger
 
-# LangChain
-from langchain_ollama import ChatOllama
-from langchain_core.prompts import ChatPromptTemplate
-
-# Our domain models - the structured output schema!
-from medical_deidentification.domain.phi_identification_models import (
-    PHIDetectionResponse,
-)
-from medical_deidentification.infrastructure.prompts import (
-    get_phi_identification_prompt,
-    get_system_message,
-    DEFAULT_HIPAA_SAFE_HARBOR_RULES,
-)
-
-print("=" * 70)
-print("PHI Evaluation - LangChain Structured Output")
-print("=" * 70)
+logger.remove()
+logger.add(sys.stderr, level="INFO", format="<green>{time:HH:mm:ss}</green> | <level>{message}</level>")
 
 
-# =============================================================================
-# Confusion Matrix
-# =============================================================================
+# ============================================================
+# Evaluation Data Classes
+# ============================================================
 
 @dataclass
-class ConfusionMatrix:
-    """Complete Confusion Matrix"""
-    true_positives: int = 0
-    false_positives: int = 0
-    false_negatives: int = 0
+class PHIInstance:
+    """PHI 實例"""
+    phi_type: str
+    content: str
+    phi_id: Optional[str] = None
+
+
+@dataclass
+class EvaluationResult:
+    """評估結果"""
+    case_id: str
+    ground_truth: List[PHIInstance]
+    detected: List[PHIInstance]
+    true_positives: List[PHIInstance] = field(default_factory=list)
+    false_positives: List[PHIInstance] = field(default_factory=list)
+    false_negatives: List[PHIInstance] = field(default_factory=list)
+    processing_time: float = 0.0
+    num_chunks: int = 0
     
     @property
     def precision(self) -> float:
-        total = self.true_positives + self.false_positives
-        return self.true_positives / total if total > 0 else 0.0
+        tp, fp = len(self.true_positives), len(self.false_positives)
+        return tp / (tp + fp) if (tp + fp) > 0 else 0.0
     
     @property
     def recall(self) -> float:
-        total = self.true_positives + self.false_negatives
-        return self.true_positives / total if total > 0 else 0.0
+        tp, fn = len(self.true_positives), len(self.false_negatives)
+        return tp / (tp + fn) if (tp + fn) > 0 else 0.0
     
     @property
-    def f1(self) -> float:
+    def f1_score(self) -> float:
         p, r = self.precision, self.recall
         return 2 * p * r / (p + r) if (p + r) > 0 else 0.0
 
 
-# =============================================================================
-# LangChain PHI Detector
-# =============================================================================
+# ============================================================
+# Helper Functions
+# ============================================================
 
-class LangChainPHIDetector:
+def parse_phi_tags(text: str) -> List[PHIInstance]:
+    """從帶標記的文本中解析 PHI"""
+    pattern = r'【PHI:(\w+):?(\w*)】([^【]+?)【/PHI】'
+    return [
+        PHIInstance(phi_type=m.group(1), phi_id=m.group(2) or None, content=m.group(3).strip())
+        for m in re.finditer(pattern, text)
+    ]
+
+
+def remove_phi_tags(text: str) -> str:
+    """移除 PHI 標記"""
+    return re.sub(r'【PHI:\w+:?\w*】([^【]+?)【/PHI】', r'\1', text)
+
+
+def normalize_phi_type(phi_type: str) -> str:
+    """標準化 PHI 類型"""
+    mapping = {
+        'NAME': 'NAME', 'PATIENT_NAME': 'NAME', 'DOCTOR_NAME': 'NAME',
+        'AGE': 'AGE', 'AGE_OVER_89': 'AGE',
+        'DATE': 'DATE', 'DOB': 'DATE', 'BIRTHDATE': 'DATE',
+        'ID': 'ID', 'ID_NUMBER': 'ID', 'MRN': 'ID',
+        'PHONE': 'PHONE', 'TELEPHONE': 'PHONE', 'MOBILE': 'PHONE',
+        'EMAIL': 'EMAIL',
+        'LOCATION': 'LOCATION', 'ADDRESS': 'LOCATION',
+        'FACILITY': 'FACILITY', 'HOSPITAL': 'FACILITY',
+    }
+    return mapping.get(phi_type.upper(), phi_type.upper())
+
+
+def evaluate_case(case_id: str, ground_truth: List[PHIInstance], detected: List[PHIInstance]) -> EvaluationResult:
+    """評估單個案例"""
+    result = EvaluationResult(case_id=case_id, ground_truth=ground_truth, detected=detected)
+    
+    gt_set = {(normalize_phi_type(p.phi_type), p.content.strip().lower()) for p in ground_truth}
+    gt_contents = {p.content.strip().lower() for p in ground_truth}
+    matched_gt = set()
+    
+    for phi in detected:
+        content_lower = phi.content.strip().lower()
+        phi_type_norm = normalize_phi_type(phi.phi_type)
+        
+        if (phi_type_norm, content_lower) in gt_set:
+            result.true_positives.append(phi)
+            matched_gt.add((phi_type_norm, content_lower))
+        elif content_lower in gt_contents:
+            result.true_positives.append(phi)
+            matched_gt.add(content_lower)
+        elif any(content_lower in gt or gt in content_lower for gt in gt_contents if len(content_lower) >= 2):
+            result.true_positives.append(phi)
+        else:
+            result.false_positives.append(phi)
+    
+    for phi in ground_truth:
+        content_lower = phi.content.strip().lower()
+        phi_type_norm = normalize_phi_type(phi.phi_type)
+        if (phi_type_norm, content_lower) not in matched_gt and content_lower not in matched_gt:
+            if not any(content_lower in d.content.lower() or d.content.lower() in content_lower for d in detected):
+                result.false_negatives.append(phi)
+    
+    return result
+
+
+def split_into_chunks(text: str, max_length: int = 400) -> List[str]:
+    """將文本分成較小的段落"""
+    lines = text.split('\n')
+    chunks, current_chunk, current_length = [], [], 0
+    
+    for line in lines:
+        if current_length + len(line) > max_length and current_chunk:
+            chunks.append('\n'.join(current_chunk))
+            current_chunk, current_length = [line], len(line)
+        else:
+            current_chunk.append(line)
+            current_length += len(line) + 1
+    
+    if current_chunk:
+        chunks.append('\n'.join(current_chunk))
+    return chunks if chunks else [text]
+
+
+# ============================================================
+# Detection using Project's LangChain Chain
+# ============================================================
+
+def process_chunk_with_chain(chain, chunk: str, chunk_idx: int, timeout: int = 60) -> Tuple[int, List[PHIInstance], float]:
     """
-    PHI Detector using LangChain Structured Output
-    
-    Uses PHIDetectionResponse Pydantic model for structured output.
-    This ensures consistent schema and validation.
+    處理單個 chunk（使用專案的 LangChain chain）+ timeout 防卡住
     """
+    import signal
     
-    def __init__(self, model_name: str = "qwen2.5:1.5b", language: str = "en"):
-        self.model_name = model_name
-        
-        # Initialize LLM
-        self.llm = ChatOllama(
-            model=model_name,
-            temperature=0.1,
-            num_predict=2048,
-        )
-        
-        # Get prompts from our centralized module
-        self.prompt_text = get_phi_identification_prompt(language=language, structured=True)
-        self.system_message = get_system_message("phi_expert", language=language)
-        
-        # Build LangChain prompt template
-        self.prompt = ChatPromptTemplate.from_messages([
-            ("system", self.system_message),
-            ("user", self.prompt_text)
-        ])
-        
-        # Build chain with structured output!
-        self.chain = self.prompt | self.llm.with_structured_output(PHIDetectionResponse)
-        
-        print(f"  ✓ Model: {model_name}")
-        print(f"  ✓ Using PHIDetectionResponse structured output")
-        print(f"  ✓ Prompt length: {len(self.prompt_text)} chars")
+    start = time.time()
     
-    def detect(self, text: str, context: str = "") -> Tuple[List[str], PHIDetectionResponse]:
-        """
-        Detect PHI using LangChain structured output
-        
-        Args:
-            text: Medical text to analyze
-            context: Regulation context (uses default if empty)
-            
-        Returns:
-            Tuple of (list of PHI texts, full PHIDetectionResponse)
-        """
-        if not context:
-            context = DEFAULT_HIPAA_SAFE_HARBOR_RULES
-        
-        # Invoke chain
-        response: PHIDetectionResponse = self.chain.invoke({
-            "context": context,
-            "text": text
+    def timeout_handler(signum, frame):
+        raise TimeoutError(f"Chunk {chunk_idx} timeout after {timeout}s")
+    
+    # 設定 timeout (只在主線程有效)
+    try:
+        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(timeout)
+    except (ValueError, AttributeError):
+        # 在子線程中無法使用 signal
+        old_handler = None
+    
+    try:
+        # 使用專案的 chain（已經是 with_structured_output）
+        result = chain.invoke({
+            "context": "Identify all PHI in the medical text.",
+            "text": chunk
         })
         
-        # Extract PHI texts
-        phi_texts = [entity.entity_text for entity in response.entities]
-        
-        return phi_texts, response
+        entities = [
+            PHIInstance(
+                phi_type=e.phi_type.value if hasattr(e.phi_type, 'value') else str(e.phi_type),
+                content=e.entity_text
+            )
+            for e in (result.entities if result else [])
+        ]
+        return chunk_idx, entities, time.time() - start
+    except TimeoutError as e:
+        logger.warning(f"⏱️ {e}")
+        return chunk_idx, [], time.time() - start
+    except Exception as e:
+        logger.warning(f"Chunk {chunk_idx} failed: {e}")
+        return chunk_idx, [], time.time() - start
+    finally:
+        if old_handler is not None:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
 
 
-# =============================================================================
-# Data Loading & Metrics
-# =============================================================================
-
-def load_tagged_data(file_path: str) -> List[Dict[str, Any]]:
-    """Load test data with PHI tags"""
-    df = pd.read_excel(file_path)
+def run_detection(
+    text: str,
+    chain,
+    chunk_size: int = 400,
+    max_workers: int = 1,
+    timeout: int = 60,
+) -> Tuple[List[PHIInstance], float, int]:
+    """
+    使用專案的 LangChain chain 執行 PHI 檢測
+    """
+    start_time = time.time()
     
-    tag_pattern = r'【PHI:(\w+):[\w-]+】([^【]+)【/PHI】'
+    # 分段
+    chunks = split_into_chunks(text, max_length=chunk_size)
+    num_chunks = len(chunks)
     
-    text_columns = [col for col in df.columns 
-                    if any(x in col.replace('\n', ' ') 
-                           for x in ['Summary', 'Contact', 'History', 'Treatment', 'Notes'])]
+    all_detected = []
     
-    examples = []
-    for _, row in df.iterrows():
-        for col in text_columns:
-            if col in row and pd.notna(row[col]):
-                text = str(row[col])
-                matches = re.findall(tag_pattern, text)
-                ground_truth = [content.strip() for _, content in matches]
-                
-                if ground_truth:
-                    clean_text = re.sub(r'【PHI:\w+:[\w-]+】', '', text)
-                    clean_text = re.sub(r'【/PHI】', '', clean_text)
-                    examples.append({
-                        'text': clean_text.strip(),
-                        'ground_truth': ground_truth,
-                    })
+    # 順序處理（避免多線程 signal 問題）
+    for i, chunk in enumerate(chunks):
+        if not chunk.strip():
+            continue
+        _, entities, _ = process_chunk_with_chain(chain, chunk, i, timeout=timeout)
+        all_detected.extend(entities)
     
-    return examples
-
-
-def calculate_cm(predicted: List[str], ground_truth: List[str]) -> ConfusionMatrix:
-    """Calculate confusion matrix with fuzzy matching"""
-    pred_set = {p.lower().strip() for p in predicted if p.strip()}
-    gt_set = {g.lower().strip() for g in ground_truth if g.strip()}
+    # 去重
+    seen = set()
+    unique_detected = []
+    for phi in all_detected:
+        key = (phi.phi_type, phi.content.strip().lower())
+        if key not in seen:
+            seen.add(key)
+            unique_detected.append(phi)
     
-    matched_gt = set()
-    tp = 0
-    
-    for pred in pred_set:
-        for gt in gt_set:
-            if gt not in matched_gt:
-                if pred in gt or gt in pred or pred == gt:
-                    tp += 1
-                    matched_gt.add(gt)
-                    break
-    
-    return ConfusionMatrix(
-        true_positives=tp,
-        false_positives=len(pred_set) - tp,
-        false_negatives=len(gt_set) - len(matched_gt),
-    )
+    return unique_detected, time.time() - start_time, num_chunks
 
 
-def print_results(cm: ConfusionMatrix, avg_time: float, title: str):
-    """Print evaluation results"""
-    print(f"\n{'='*60}")
-    print(f"{title}")
-    print(f"{'='*60}")
+def print_report(results: List[EvaluationResult], model_name: str):
+    """列印評估報告"""
+    print("\n" + "=" * 80)
+    print(f"📊 LangChain Structured Output PHI Evaluation")
+    print(f"   Model: {model_name}")
+    print("=" * 80)
     
-    print(f"\n📊 Confusion Matrix:")
-    print(f"  ┌─────────────────────┬────────────┐")
-    print(f"  │ True Positives (TP) │ {cm.true_positives:>10} │  ✓ 正確檢測")
-    print(f"  ├─────────────────────┼────────────┤")
-    print(f"  │ False Positives(FP) │ {cm.false_positives:>10} │  ⚠ 誤報")
-    print(f"  ├─────────────────────┼────────────┤")
-    print(f"  │ False Negatives(FN) │ {cm.false_negatives:>10} │  ❌ 漏檢")
-    print(f"  └─────────────────────┴────────────┘")
+    total_gt = sum(len(r.ground_truth) for r in results)
+    total_detected = sum(len(r.detected) for r in results)
+    total_tp = sum(len(r.true_positives) for r in results)
+    total_fp = sum(len(r.false_positives) for r in results)
+    total_fn = sum(len(r.false_negatives) for r in results)
+    total_time = sum(r.processing_time for r in results)
+    total_chunks = sum(r.num_chunks for r in results)
     
-    print(f"\n📈 Metrics:")
-    print(f"  • Precision: {cm.precision:>7.1%}")
-    print(f"  • Recall:    {cm.recall:>7.1%}")
-    print(f"  • F1 Score:  {cm.f1:>7.1%}")
-    print(f"  • Avg Time:  {avg_time:>7.0f} ms")
+    precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
+    recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
     
-    grade = "A⭐⭐⭐" if cm.f1 >= 0.9 else "B⭐⭐" if cm.f1 >= 0.8 else "C⭐" if cm.f1 >= 0.7 else "D" if cm.f1 >= 0.5 else "F❌"
-    print(f"\n🎯 Grade: {grade}")
+    print(f"\n📈 Overall Metrics")
+    print("-" * 40)
+    print(f"  Ground Truth:   {total_gt:>5}")
+    print(f"  Detected:       {total_detected:>5}")
+    print(f"  True Positives: {total_tp:>5} ✅")
+    print(f"  False Positives:{total_fp:>5} ⚠️")
+    print(f"  False Negatives:{total_fn:>5} ❌")
+    print("-" * 40)
+    print(f"  Precision:  {precision:.2%}")
+    print(f"  Recall:     {recall:.2%}")
+    print(f"  F1 Score:   {f1:.2%}")
+    print(f"  Total Time: {total_time:.1f}s ({total_chunks} chunks)")
+    print(f"  Avg Time:   {total_time/len(results):.1f}s/case")
+    
+    print(f"\n📋 Per-Case Results")
+    print("-" * 85)
+    print(f"{'Case':<10} {'GT':>4} {'Det':>4} {'TP':>4} {'FP':>4} {'FN':>4} {'Prec':>7} {'Rec':>7} {'F1':>7} {'Time':>7}")
+    print("-" * 85)
+    
+    for r in results:
+        print(f"{r.case_id:<10} {len(r.ground_truth):>4} {len(r.detected):>4} "
+              f"{len(r.true_positives):>4} {len(r.false_positives):>4} {len(r.false_negatives):>4} "
+              f"{r.precision:>6.1%} {r.recall:>6.1%} {r.f1_score:>6.1%} {r.processing_time:>6.1f}s")
+    
+    if total_fn > 0:
+        print(f"\n❌ Top Missed PHI Types")
+        fn_by_type = defaultdict(int)
+        for r in results:
+            for fn in r.false_negatives:
+                fn_by_type[fn.phi_type] += 1
+        for phi_type, count in sorted(fn_by_type.items(), key=lambda x: -x[1])[:5]:
+            print(f"   {phi_type}: {count}")
+    
+    print("=" * 80)
+    return {"precision": precision, "recall": recall, "f1": f1}
 
-
-# =============================================================================
-# Main
-# =============================================================================
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="qwen2.5:1.5b")
-    parser.add_argument("--test-file", type=str, default="data/test/test_phi_tagged_cases.xlsx")
-    parser.add_argument("--max-examples", type=int, default=3)
+    import os
+    
+    parser = argparse.ArgumentParser(description='LangChain PHI Evaluation')
+    parser.add_argument('--model', type=str, default='granite4:1b')
+    parser.add_argument('--limit', type=int, default=None)
+    parser.add_argument('--chunk-size', type=int, default=400)
+    parser.add_argument('--workers', type=int, default=1, help='(deprecated, sequential only)')
+    parser.add_argument('--num-ctx', type=int, default=8192, help='Ollama context size')
+    parser.add_argument('--timeout', type=int, default=60, help='Timeout per chunk (seconds)')
+    parser.add_argument('--keep-alive', type=str, default='30m', help='Keep model loaded (e.g., 30m, 1h, -1=forever)')
+    parser.add_argument('--use-parser', action='store_true', help='Use PydanticOutputParser instead of with_structured_output (more stable)')
     args = parser.parse_args()
     
-    # Load data
-    test_file = project_root / args.test_file
-    print(f"\n📂 Loading: {test_file}")
-    examples = load_tagged_data(str(test_file))[:args.max_examples]
-    print(f"   Loaded {len(examples)} examples")
+    # 顯示配置
+    cpu_count = os.cpu_count() or 4
+    print(f"[Config] Model: {args.model}", flush=True)
+    print(f"[Config] Chunk size: {args.chunk_size} chars", flush=True)
+    print(f"[Config] Timeout: {args.timeout}s per chunk", flush=True)
+    print(f"[Config] Method: LangChain with_structured_output", flush=True)
     
-    # Create detector
-    print(f"\n🔧 Creating LangChain PHI Detector")
-    detector = LangChainPHIDetector(model_name=args.model)
+    # 使用專案的 LLM factory 和 chain builder
+    from medical_deidentification.infrastructure.llm import create_llm, LLMConfig
+    from medical_deidentification.infrastructure.rag.chains.processors import build_phi_identification_chain
     
-    # Evaluate
-    print(f"\n🔍 Evaluating...")
-    total_cm = ConfusionMatrix()
-    total_time = 0.0
+    # 創建 LLM（含 keep_alive 保持熱載入）
+    print(f"[Init] Creating LangChain LLM (keep_alive={args.keep_alive})...", flush=True)
+    config = LLMConfig(
+        provider="ollama",
+        model_name=args.model,
+        temperature=0.0,
+        num_ctx=args.num_ctx,
+        keep_alive=args.keep_alive,  # 保持模型熱載入
+    )
+    llm = create_llm(config)
     
-    for i, ex in enumerate(examples):
-        start = time.time()
+    # 創建 PHI 識別 chain
+    # with_structured_output 有時會卡住，可用 --use-parser 改用 PydanticOutputParser
+    use_structured = not args.use_parser
+    method = "with_structured_output" if use_structured else "PydanticOutputParser"
+    print(f"[Init] Building PHI identification chain ({method})...", flush=True)
+    chain = build_phi_identification_chain(
+        llm=llm,
+        language="zh-TW",
+        use_structured_output=use_structured,
+    )
+    
+    # 測試連接
+    print(f"[Test] Testing model connection...", flush=True)
+    test_start = time.time()
+    try:
+        test_result = chain.invoke({
+            "context": "Test PHI identification",
+            "text": "Patient John, age 45, phone 0912-345-678"
+        })
+        test_time = time.time() - test_start
+        entity_count = len(test_result.entities) if test_result else 0
+        print(f"[Test] Found {entity_count} entities in {test_time:.1f}s ✓", flush=True)
+    except Exception as e:
+        print(f"[Test] Failed: {e}", flush=True)
+        return
+    
+    # 載入測試資料
+    test_file = Path("data/test/test_phi_tagged_cases.xlsx")
+    if not test_file.exists():
+        logger.error(f"Test file not found: {test_file}")
+        return
+    
+    print(f"[Data] Loading {test_file}...", flush=True)
+    df = pd.read_excel(test_file)
+    
+    if args.limit:
+        df = df.head(args.limit)
+    
+    print(f"[Info] Evaluating {len(df)} cases\n", flush=True)
+    
+    results = []
+    
+    for idx, row in df.iterrows():
+        case_id = row['Case ID']
+        
+        text_columns = [
+            'Clinical Summary\n(含標記的 PHI)',
+            'Contact Info\n(含標記的聯絡資訊)',
+            'Medical History\n(含標記的時間/地點)',
+            'Treatment Notes\n(含標記的醫師/日期)'
+        ]
+        
+        full_text_with_tags = ""
+        for col in text_columns:
+            if col in df.columns and pd.notna(row[col]):
+                full_text_with_tags += str(row[col]) + "\n"
+        
+        ground_truth = parse_phi_tags(full_text_with_tags)
+        clean_text = remove_phi_tags(full_text_with_tags)
+        
+        print(f"🔍 {case_id} ({len(ground_truth)} PHI, {len(clean_text)} chars)...", flush=True)
         
         try:
-            predictions, response = detector.detect(ex['text'])
-            elapsed = (time.time() - start) * 1000
-            total_time += elapsed
+            detected, elapsed, num_chunks = run_detection(
+                clean_text, chain,
+                chunk_size=args.chunk_size,
+                timeout=args.timeout,
+            )
+            result = evaluate_case(case_id, ground_truth, detected)
+            result.processing_time = elapsed
+            result.num_chunks = num_chunks
+            results.append(result)
             
-            cm = calculate_cm(predictions, ex['ground_truth'])
-            total_cm.true_positives += cm.true_positives
-            total_cm.false_positives += cm.false_positives
-            total_cm.false_negatives += cm.false_negatives
-            
-            print(f"  Ex {i+1}: TP={cm.true_positives}, FP={cm.false_positives}, FN={cm.false_negatives}, {elapsed:.0f}ms")
-            print(f"    GT:   {ex['ground_truth'][:3]}...")
-            print(f"    Pred: {predictions[:3]}...")
+            print(f"   → {len(detected)} detected, TP={len(result.true_positives)}, "
+                  f"F1={result.f1_score:.1%}, {elapsed:.1f}s ({num_chunks} chunks)", flush=True)
             
         except Exception as e:
-            print(f"  Ex {i+1}: ERROR - {e}")
-            total_cm.false_negatives += len(ex['ground_truth'])
+            logger.error(f"   → Error: {e}")
+            import traceback
+            traceback.print_exc()
     
-    # Results
-    avg_time = total_time / len(examples) if examples else 0
-    print_results(total_cm, avg_time, f"Results ({args.model})")
+    if not results:
+        print("No results")
+        return
     
-    print("\n✅ Done!")
+    metrics = print_report(results, args.model)
+    
+    # 儲存結果
+    output_file = Path(f"data/output/reports/langchain_{args.model.replace(':', '_')}_eval.json")
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump({
+            "model": args.model,
+            "method": "LangChain with_structured_output",
+            "chunk_size": args.chunk_size,
+            "timeout": args.timeout,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "metrics": metrics,
+            "cases": [
+                {"case_id": r.case_id, "gt": len(r.ground_truth), "detected": len(r.detected),
+                 "tp": len(r.true_positives), "fp": len(r.false_positives), "fn": len(r.false_negatives),
+                 "f1": r.f1_score, "time": r.processing_time}
+                for r in results
+            ]
+        }, f, ensure_ascii=False, indent=2)
+    
+    print(f"\n📄 Report saved: {output_file}")
 
 
 if __name__ == "__main__":

@@ -283,9 +283,9 @@ PHI 類型包括：
         detected = parse_llm_response(content)
         return detected, elapsed
     except Exception as e:
-        logger.warning(f"LLM error (will retry): {e}")
         elapsed = time.time() - start_time
-        return [], elapsed
+        # 重新拋出錯誤，不要吞掉
+        raise RuntimeError(f"LLM 呼叫失敗: {e}") from e
 
 
 def print_evaluation_report(results: List[EvaluationResult], model_name: str):
@@ -395,32 +395,40 @@ def main():
     
     # Parse arguments
     parser = argparse.ArgumentParser(description='Evaluate PHI detection performance')
-    parser.add_argument('--model', type=str, default='minimind', 
-                        choices=['minimind', 'llama', 'qwen'],
-                        help='Model to evaluate: minimind, llama, qwen')
+    parser.add_argument('--model', type=str, default='granite', 
+                        choices=['granite', 'qwen', 'llama'],
+                        help='Model to evaluate: granite (default), qwen, llama')
     args = parser.parse_args()
     
-    print(f"[Loading] {args.model} model...")
+    print(f"[Loading] {args.model} model...", flush=True)
     
     # Import and create LLM
     from medical_deidentification.infrastructure.llm import LLMPresets, create_llm
     
     try:
-        if args.model == 'minimind':
-            llm = create_llm(LLMPresets.local_minimind())
-            model_name = "jingyaogong/minimind2 (104M)"
+        if args.model == 'granite':
+            llm = create_llm(LLMPresets.local_granite())
+            model_name = "granite4:1b (1.6B)"
+        elif args.model == 'qwen':
+            llm = create_llm(LLMPresets.local_qwen())
+            model_name = "qwen2.5:1.5b (1.5B)"
         elif args.model == 'llama':
             llm = create_llm(LLMPresets.local_llama())
             model_name = "llama3.1:8b (8B)"
-        elif args.model == 'qwen':
-            llm = create_llm(LLMPresets.local_qwen())
-            model_name = "qwen2.5:7b (7B)"
         else:
-            llm = create_llm(LLMPresets.local_minimind())
-            model_name = "jingyaogong/minimind2 (104M)"
+            llm = create_llm(LLMPresets.local_granite())
+            model_name = "granite4:1b (1.6B)"
+        
+        # 測試 LLM 連線
+        print(f"[Test] Testing {model_name} connection...", flush=True)
+        test_response = llm.invoke("Say OK")
+        print(f"[OK] Model ready: {model_name}", flush=True)
+        
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
-        logger.info("Make sure Ollama is running and model is installed")
+        logger.info("Make sure Ollama is running and model is installed:")
+        logger.info(f"  1. ollama serve")
+        logger.info(f"  2. ollama pull granite4:1b")
         return
     
     # Load test data
@@ -429,16 +437,18 @@ def main():
         logger.error(f"Test file not found: {test_file}")
         return
     
-    print(f"[Data] Loading test data from {test_file}")
+    print(f"[Data] Loading test data from {test_file}", flush=True)
     df = pd.read_excel(test_file)
+    print(f"[Data] Loaded {len(df)} rows", flush=True)
     
-    print(f"[Info] Testing ALL {len(df)} cases for complete evaluation")
+    print(f"[Info] Testing ALL {len(df)} cases for complete evaluation", flush=True)
     
     results = []
     
     # Process each case
     for idx, row in df.iterrows():
         case_id = row['Case ID']
+        print(f"\n🔍 Starting {case_id}...", flush=True)
         
         # 合併所有文本欄位
         text_columns = [
@@ -459,7 +469,7 @@ def main():
         # 移除標記，準備送給 LLM
         clean_text = remove_phi_tags(full_text_with_tags)
         
-        print(f"\n🔍 Processing {case_id} ({len(ground_truth)} PHI in ground truth)...")
+        print(f"   Processing {case_id} ({len(ground_truth)} PHI in ground truth)...", flush=True)
         
         # 執行 MiniMind 檢測
         detected, elapsed = run_minimind_detection(clean_text, llm)

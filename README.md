@@ -3,9 +3,9 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![LangChain](https://img.shields.io/badge/LangChain-1.0+-orange.svg)](https://langchain.com/)
-[![DSPy](https://img.shields.io/badge/DSPy-2.0+-purple.svg)](https://github.com/stanfordnlp/dspy)
+[![uv](https://img.shields.io/badge/uv-package%20manager-blueviolet.svg)](https://github.com/astral-sh/uv)
 
 **🔒 LLM-Native Medical PHI De-identification | LLM 原生醫療 PHI 去識別化**
 
@@ -78,22 +78,25 @@
 git clone https://github.com/u9401066/medical-deidentification.git
 cd medical-deidentification
 
-# Install
-pip install -e .
-
-# 或使用 uv (推薦)
+# Install with uv (推薦，需要 Python 3.12+)
 uv sync
+
+# 或使用 pip (需先建立虛擬環境)
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
 ```
 
-### 2. 設定本地 LLM
+### 2. 設定本地 LLM (Ollama)
 
 ```bash
 # 安裝 Ollama (https://ollama.ai)
 curl -fsSL https://ollama.com/install.sh | sh
 
-# 下載推薦模型 (選一個)
-ollama pull granite4:1b    # 🏆 最佳品質 (F1=89.4%)
-ollama pull qwen2.5:1.5b   # ⭐ 最佳平衡 (快 4x)
+# 下載推薦模型
+ollama pull granite4:1b    # 🏆 推薦 (1.6B, F1=89.4%, 131K context)
+
+# 啟動 Ollama 服務 (如果未自動啟動)
+ollama serve
 ```
 
 ### 3. 執行範例

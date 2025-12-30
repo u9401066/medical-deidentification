@@ -115,7 +115,13 @@ def build_phi_identification_chain(
         ])
         
         # Use LangChain's with_structured_output
-        chain = prompt | llm.with_structured_output(PHIDetectionResponse)
+        # method="json_schema" uses Ollama's native structured output API (most reliable)
+        # method="function_calling" uses tool calling (can hang on some models)
+        # method="json_mode" requires format instructions in prompt
+        chain = prompt | llm.with_structured_output(
+            PHIDetectionResponse,
+            method="json_schema"  # 使用 Ollama 原生 structured output API
+        )
         
     else:
         # Method 2: PydanticOutputParser (fallback)
@@ -127,11 +133,13 @@ def build_phi_identification_chain(
         )
         
         # Add format instructions to prompt
+        # Escape curly braces in format_instructions to avoid template variable errors
         format_instructions = parser.get_format_instructions()
+        format_instructions_escaped = format_instructions.replace("{", "{{").replace("}", "}}")
         
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_message),
-            ("user", prompt_template_text + "\n\n" + format_instructions)
+            ("user", prompt_template_text + "\n\n" + format_instructions_escaped)
         ])
         
         # Use LangChain's PydanticOutputParser

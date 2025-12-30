@@ -146,7 +146,7 @@ class IDValidatorTool(BasePHITool):
         return results
     
     def _validate_taiwan_id(self, id_number: str) -> bool:
-        """
+        r"""
         Validate Taiwan National ID checksum
         驗證台灣身份證字號校驗碼
         

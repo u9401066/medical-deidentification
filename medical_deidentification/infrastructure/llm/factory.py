@@ -172,6 +172,10 @@ def _create_ollama_llm(kwargs: dict) -> 'ChatOllama':
     num_gpu = kwargs.pop('num_gpu', None)
     gpu_layers = kwargs.pop('gpu_layers', None)
     
+    # keep_alive controls how long model stays loaded in memory
+    # This significantly reduces response latency for subsequent calls
+    keep_alive = kwargs.get('keep_alive', '30m')  # Default 30 minutes
+    
     # Configure Ollama GPU usage via environment variables
     # Ollama automatically uses GPU if available, but we can control it
     import os
@@ -194,7 +198,8 @@ def _create_ollama_llm(kwargs: dict) -> 'ChatOllama':
     
     logger.success(
         f"Created ChatOllama: {kwargs.get('model', 'unknown')} "
-        f"(timeout={kwargs.get('timeout')}s, processor={gpu_status})"
+        f"(timeout={kwargs.get('timeout')}s, processor={gpu_status}, "
+        f"keep_alive={keep_alive}, num_ctx={kwargs.get('num_ctx', 'default')})"
     )
     return llm
 

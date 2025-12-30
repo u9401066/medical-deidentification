@@ -35,16 +35,16 @@ ANTHROPIC_MODELS = [
 
 # Ollama local models (commonly available)
 OLLAMA_MODELS = [
+    "granite4:1b",     # Recommended: F1=89.4% for PHI detection
+    "qwen2.5:1.5b",
     "qwen2.5:7b",
     "qwen2.5:14b",
-    "qwen2.5:32b",
-    "llama3.1:8b",
-    "llama3.1:70b",
+    "llama3.2:1b",
     "llama3.2:3b",
+    "llama3.1:8b",
+    "smollm2:360m",
     "mistral:7b",
-    "mixtral:8x7b",
     "gemma2:9b",
-    "gemma2:27b",
 ]
 
 # MiniMind local models (ultra-lightweight, good for resource-constrained environments)
@@ -168,6 +168,21 @@ class LLMConfig(BaseModel):
         description="Number of model layers to offload to GPU (None = all layers, 0 = CPU only)"
     )
     
+    # Ollama keep_alive: How long to keep model loaded in memory
+    # Ollama keep_alive: 模型在記憶體中保持載入的時間
+    keep_alive: Optional[str] = Field(
+        default="30m",
+        description="How long to keep model loaded (e.g., '5m', '1h', '-1' for forever). Ollama only."
+    )
+    
+    # Ollama num_ctx: Context window size
+    # Ollama num_ctx: 上下文窗口大小
+    num_ctx: Optional[int] = Field(
+        default=8192,
+        ge=512,
+        description="Context window size for Ollama models (default: 8192)"
+    )
+    
     def validate_model(self) -> None:
         """
         Validate model name matches provider
@@ -241,6 +256,12 @@ class LLMConfig(BaseModel):
                 kwargs["num_gpu"] = self.num_gpu
             if self.gpu_layers is not None:
                 kwargs["gpu_layers"] = self.gpu_layers
+            # Keep model loaded in memory (reduces cold start latency)
+            if self.keep_alive is not None:
+                kwargs["keep_alive"] = self.keep_alive
+            # Context window size
+            if self.num_ctx is not None:
+                kwargs["num_ctx"] = self.num_ctx
         
         return kwargs
     
@@ -261,13 +282,13 @@ class LLMPresets:
         Preset for PHI identification (deterministic, accurate)
         PHI 識別的預設配置（確定性、準確性）
         
-        Uses gpt-4o-mini: supports structured output, cost-effective
+        Uses granite4:1b: local model, F1=89.4%, no API cost
         """
         return LLMConfig(
-            provider="openai",
-            model_name="gpt-4o-mini",
+            provider="ollama",
+            model_name="granite4:1b",
             temperature=0.0,
-            max_tokens=2000,
+            max_tokens=2048,
         )
     
     @staticmethod
@@ -338,14 +359,29 @@ class LLMPresets:
         )
     
     @staticmethod
-    def local_qwen() -> LLMConfig:
+    def local_granite() -> LLMConfig:
         """
-        Preset for local Qwen 2.5 7B (fast local inference)
-        本地 Qwen 2.5 7B 預設配置（快速本地推理）
+        Preset for local Granite4 1B (recommended, F1=89.4%)
+        本地 Granite4 1B 預設配置（推薦，F1=89.4%）
+        
+        Best balance of accuracy and speed for PHI detection.
         """
         return LLMConfig(
             provider="ollama",
-            model_name="qwen2.5:7b",
+            model_name="granite4:1b",
+            temperature=0.0,
+            max_tokens=2048,
+        )
+    
+    @staticmethod
+    def local_qwen() -> LLMConfig:
+        """
+        Preset for local Qwen 2.5 1.5B (lightweight alternative)
+        本地 Qwen 2.5 1.5B 預設配置（輕量替代）
+        """
+        return LLMConfig(
+            provider="ollama",
+            model_name="qwen2.5:1.5b",
             temperature=0.0,
             max_tokens=2048,
         )
