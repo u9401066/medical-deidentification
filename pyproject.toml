@@ -146,7 +146,21 @@ known-first-party = ["medical_deidentification"]
 "tests/**/*.py" = ["S101", "ARG", "PLR2004"]
 "scripts/**/*.py" = ["S101", "T201"]  # allow print in scripts
 
-# === MyPy (Type Checker) ===
+# === ty (Type Checker - Astral, 超快！) ===
+# ty 是 Astral 團隊（uv/ruff 作者）的新型別檢查器
+# 速度：比 mypy 快 ~250 倍
+# 使用：ty check
+[tool.ty]
+
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.rules]
+# 選用依賴使用 lazy import 模式，降級為警告
+unresolved-import = "warn"
+
+# === MyPy (Type Checker - 備用) ===
+# 保留 mypy 配置作為參考，但建議使用 ty
 [tool.mypy]
 python_version = "3.12"
 warn_return_any = true
