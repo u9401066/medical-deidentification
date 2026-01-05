@@ -36,10 +36,10 @@ from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 
 # Our domain models - structured output!
-from medical_deidentification.domain.phi_identification_models import (
+from core.domain.phi_identification_models import (
     PHIDetectionResponse,
 )
-from medical_deidentification.infrastructure.prompts import (
+from core.infrastructure.prompts import (
     get_phi_identification_prompt,
     get_system_message,
 )

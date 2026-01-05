@@ -403,7 +403,7 @@ def main():
     print(f"[Loading] {args.model} model...", flush=True)
     
     # Import and create LLM
-    from medical_deidentification.infrastructure.llm import LLMPresets, create_llm
+    from core.infrastructure.llm import LLMPresets, create_llm
     
     try:
         if args.model == 'granite':

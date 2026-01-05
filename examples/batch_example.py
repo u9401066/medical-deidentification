@@ -19,9 +19,9 @@ import argparse
 from pathlib import Path
 
 from loguru import logger
-from medical_deidentification.infrastructure.llm import LLMConfig
-from medical_deidentification.infrastructure.rag import PHIIdentificationChain, PHIIdentificationConfig
-from medical_deidentification.application.processing import (
+from core.infrastructure.llm import LLMConfig
+from core.infrastructure.rag import PHIIdentificationChain, PHIIdentificationConfig
+from core.application.processing import (
     BatchPHIProcessor,
     BatchProcessingConfig,
     save_batch_results,

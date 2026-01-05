@@ -9,9 +9,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from medical_deidentification.infrastructure.llm.factory import create_llm
-from medical_deidentification.infrastructure.llm.config import LLMConfig
-from medical_deidentification.infrastructure.prompts import get_phi_identification_prompt, get_system_message
+from core.infrastructure.llm.factory import create_llm
+from core.infrastructure.llm.config import LLMConfig
+from core.infrastructure.prompts import get_phi_identification_prompt, get_system_message
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 

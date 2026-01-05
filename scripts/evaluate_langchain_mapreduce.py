@@ -185,7 +185,7 @@ def run_langchain_mapreduce(
     Returns:
         (detected_phi_list, elapsed_time, num_chunks)
     """
-    from medical_deidentification.infrastructure.rag.chains.map_reduce import (
+    from core.infrastructure.rag.chains.map_reduce import (
         identify_phi_with_map_reduce
     )
     
@@ -294,8 +294,8 @@ def main():
     print(f"[Config] Chunk size: {args.chunk_size}, overlap: {args.chunk_overlap}", flush=True)
     
     # Import LangChain components
-    from medical_deidentification.infrastructure.llm import create_llm, LLMConfig
-    from medical_deidentification.infrastructure.rag.text_splitter import MedicalTextSplitter
+    from core.infrastructure.llm import create_llm, LLMConfig
+    from core.infrastructure.rag.text_splitter import MedicalTextSplitter
     
     # Create LLM (LangChain ChatOllama)
     print(f"[Init] Creating LangChain LLM...", flush=True)

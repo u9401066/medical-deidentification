@@ -235,7 +235,7 @@ Current implementation:
 
 **API for Extension**:
 ```python
-from medical_deidentification.domain import get_default_mapper
+from core.domain import get_default_mapper
 
 mapper = get_default_mapper()
 mapper.register_custom_mapping('職業', PHIType.CUSTOM)

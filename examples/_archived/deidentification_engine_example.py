@@ -62,11 +62,11 @@ logger.add(
 # Lazy imports to avoid loading embeddings immediately
 def get_engine_classes():
     """延遲導入以避免立即載入 embeddings"""
-    from medical_deidentification.application.processing import (
+    from core.application.processing import (
         DeidentificationEngine,
         EngineConfig,
     )
-    from medical_deidentification.domain import StrategyType, PHIType
+    from core.domain import StrategyType, PHIType
     return DeidentificationEngine, EngineConfig, StrategyType, PHIType
 
 

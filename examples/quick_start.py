@@ -14,8 +14,8 @@ Usage:
     python examples/quick_start.py
 """
 
-from medical_deidentification.infrastructure.llm import LLMConfig, create_llm
-from medical_deidentification.infrastructure.rag import PHIIdentificationChain, PHIIdentificationConfig
+from core.infrastructure.llm import LLMConfig, create_llm
+from core.infrastructure.rag import PHIIdentificationChain, PHIIdentificationConfig
 
 
 def main():

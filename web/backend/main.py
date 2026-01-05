@@ -24,7 +24,7 @@ from loguru import logger
 
 # Import PHIType for type handling
 try:
-    from medical_deidentification.domain import PHIType
+    from core.domain import PHIType
 except ImportError:
     PHIType = None  # Fallback if not available
 
@@ -472,7 +472,7 @@ async def process_phi_task(task_id: str):
     
     try:
         # 載入處理引擎（必須成功）
-        from medical_deidentification.application.processing.engine import DeidentificationEngine, EngineConfig
+        from core.application.processing.engine import DeidentificationEngine, EngineConfig
         logger.info("✅ DeidentificationEngine loaded successfully")
         
         file_ids = task["file_ids"]
@@ -998,7 +998,7 @@ async def health_check():
     # 檢查 PHI Engine 是否可用
     engine_available = False
     try:
-        from medical_deidentification.application.processing.engine import DeidentificationEngine
+        from core.application.processing.engine import DeidentificationEngine
         engine_available = True
     except ImportError:
         pass

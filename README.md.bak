@@ -97,8 +97,8 @@
 ### 30-Second Demo | 30 秒上手
 
 ```python
-from medical_deidentification.application.processing import DeidentificationEngine
-from medical_deidentification.infrastructure.llm import LLMPresets, create_llm
+from core.application.processing import DeidentificationEngine
+from core.infrastructure.llm import LLMPresets, create_llm
 
 # 1. Choose your LLM (pick one)
 llm = create_llm(LLMPresets.local_minimind())  # Free, runs locally!
@@ -152,8 +152,8 @@ poetry shell
 ### Example 1: Basic PHI Identification | 基本 PHI 識別
 
 ```python
-from medical_deidentification.infrastructure.rag import PHIIdentificationChain
-from medical_deidentification.infrastructure.llm import LLMConfig, create_llm
+from core.infrastructure.rag import PHIIdentificationChain
+from core.infrastructure.llm import LLMConfig, create_llm
 
 # Configure LLM
 config = LLMConfig(
@@ -172,7 +172,7 @@ for entity in entities:
 ### Example 2: Batch Processing Excel | 批次處理 Excel
 
 ```python
-from medical_deidentification.application.processing import (
+from core.application.processing import (
     BatchPHIProcessor,
     BatchProcessingConfig
 )
@@ -195,7 +195,7 @@ print(f"Found {result.total_entities} PHI entities in {result.processed_rows} ro
 ### Example 3: Using MiniMind (Ultra-light Local LLM) | 使用 MiniMind
 
 ```python
-from medical_deidentification.infrastructure.llm import LLMPresets, create_llm
+from core.infrastructure.llm import LLMPresets, create_llm
 
 # MiniMind: Only 104M parameters, runs on any hardware!
 config = LLMPresets.local_minimind()
@@ -208,7 +208,7 @@ llm = create_llm(config)
 ### Example 4: RAG-Enhanced Detection | RAG 增強識別
 
 ```python
-from medical_deidentification.infrastructure.rag import (
+from core.infrastructure.rag import (
     RegulationRetrievalChain,
     PHIIdentificationChain
 )
@@ -231,14 +231,14 @@ entities = phi_chain.identify_phi(medical_text)
 ### Example 5: DSPy Automatic Prompt Optimization | DSPy 自動 Prompt 優化 🆕
 
 ```python
-from medical_deidentification.infrastructure.dspy import (
+from core.infrastructure.dspy import (
     PHIIdentifier,
     PHIPromptOptimizer,
     PHIEvaluator
 )
 
 # Configure DSPy with Ollama
-from medical_deidentification.infrastructure.dspy.phi_module import configure_dspy_ollama
+from core.infrastructure.dspy.phi_module import configure_dspy_ollama
 configure_dspy_ollama(model_name="qwen2.5:1.5b")
 
 # Create base PHI identifier

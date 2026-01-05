@@ -171,8 +171,8 @@ def run_evaluation(
     
     # 嘗試載入專案的 PHI 識別系統
     try:
-        from medical_deidentification.infrastructure.llm.processors import (
-            create_phi_identifier,
+        from core.infrastructure.dspy import (
+            create_phi_identifier_from_yaml as create_phi_identifier,
         )
         
         # 建立 detector wrapper

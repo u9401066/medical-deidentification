@@ -19,8 +19,8 @@ def test_direct_llm_call():
     print("TEST 1: Direct LLM Call (No Chain)")
     print("="*60)
     
-    from medical_deidentification.infrastructure.llm.factory import create_llm
-    from medical_deidentification.infrastructure.llm.config import LLMConfig
+    from core.infrastructure.llm.factory import create_llm
+    from core.infrastructure.llm.config import LLMConfig
     
     llm_config = LLMConfig(
         provider="ollama",
@@ -47,8 +47,8 @@ def test_prompt_chain():
     print("TEST 2: Prompt | LLM | StrOutputParser")
     print("="*60)
     
-    from medical_deidentification.infrastructure.llm.factory import create_llm
-    from medical_deidentification.infrastructure.llm.config import LLMConfig
+    from core.infrastructure.llm.factory import create_llm
+    from core.infrastructure.llm.config import LLMConfig
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.output_parsers import StrOutputParser
     
@@ -89,9 +89,9 @@ def test_json_fallback():
     print("TEST 3: identify_phi_json_fallback (Existing Module)")
     print("="*60)
     
-    from medical_deidentification.infrastructure.llm.factory import create_llm
-    from medical_deidentification.infrastructure.llm.config import LLMConfig
-    from medical_deidentification.infrastructure.rag.chains.processors import identify_phi_json_fallback
+    from core.infrastructure.llm.factory import create_llm
+    from core.infrastructure.llm.config import LLMConfig
+    from core.infrastructure.rag.chains.processors import identify_phi_with_parser as identify_phi_json_fallback
     
     llm_config = LLMConfig(
         provider="ollama",

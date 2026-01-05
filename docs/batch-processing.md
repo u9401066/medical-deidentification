@@ -35,13 +35,13 @@ BatchPHIProcessor
 ### 基本使用
 
 ```python
-from medical_deidentification.application.processing import (
+from core.application.processing import (
     BatchPHIProcessor,
     BatchProcessingConfig,
     save_batch_results
 )
-from medical_deidentification.infrastructure.rag import PHIIdentificationChain
-from medical_deidentification.infrastructure.llm import LLMConfig
+from core.infrastructure.rag import PHIIdentificationChain
+from core.infrastructure.llm import LLMConfig
 
 # 1. 配置 LLM（使用 Ollama）
 llm_config = LLMConfig(

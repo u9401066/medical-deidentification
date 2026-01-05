@@ -60,7 +60,7 @@ If you discover a security vulnerability, please **DO NOT** report it publicly i
 uv add --dev bandit
 
 # 執行安全掃描
-uv run bandit -r medical_deidentification/
+uv run bandit -r core/
 
 # 使用 ruff 的安全規則
 uv run ruff check --select S .

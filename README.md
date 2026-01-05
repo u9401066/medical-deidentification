@@ -107,7 +107,7 @@ python examples/quick_start.py
 
 ```python
 # 或在程式碼中使用
-from medical_deidentification.infrastructure.rag import PHIIdentificationChain
+from core.infrastructure.rag import PHIIdentificationChain
 
 chain = PHIIdentificationChain()
 entities = chain.identify_phi("""
@@ -159,7 +159,7 @@ for entity in entities:
 本專案使用 [DSPy](https://github.com/stanfordnlp/dspy) 實現自動 prompt 優化：
 
 ```python
-from medical_deidentification.infrastructure.dspy import (
+from core.infrastructure.dspy import (
     PHIIdentifier,
     PHIPromptOptimizer,
     configure_dspy_ollama,
@@ -190,7 +190,7 @@ medical-deidentification/
 │   ├── quick_start.py          # 30 秒上手
 │   ├── batch_example.py        # 批次處理
 │   └── dspy_optimization.py    # DSPy 優化
-├── medical_deidentification/
+├── core/
 │   ├── application/            # 應用層
 │   │   └── processing/         # 批次處理器
 │   ├── domain/                 # 領域層 (DDD)

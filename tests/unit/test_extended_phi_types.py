@@ -7,7 +7,7 @@ Unit tests for extended PHI type system including custom types.
 
 import pytest
 
-from medical_deidentification.domain import (
+from core.domain import (
     PHIType,
     PHIEntity,
     CustomPHIType,

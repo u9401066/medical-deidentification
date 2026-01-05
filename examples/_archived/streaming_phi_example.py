@@ -30,11 +30,11 @@ sys.path.insert(0, str(project_root))
 
 from loguru import logger
 
-from medical_deidentification.infrastructure.rag.chains import (
+from core.infrastructure.rag.chains import (
     StreamingPHIChain,
     StreamingPHIConfig,
 )
-from medical_deidentification.infrastructure.tools import (
+from core.infrastructure.tools import (
     RegexPHITool,
     IDValidatorTool,
     PhoneTool,
@@ -83,8 +83,8 @@ def main():
     # Create LLM (using environment variable or default)
     llm = None
     try:
-        from medical_deidentification.infrastructure.llm.factory import create_llm
-        from medical_deidentification.infrastructure.llm.config import LLMConfig
+        from core.infrastructure.llm.factory import create_llm
+        from core.infrastructure.llm.config import LLMConfig
         llm_config = LLMConfig(provider="ollama", model_name="llama3.1:8b")
         llm = create_llm(llm_config)
         logger.info("LLM initialized: ollama/llama3.1:8b")

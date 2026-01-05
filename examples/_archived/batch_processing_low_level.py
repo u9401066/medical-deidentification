@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 # Import and configure logging from package
-from medical_deidentification.infrastructure.utils import configure_logging
+from core.infrastructure.utils import configure_logging
 from loguru import logger
 
 # Configure logging using package's built-in function
@@ -22,17 +22,17 @@ log_file = configure_logging(
 )
 logger.info(f"Logging configured: {log_file}")
 
-from medical_deidentification.infrastructure.llm.config import LLMConfig
-from medical_deidentification.infrastructure.rag.phi_identification_chain import (
+from core.infrastructure.llm.config import LLMConfig
+from core.infrastructure.rag.phi_identification_chain import (
     PHIIdentificationConfig,
     PHIIdentificationChain
 )
-from medical_deidentification.infrastructure.rag.regulation_retrieval_chain import (
+from core.infrastructure.rag.regulation_retrieval_chain import (
     create_regulation_retrieval_chain
 )
-from medical_deidentification.infrastructure.rag.embeddings import EmbeddingsManager
-from medical_deidentification.infrastructure.utils.token_counter import TokenCounter
-from medical_deidentification.application.processing.batch_processor import (
+from core.infrastructure.rag.embeddings import EmbeddingsManager
+from core.infrastructure.utils.token_counter import TokenCounter
+from core.application.processing.batch_processor import (
     BatchPHIProcessor,
     BatchProcessingConfig,
     save_batch_results,

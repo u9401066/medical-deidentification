@@ -8,7 +8,7 @@ Shared fixtures and configuration for all tests.
 import pytest
 from typing import Generator
 
-from medical_deidentification.domain import (
+from core.domain import (
     MedicalDocument,
     DocumentMetadata,
     PHIEntity,

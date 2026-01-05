@@ -20,11 +20,11 @@ logger.info("簡單批次處理測試 - Simple Batch Processing Test")
 logger.info("="*80)
 
 # 導入必要模組
-from medical_deidentification.infrastructure.rag import (
+from core.infrastructure.rag import (
     PHIIdentificationConfig,
     PHIIdentificationChain
 )
-from medical_deidentification.application.processing import (
+from core.application.processing import (
     BatchPHIProcessor,
     BatchProcessingConfig,
     save_batch_results

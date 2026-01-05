@@ -12,7 +12,7 @@ class TestLLMConfig:
 
     def test_all_presets_exist(self):
         """測試所有預設配置存在"""
-        from medical_deidentification.infrastructure.llm import LLMPresets
+        from core.infrastructure.llm import LLMPresets
         
         # Cloud presets
         assert hasattr(LLMPresets, 'gpt_4o')
@@ -30,7 +30,7 @@ class TestLLMConfig:
 
     def test_model_lists_exist(self):
         """測試模型列表存在"""
-        from medical_deidentification.infrastructure.llm import (
+        from core.infrastructure.llm import (
             OPENAI_MODELS,
             ANTHROPIC_MODELS,
             OLLAMA_MODELS,
@@ -44,7 +44,7 @@ class TestLLMConfig:
 
     def test_llm_config_validation(self):
         """測試 LLM 配置驗證"""
-        from medical_deidentification.infrastructure.llm import LLMConfig
+        from core.infrastructure.llm import LLMConfig
         
         # Valid config
         config = LLMConfig(
@@ -61,7 +61,7 @@ class TestLLMConfig:
 
     def test_minimind_config_values(self):
         """測試 MiniMind 配置值"""
-        from medical_deidentification.infrastructure.llm import LLMPresets
+        from core.infrastructure.llm import LLMPresets
         
         config = LLMPresets.local_minimind()
         assert config.provider == "ollama"
@@ -77,13 +77,13 @@ class TestLLMFactory:
 
     def test_create_llm_function_exists(self):
         """測試 create_llm 函數存在"""
-        from medical_deidentification.infrastructure.llm import create_llm
+        from core.infrastructure.llm import create_llm
         assert callable(create_llm)
 
     @pytest.mark.slow
     def test_create_ollama_llm(self):
         """測試建立 Ollama LLM"""
-        from medical_deidentification.infrastructure.llm import create_llm, LLMPresets
+        from core.infrastructure.llm import create_llm, LLMPresets
         
         try:
             llm = create_llm(LLMPresets.local_minimind())
@@ -129,7 +129,7 @@ class TestMiniMindFunctional:
     @pytest.fixture(scope="class")
     def minimind_llm(self):
         """建立 MiniMind LLM"""
-        from medical_deidentification.infrastructure.llm import create_llm, LLMPresets
+        from core.infrastructure.llm import create_llm, LLMPresets
         try:
             return create_llm(LLMPresets.local_minimind())
         except Exception as e:

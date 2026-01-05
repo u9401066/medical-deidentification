@@ -10,13 +10,13 @@ import os
 import json
 from pathlib import Path
 
-from medical_deidentification.infrastructure.rag.chains.streaming_processor import (
+from core.infrastructure.rag.chains.streaming_processor import (
     StreamingChunkProcessor,
     ChunkInfo,
     ChunkResult,
     ProcessingCheckpoint,
 )
-from medical_deidentification.infrastructure.rag.chains.streaming_phi_chain import (
+from core.infrastructure.rag.chains.streaming_phi_chain import (
     StreamingPHIChain,
     StreamingPHIConfig,
     PHIChunkResult,

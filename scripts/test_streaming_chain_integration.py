@@ -23,14 +23,14 @@ from loguru import logger
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from medical_deidentification.infrastructure.rag.chains.streaming_phi_chain import (
+from core.infrastructure.rag.chains.streaming_phi_chain import (
     StreamingPHIChain,
     StreamingPHIConfig,
     PHIChunkResult,
 )
-from medical_deidentification.infrastructure.llm.factory import create_llm
-from medical_deidentification.infrastructure.llm.config import LLMPresets
-from medical_deidentification.domain.phi_types import PHIType
+from core.infrastructure.llm.factory import create_llm
+from core.infrastructure.llm.config import LLMPresets
+from core.domain.phi_types import PHIType
 from scripts.generators.phi_tag_parser import parse_phi_tags, calculate_metrics
 
 
@@ -110,7 +110,7 @@ def create_streaming_chain(enable_rag: bool = False, enable_tools: bool = False)
     Note: minimind is too small (104M) for PHI identification
     """
     # Use qwen2.5:1.5b - small but capable for structured tasks
-    from medical_deidentification.infrastructure.llm.config import LLMConfig
+    from core.infrastructure.llm.config import LLMConfig
     llm_config = LLMConfig(
         provider="ollama",
         model_name="qwen2.5:1.5b",

@@ -9,7 +9,7 @@ import pytest
 from datetime import datetime
 from uuid import uuid4
 
-from medical_deidentification.domain import (
+from core.domain import (
     MedicalDocument,
     PHIEntity,
     PHIType,

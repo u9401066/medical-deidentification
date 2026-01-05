@@ -27,8 +27,8 @@ def test_direct_llm_call():
     print("TEST 1: Direct LLM Call (No Chain)")
     print("="*60)
     
-    from medical_deidentification.infrastructure.llm.factory import create_llm
-    from medical_deidentification.infrastructure.llm.config import LLMConfig
+    from core.infrastructure.llm.factory import create_llm
+    from core.infrastructure.llm.config import LLMConfig
     
     llm_config = LLMConfig(
         provider="ollama",
@@ -55,8 +55,8 @@ def test_prompt_chain():
     print("TEST 2: Prompt | LLM Chain")
     print("="*60)
     
-    from medical_deidentification.infrastructure.llm.factory import create_llm
-    from medical_deidentification.infrastructure.llm.config import LLMConfig
+    from core.infrastructure.llm.factory import create_llm
+    from core.infrastructure.llm.config import LLMConfig
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.output_parsers import StrOutputParser
     
@@ -92,9 +92,9 @@ def test_structured_output():
     print("TEST 3: with_structured_output (Pydantic)")
     print("="*60)
     
-    from medical_deidentification.infrastructure.llm.factory import create_llm
-    from medical_deidentification.infrastructure.llm.config import LLMConfig
-    from medical_deidentification.domain.phi_identification_models import PHIDetectionResponse
+    from core.infrastructure.llm.factory import create_llm
+    from core.infrastructure.llm.config import LLMConfig
+    from core.domain.phi_identification_models import PHIDetectionResponse
     from langchain_core.prompts import ChatPromptTemplate
     
     llm_config = LLMConfig(
@@ -138,9 +138,9 @@ def test_processors_function():
     print("TEST 4: processors.identify_phi_json_fallback")
     print("="*60)
     
-    from medical_deidentification.infrastructure.llm.factory import create_llm
-    from medical_deidentification.infrastructure.llm.config import LLMConfig
-    from medical_deidentification.infrastructure.rag.chains.processors import identify_phi_json_fallback
+    from core.infrastructure.llm.factory import create_llm
+    from core.infrastructure.llm.config import LLMConfig
+    from core.infrastructure.rag.chains.processors import identify_phi_with_parser as identify_phi_json_fallback
     
     llm_config = LLMConfig(
         provider="ollama",
@@ -184,9 +184,9 @@ def test_full_prompt():
     print("TEST 5: Full PHI Prompt (Same as Streaming)")
     print("="*60)
     
-    from medical_deidentification.infrastructure.llm.factory import create_llm
-    from medical_deidentification.infrastructure.llm.config import LLMConfig
-    from medical_deidentification.infrastructure.prompts import get_phi_identification_prompt, get_system_message
+    from core.infrastructure.llm.factory import create_llm
+    from core.infrastructure.llm.config import LLMConfig
+    from core.infrastructure.prompts import get_phi_identification_prompt, get_system_message
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.output_parsers import StrOutputParser
     

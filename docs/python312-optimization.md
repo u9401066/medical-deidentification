@@ -28,13 +28,13 @@ uv sync
 4. **更好的錯誤訊息** - 調試更容易
 
 ### 新增的異步處理模組
-`medical_deidentification/infrastructure/rag/chains/async_processors.py`
+`core/infrastructure/rag/chains/async_processors.py`
 
 ```python
 # 使用方式
 import asyncio
 from langchain_ollama import ChatOllama
-from medical_deidentification.infrastructure.rag.chains.async_processors import (
+from core.infrastructure.rag.chains.async_processors import (
     identify_phi_async,
     identify_phi_sync
 )

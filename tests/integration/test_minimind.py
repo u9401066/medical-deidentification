@@ -14,12 +14,12 @@ class TestMiniMindIntegration:
     @pytest.fixture(scope="class")
     def llm(self):
         """建立 MiniMind LLM 實例"""
-        from medical_deidentification.infrastructure.llm import LLMPresets, create_llm
+        from core.infrastructure.llm import LLMPresets, create_llm
         return create_llm(LLMPresets.local_minimind())
 
     def test_minimind_config_exists(self):
         """測試 MiniMind 配置是否存在"""
-        from medical_deidentification.infrastructure.llm import LLMPresets, MINIMIND_MODELS
+        from core.infrastructure.llm import LLMPresets, MINIMIND_MODELS
         
         # 檢查 MINIMIND_MODELS 列表
         assert MINIMIND_MODELS is not None
@@ -35,7 +35,7 @@ class TestMiniMindIntegration:
 
     def test_minimind_presets(self):
         """測試所有 MiniMind preset"""
-        from medical_deidentification.infrastructure.llm import LLMPresets
+        from core.infrastructure.llm import LLMPresets
         
         # 測試 local_minimind
         config1 = LLMPresets.local_minimind()
@@ -114,7 +114,7 @@ class TestMiniMindPerformance:
     @pytest.fixture(scope="class")
     def llm(self):
         """建立 MiniMind LLM 實例"""
-        from medical_deidentification.infrastructure.llm import LLMPresets, create_llm
+        from core.infrastructure.llm import LLMPresets, create_llm
         return create_llm(LLMPresets.local_minimind())
 
     @pytest.mark.slow
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     
     # 3. 測試 LLM 調用
     print("\n[3/4] 測試 MiniMind LLM 調用...")
-    from medical_deidentification.infrastructure.llm import LLMPresets, create_llm
+    from core.infrastructure.llm import LLMPresets, create_llm
     llm = create_llm(LLMPresets.local_minimind())
     test.llm = lambda: llm  # Mock fixture
     test.test_minimind_basic_invoke(llm)

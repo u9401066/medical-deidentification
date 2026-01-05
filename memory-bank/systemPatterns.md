@@ -189,8 +189,8 @@ Use str-based Enum in Pydantic models for LLM structured output to combine type 
 
 ### Examples
 
-- medical_deidentification/domain/models.py: class PHIType(str, Enum)
-- medical_deidentification/infrastructure/rag/regulation_chain.py: class PHIIdentificationResult(BaseModel) with phi_type: PHIType field
+- core/domain/models.py: class PHIType(str, Enum)
+- core/infrastructure/rag/regulation_chain.py: class PHIIdentificationResult(BaseModel) with phi_type: PHIType field
 - Validator automatically converts LLM string outputs to PHIType enum values
 
 
@@ -246,10 +246,10 @@ stats = manager.get_stats()
 
 ### Examples
 
-- medical_deidentification/infrastructure/llm/config.py
-- medical_deidentification/infrastructure/llm/factory.py
-- medical_deidentification/infrastructure/llm/manager.py
-- medical_deidentification/infrastructure/rag/regulation_chain.py (使用 create_llm)
+- core/infrastructure/llm/config.py
+- core/infrastructure/llm/factory.py
+- core/infrastructure/llm/manager.py
+- core/infrastructure/rag/regulation_chain.py (使用 create_llm)
 
 
 ## Prompt 模板的集中管理模式
@@ -294,9 +294,9 @@ prompt = PHI_IDENTIFICATION_PROMPT
 
 ### Examples
 
-- medical_deidentification/infrastructure/prompts/templates.py
-- medical_deidentification/infrastructure/prompts/__init__.py
-- medical_deidentification/infrastructure/rag/regulation_chain.py (使用 get_phi_identification_prompt)
+- core/infrastructure/prompts/templates.py
+- core/infrastructure/prompts/__init__.py
+- core/infrastructure/rag/regulation_chain.py (使用 get_phi_identification_prompt)
 
 
 ## RAG Chain 的職責分離模式
@@ -316,7 +316,7 @@ RAG Chain 應該按照數據來源和用途分離：(1) RegulationRetrievalChain
 
 ### Examples
 
-- medical_deidentification/application/processing/engine/ - 6 個模組檔案
+- core/application/processing/engine/ - 6 個模組檔案
 - config.py - ProcessingStatus, EngineConfig
 - result.py - ProcessingResult with helper methods
 - masking.py - MaskingProcessor class

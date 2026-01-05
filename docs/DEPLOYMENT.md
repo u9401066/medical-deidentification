@@ -38,7 +38,7 @@ This guide covers installation, configuration, and deployment of the Medical De-
 pip install medical-deidentification
 
 # Verify installation
-python -c "import medical_deidentification; print('Success!')"
+python -c "import core; print('Success!')"
 ```
 
 ### Method 2: From Source (Recommended for Development)
@@ -116,7 +116,7 @@ MAX_TOKENS=2048
 ### LLM Configuration | LLM 配置
 
 ```python
-from medical_deidentification.infrastructure.llm import LLMConfig, LLMPresets
+from core.infrastructure.llm import LLMConfig, LLMPresets
 
 # Option 1: Use presets
 config = LLMPresets.local_minimind()      # Ultra-light local
@@ -156,7 +156,7 @@ config = LLMConfig(
 
 3. **Test Connection**:
    ```python
-   from medical_deidentification.infrastructure.llm import LLMPresets, create_llm
+   from core.infrastructure.llm import LLMPresets, create_llm
    
    llm = create_llm(LLMPresets.gpt_4o())
    response = llm.invoke("Hello, world!")
@@ -194,7 +194,7 @@ config = LLMConfig(
 
 4. **Test in Python**:
    ```python
-   from medical_deidentification.infrastructure.llm import LLMPresets, create_llm
+   from core.infrastructure.llm import LLMPresets, create_llm
    
    llm = create_llm(LLMPresets.local_qwen())
    response = llm.invoke("Identify PHI in: Patient John Doe")
@@ -210,8 +210,8 @@ config = LLMConfig(
 ### Basic Usage | 基本使用
 
 ```python
-from medical_deidentification.application.processing import DeidentificationEngine
-from medical_deidentification.infrastructure.llm import LLMPresets, create_llm
+from core.application.processing import DeidentificationEngine
+from core.infrastructure.llm import LLMPresets, create_llm
 
 # Initialize
 llm = create_llm(LLMPresets.local_minimind())
@@ -228,7 +228,7 @@ print(f"Found {len(result.entities)} PHI entities")
 ### Batch Processing | 批次處理
 
 ```python
-from medical_deidentification.application.processing import (
+from core.application.processing import (
     BatchPHIProcessor,
     BatchProcessingConfig
 )

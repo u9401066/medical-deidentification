@@ -126,7 +126,7 @@ and elements may be aggregated into a single category of age 90 or older.
 ### 3. 建立向量庫 | Build Vector Store
 
 ```python
-from medical_deidentification.infrastructure.rag import (
+from core.infrastructure.rag import (
     create_embeddings_manager,
     RegulationVectorStore
 )
@@ -159,7 +159,7 @@ for doc in docs:
 ### 5. 使用完整 RAG 鏈 | Use Full RAG Chain
 
 ```python
-from medical_deidentification.infrastructure.rag import create_regulation_rag_chain
+from core.infrastructure.rag import create_regulation_rag_chain
 import os
 
 # 設置 API Key
@@ -198,7 +198,7 @@ print(result["result"])  # PHI 識別結果
 **用途 | Purpose**: 管理嵌入模型，支援多語言和生物醫學領域
 
 ```python
-from medical_deidentification.infrastructure.rag import create_embeddings_manager
+from core.infrastructure.rag import create_embeddings_manager
 
 # 選項 1: 使用預設配置
 embeddings = create_embeddings_manager(
@@ -240,7 +240,7 @@ doc_embeddings = embeddings.embed_documents([
 **用途 | Purpose**: 持久化法規文件向量庫
 
 ```python
-from medical_deidentification.infrastructure.rag import (
+from core.infrastructure.rag import (
     RegulationVectorStore,
     RegulationStoreConfig
 )
@@ -279,7 +279,7 @@ docs_with_scores = store.similarity_search_with_score("genetic information", k=3
 **用途 | Purpose**: 高級檢索，支援 MMR（最大邊際相關性）確保多樣性
 
 ```python
-from medical_deidentification.infrastructure.rag import (
+from core.infrastructure.rag import (
     RegulationRetriever,
     RetrieverConfig
 )
@@ -324,7 +324,7 @@ docs = retriever.retrieve_by_phi_type(
 **用途 | Purpose**: 完整 RAG 鏈，整合 LLM 進行 PHI 識別
 
 ```python
-from medical_deidentification.infrastructure.rag import (
+from core.infrastructure.rag import (
     create_regulation_rag_chain,
     RAGChainConfig
 )
@@ -374,7 +374,7 @@ validation = chain.validate_with_regulations(
 **用途 | Purpose**: 臨時處理病歷文件（不持久化）
 
 ```python
-from medical_deidentification.infrastructure.rag import InMemoryDocumentProcessor
+from core.infrastructure.rag import InMemoryDocumentProcessor
 
 processor = InMemoryDocumentProcessor(
     embeddings_manager=embeddings,
@@ -400,7 +400,7 @@ results = processor.process_and_destroy(
 ### EmbeddingsConfig
 
 ```python
-from medical_deidentification.infrastructure.rag import EmbeddingsConfig
+from core.infrastructure.rag import EmbeddingsConfig
 
 config = EmbeddingsConfig(
     model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
@@ -413,7 +413,7 @@ config = EmbeddingsConfig(
 ### RegulationStoreConfig
 
 ```python
-from medical_deidentification.infrastructure.rag import RegulationStoreConfig
+from core.infrastructure.rag import RegulationStoreConfig
 from pathlib import Path
 
 config = RegulationStoreConfig(
@@ -428,7 +428,7 @@ config = RegulationStoreConfig(
 ### RetrieverConfig
 
 ```python
-from medical_deidentification.infrastructure.rag import RetrieverConfig
+from core.infrastructure.rag import RetrieverConfig
 
 config = RetrieverConfig(
     search_type="mmr",              # "similarity" or "mmr"
@@ -443,7 +443,7 @@ config = RetrieverConfig(
 ### RAGChainConfig
 
 ```python
-from medical_deidentification.infrastructure.rag import RAGChainConfig
+from core.infrastructure.rag import RAGChainConfig
 
 config = RAGChainConfig(
     llm_provider="openai",          # "openai" or "anthropic"

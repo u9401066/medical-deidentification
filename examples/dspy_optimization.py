@@ -29,7 +29,7 @@ Usage:
 import argparse
 
 # DSPy integration
-from medical_deidentification.infrastructure.dspy import (
+from core.infrastructure.dspy import (
     PHIIdentifier,
     PHIPromptOptimizer,
     configure_dspy_ollama,
@@ -138,7 +138,7 @@ def yaml_config_demo():
     print("-" * 40)
     
     try:
-        from medical_deidentification.infrastructure.prompts import load_prompt_config
+        from core.infrastructure.prompts import load_prompt_config
         
         config = load_prompt_config("phi_identification")
         
@@ -196,7 +196,7 @@ def optimization_demo():
     📖 To run optimization and save to YAML:
     
     ```python
-    from medical_deidentification.infrastructure.dspy import (
+    from core.infrastructure.dspy import (
         optimize_and_save_to_yaml,
         load_optimized_identifier,
     )
@@ -220,7 +220,7 @@ def optimization_demo():
     ```
     
     📁 YAML files saved to:
-       medical_deidentification/infrastructure/prompts/phi_identification.v*.yaml
+       core/infrastructure/prompts/phi_identification.v*.yaml
     """)
 
 

@@ -2,7 +2,7 @@
 
 [run]
 # 要測量的源碼目錄
-source = medical_deidentification
+source = core
 
 # 要忽略的目錄/檔案
 omit = 

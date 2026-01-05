@@ -51,7 +51,7 @@
 
 ### 配置檔案結構
 
-配置檔案位於 `medical_deidentification/infrastructure/prompts/` 目錄：
+配置檔案位於 `core/infrastructure/prompts/` 目錄：
 
 ```
 prompts/
@@ -108,7 +108,7 @@ model_configs:
 ### 使用配置
 
 ```python
-from medical_deidentification.infrastructure.prompts import (
+from core.infrastructure.prompts import (
     load_prompt_config,
     PromptManager,
 )
@@ -141,7 +141,7 @@ examples = config.get_few_shot_examples(n=3)
 ### 基本使用
 
 ```python
-from medical_deidentification.infrastructure.dspy import (
+from core.infrastructure.dspy import (
     configure_dspy_ollama,
     PHIIdentifier,
     PHIIdentifierWithConfig,
@@ -176,7 +176,7 @@ for entity in entities:
 | llama3.2:1b | 1.3GB | 55.0% | 高召回需求 |
 
 ```python
-from medical_deidentification.infrastructure.dspy import LIGHTWEIGHT_MODELS
+from core.infrastructure.dspy import LIGHTWEIGHT_MODELS
 
 for name, info in LIGHTWEIGHT_MODELS.items():
     if info["recommended"]:
@@ -207,7 +207,7 @@ tagged_texts = [
 ### 執行優化
 
 ```python
-from medical_deidentification.infrastructure.dspy import (
+from core.infrastructure.dspy import (
     optimize_and_save_to_yaml,
     PHIPromptOptimizer,
 )
@@ -241,7 +241,7 @@ result = optimizer.optimize(
 ### 使用優化後的配置
 
 ```python
-from medical_deidentification.infrastructure.dspy import (
+from core.infrastructure.dspy import (
     load_optimized_identifier,
 )
 
@@ -341,7 +341,7 @@ class PHIPromptOptimizer:
 
 ```bash
 # 追蹤 YAML 配置變更
-git add medical_deidentification/infrastructure/prompts/*.yaml
+git add core/infrastructure/prompts/*.yaml
 git commit -m "feat(prompts): update PHI identification v1.2.0"
 ```
 

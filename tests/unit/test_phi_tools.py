@@ -11,8 +11,8 @@ Tests for Phase 1 tool implementations:
 import pytest
 from typing import List
 
-from medical_deidentification.domain.phi_types import PHIType
-from medical_deidentification.infrastructure.tools import (
+from core.domain.phi_types import PHIType
+from core.infrastructure.tools import (
     BasePHITool,
     ToolResult,
     ToolRunner,
@@ -20,7 +20,7 @@ from medical_deidentification.infrastructure.tools import (
     IDValidatorTool,
     PhoneTool,
 )
-from medical_deidentification.infrastructure.tools.base_tool import merge_results
+from core.infrastructure.tools.base_tool import merge_results
 
 
 class TestToolResult:

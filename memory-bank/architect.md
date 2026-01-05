@@ -170,7 +170,7 @@ DocumentLoaderFactory
 
 **Usage Example**:
 ```python
-from medical_deidentification.infrastructure.loader import load_document
+from core.infrastructure.loader import load_document
 
 # Simple loading
 doc = load_document("patient_records.xlsx")

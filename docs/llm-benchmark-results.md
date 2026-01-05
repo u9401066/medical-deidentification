@@ -118,7 +118,7 @@ ollama pull qwen2.5:1.5b
 ### DSPy 配置
 
 ```python
-from medical_deidentification.infrastructure.dspy.phi_module import (
+from core.infrastructure.dspy.phi_module import (
     configure_dspy_ollama,
     PHIIdentifier,
     LIGHTWEIGHT_MODELS,

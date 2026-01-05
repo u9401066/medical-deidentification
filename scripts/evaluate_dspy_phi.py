@@ -388,7 +388,7 @@ def main():
     args = parser.parse_args()
     
     # Import DSPy module
-    from medical_deidentification.infrastructure.dspy import (
+    from core.infrastructure.dspy import (
         PHIIdentifier,
         configure_dspy_ollama,
         LIGHTWEIGHT_MODELS,

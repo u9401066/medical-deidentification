@@ -1148,13 +1148,13 @@ ollama pull qwen2.5:0.5b
 
 # 3. 開始開發 (依序)
 # Step 1: 建立 Tool 基礎
-touch medical_deidentification/infrastructure/tools/__init__.py
-touch medical_deidentification/infrastructure/tools/base_tool.py
-touch medical_deidentification/infrastructure/tools/tool_runner.py
+touch core/infrastructure/tools/__init__.py
+touch core/infrastructure/tools/base_tool.py
+touch core/infrastructure/tools/tool_runner.py
 
 # Step 2: 實作各 Tool
-touch medical_deidentification/infrastructure/tools/regex_phi_tool.py
-touch medical_deidentification/infrastructure/tools/id_validator_tool.py
+touch core/infrastructure/tools/regex_phi_tool.py
+touch core/infrastructure/tools/id_validator_tool.py
 
 # Step 3: 修改現有 Chain
 # 編輯 chains/processors.py - 加入 tool_results 參數

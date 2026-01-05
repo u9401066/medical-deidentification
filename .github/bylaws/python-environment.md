@@ -137,12 +137,12 @@ uv run ruff format .
 
 ### 5.2 MyPy（型別檢查）
 ```bash
-uv run mypy medical_deidentification/
+uv run mypy core/
 ```
 
 ### 5.3 Bandit（安全掃描）
 ```bash
-uv run bandit -r medical_deidentification/
+uv run bandit -r core/
 ```
 
 ### 5.4 測試
@@ -157,7 +157,7 @@ uv run pytest tests/unit/ -v
 uv run pytest tests/integration/ -v
 
 # 含覆蓋率
-uv run pytest --cov=medical_deidentification --cov-report=html
+uv run pytest --cov=core --cov-report=html
 ```
 
 ---

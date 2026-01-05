@@ -40,7 +40,7 @@ Medical De-identification Toolkit follows **Domain-Driven Design (DDD)** princip
 ## 📁 Project Structure | 專案結構
 
 ```
-medical_deidentification/
+core/
 ├── domain/                          # 🎯 Domain Layer
 │   ├── __init__.py
 │   ├── phi_types.py                 # PHI type definitions (PHIType enum)
@@ -404,7 +404,7 @@ tests/
 pytest
 
 # Run with coverage
-pytest --cov=medical_deidentification --cov-report=html
+pytest --cov=core --cov-report=html
 
 # Run specific layer
 pytest tests/unit/domain/

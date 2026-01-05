@@ -79,7 +79,7 @@
 cd /home/eric/workspace251230/medical-deidentification
 source .venv/bin/activate
 python -c "
-from medical_deidentification.application.processing.engine import DeidentificationEngine, EngineConfig
+from core.application.processing.engine import DeidentificationEngine, EngineConfig
 config = EngineConfig(llm_provider='ollama', llm_model='qwen2.5:1.5b', use_rag=False)
 engine = DeidentificationEngine(config)
 result = engine.process_file('data/test/test_phi.csv')

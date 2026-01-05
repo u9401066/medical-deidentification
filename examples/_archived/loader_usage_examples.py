@@ -7,7 +7,7 @@ Demonstrates how to load various document formats for medical de-identification.
 """
 
 from pathlib import Path
-from medical_deidentification.infrastructure.loader import (
+from core.infrastructure.loader import (
     # Base classes
     LoaderConfig,
     DocumentFormat,
@@ -304,7 +304,7 @@ def example_13_batch_processing():
     ]
     
     # Load all files
-    from medical_deidentification.infrastructure.loader import DocumentLoaderFactory
+    from core.infrastructure.loader import DocumentLoaderFactory
     
     factory = DocumentLoaderFactory()
     docs = factory.load_multiple(file_paths)
@@ -394,7 +394,7 @@ def example_17_loader_factory():
     """
     print("=== Example 17: DocumentLoaderFactory ===\n")
     
-    from medical_deidentification.infrastructure.loader import DocumentLoaderFactory
+    from core.infrastructure.loader import DocumentLoaderFactory
     
     factory = DocumentLoaderFactory()
     

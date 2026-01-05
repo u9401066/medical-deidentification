@@ -322,8 +322,8 @@ def main():
     print(f"[Config] Method: LangChain with_structured_output", flush=True)
     
     # 使用專案的 LLM factory 和 chain builder
-    from medical_deidentification.infrastructure.llm import create_llm, LLMConfig
-    from medical_deidentification.infrastructure.rag.chains.processors import build_phi_identification_chain
+    from core.infrastructure.llm import create_llm, LLMConfig
+    from core.infrastructure.rag.chains.processors import build_phi_identification_chain
     
     # 創建 LLM（含 keep_alive 保持熱載入）
     print(f"[Init] Creating LangChain LLM (keep_alive={args.keep_alive})...", flush=True)

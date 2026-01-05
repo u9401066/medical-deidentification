@@ -5,7 +5,7 @@ results = []
 
 try:
     results.append("Testing streaming_processor...")
-    from medical_deidentification.infrastructure.rag.chains.streaming_processor import (
+    from core.infrastructure.rag.chains.streaming_processor import (
         StreamingChunkProcessor,
         ChunkInfo,
         ChunkResult,
@@ -14,7 +14,7 @@ try:
     results.append("  OK")
     
     results.append("Testing streaming_phi_chain...")
-    from medical_deidentification.infrastructure.rag.chains.streaming_phi_chain import (
+    from core.infrastructure.rag.chains.streaming_phi_chain import (
         StreamingPHIChain,
         StreamingPHIConfig,
         PHIChunkResult,
@@ -22,7 +22,7 @@ try:
     results.append("  OK")
     
     results.append("Testing chains __init__...")
-    from medical_deidentification.infrastructure.rag.chains import (
+    from core.infrastructure.rag.chains import (
         StreamingPHIChain,
         StreamingPHIConfig,
     )

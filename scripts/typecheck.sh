@@ -18,8 +18,8 @@ case "${1:-}" in
         ty check
         ;;
     --quick)
-        echo "⚡ Quick type check on medical_deidentification/..."
-        time ty check medical_deidentification/
+        echo "⚡ Quick type check on core/..."
+        time ty check core/
         ;;
     --compare)
         echo "📊 Comparing ty vs mypy performance..."
@@ -28,7 +28,7 @@ case "${1:-}" in
         time ty check 2>&1 | tail -3
         echo ""
         echo "=== mypy ==="
-        time uv run mypy medical_deidentification/ --ignore-missing-imports 2>&1 | tail -3
+        time uv run mypy core/ --ignore-missing-imports 2>&1 | tail -3
         ;;
     *)
         echo "🚀 Running ty type checker..."
