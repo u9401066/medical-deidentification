@@ -30,9 +30,10 @@ Design Note 設計說明:
   隱私保護：醫療文本永不落盤
 """
 
-from typing import List, Optional, Dict, Any
-from langchain_core.documents import Document
+from typing import Any
+
 from langchain_community.vectorstores import FAISS
+from langchain_core.documents import Document
 from loguru import logger
 
 from ...domain import MedicalRetrieverConfig
@@ -79,11 +80,11 @@ class MedicalTextRetriever:
         >>> 
         >>> # Vector store is automatically destroyed after use
     """
-    
+
     def __init__(
         self,
         embeddings_manager: EmbeddingsManager,
-        config: Optional[MedicalRetrieverConfig] = None
+        config: MedicalRetrieverConfig | None = None
     ):
         """
         Initialize medical text retriever
@@ -94,13 +95,13 @@ class MedicalTextRetriever:
         """
         self.embeddings_manager = embeddings_manager
         self.config = config or MedicalRetrieverConfig()
-        
+
         logger.debug(
             f"[Medical] Retriever initialized "
             f"(ephemeral, chunk_size={self.config.chunk_size})"
         )
-    
-    def _split_text(self, text: str) -> List[str]:
+
+    def _split_text(self, text: str) -> list[str]:
         """
         Split medical text into chunks
         
@@ -111,18 +112,18 @@ class MedicalTextRetriever:
             List of text chunks
         """
         from langchain_text_splitters import RecursiveCharacterTextSplitter
-        
+
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=self.config.chunk_size,
             chunk_overlap=self.config.chunk_overlap,
             length_function=len,
             separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
         )
-        
+
         chunks = text_splitter.split_text(text)
         logger.debug(f"[Medical] Split into {len(chunks)} chunks")
         return chunks
-    
+
     def _create_temp_vectorstore(self, text: str) -> FAISS:
         """
         Create temporary in-memory vector store
@@ -134,25 +135,25 @@ class MedicalTextRetriever:
             Ephemeral FAISS vector store
         """
         chunks = self._split_text(text)
-        
+
         vectorstore = FAISS.from_texts(
             texts=chunks,
             embedding=self.embeddings_manager.embeddings
         )
-        
+
         logger.debug(
             f"[Medical] Created ephemeral vectorstore "
             f"({len(chunks)} chunks, in-memory only)"
         )
-        
+
         return vectorstore
-    
+
     def retrieve_from_text(
         self,
         text: str,
         query: str,
-        k: Optional[int] = None
-    ) -> List[Document]:
+        k: int | None = None
+    ) -> list[Document]:
         """
         Retrieve relevant chunks from medical text (ephemeral)
         
@@ -169,15 +170,15 @@ class MedicalTextRetriever:
             Medical text is never persisted to disk.
         """
         k = k or self.config.k
-        
+
         logger.info(
             f"[Medical] Retrieving from text ({len(text)} chars) "
             f"for query: {query[:50]}..."
         )
-        
+
         # Create temporary vectorstore
         temp_store = self._create_temp_vectorstore(text)
-        
+
         try:
             # Retrieve relevant chunks
             if self.config.score_threshold is not None:
@@ -192,21 +193,21 @@ class MedicalTextRetriever:
             else:
                 # Without score filtering
                 docs = temp_store.similarity_search(query, k=k)
-            
+
             logger.info(f"[Medical] Retrieved {len(docs)} relevant chunks")
             return docs
-            
+
         finally:
             # Explicitly destroy temporary store
             del temp_store
             logger.debug("[Medical] Ephemeral vectorstore destroyed")
-    
+
     def retrieve_from_text_with_scores(
         self,
         text: str,
         query: str,
-        k: Optional[int] = None
-    ) -> List[tuple[Document, float]]:
+        k: int | None = None
+    ) -> list[tuple[Document, float]]:
         """
         Retrieve relevant chunks with scores (ephemeral)
         
@@ -219,41 +220,41 @@ class MedicalTextRetriever:
             List of (document, score) tuples
         """
         k = k or self.config.k
-        
+
         logger.info(
             f"[Medical] Retrieving with scores from text ({len(text)} chars)"
         )
-        
+
         # Create temporary vectorstore
         temp_store = self._create_temp_vectorstore(text)
-        
+
         try:
             # Retrieve with scores
             docs_with_scores = temp_store.similarity_search_with_score(query, k=k)
-            
+
             # Apply score threshold if set
             if self.config.score_threshold is not None:
                 docs_with_scores = [
                     (doc, score) for doc, score in docs_with_scores
                     if score >= self.config.score_threshold
                 ]
-            
+
             logger.info(
                 f"[Medical] Retrieved {len(docs_with_scores)} chunks with scores"
             )
             return docs_with_scores
-            
+
         finally:
             # Explicitly destroy temporary store
             del temp_store
             logger.debug("[Medical] Ephemeral vectorstore destroyed")
-    
+
     def retrieve_multiple_sections(
         self,
         text: str,
-        queries: List[str],
-        k: Optional[int] = None
-    ) -> Dict[str, List[Document]]:
+        queries: list[str],
+        k: int | None = None
+    ) -> dict[str, list[Document]]:
         """
         Retrieve multiple sections from medical text
         
@@ -266,37 +267,37 @@ class MedicalTextRetriever:
             Dictionary mapping query to retrieved documents
         """
         k = k or self.config.k
-        
+
         logger.info(
             f"[Medical] Multi-section retrieval "
             f"({len(queries)} queries, {len(text)} chars)"
         )
-        
+
         # Create temporary vectorstore (reuse for all queries)
         temp_store = self._create_temp_vectorstore(text)
-        
+
         try:
             results = {}
-            
+
             for query in queries:
                 docs = temp_store.similarity_search(query, k=k)
                 results[query] = docs
                 logger.debug(f"[Medical] Query '{query}': {len(docs)} chunks")
-            
+
             logger.info(
                 f"[Medical] Multi-section complete: {len(results)} queries processed"
             )
             return results
-            
+
         finally:
             # Explicitly destroy temporary store
             del temp_store
             logger.debug("[Medical] Ephemeral vectorstore destroyed")
-    
-    def get_config(self) -> Dict[str, Any]:
+
+    def get_config(self) -> dict[str, Any]:
         """Get current retriever configuration"""
         return self.config.model_dump()
-    
+
     def update_config(self, **kwargs) -> None:
         """
         Update retriever configuration
@@ -307,9 +308,9 @@ class MedicalTextRetriever:
         for key, value in kwargs.items():
             if hasattr(self.config, key):
                 setattr(self.config, key, value)
-        
+
         logger.info(f"[Medical] Config updated: {kwargs}")
-    
+
     def __repr__(self) -> str:
         return (
             f"MedicalTextRetriever("
@@ -352,5 +353,5 @@ def create_medical_retriever(
         k=k,
         **kwargs
     )
-    
+
     return MedicalTextRetriever(embeddings_manager, config)

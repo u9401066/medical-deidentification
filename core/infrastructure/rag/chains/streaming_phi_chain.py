@@ -31,27 +31,23 @@ Usage:
     print(f"Progress: {progress['progress_percent']:.1f}%")
 """
 
-from dataclasses import dataclass, field
-from typing import (
-    List, Dict, Any, Optional, Generator, 
-    Callable, Iterator
-)
 import json
 import os
-from loguru import logger
+from collections.abc import Generator
+from dataclasses import dataclass
+from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
+from loguru import logger
 
+from ....domain import PHIEntity
+from ...llm.config import LLMConfig
 from .streaming_processor import (
-    StreamingChunkProcessor,
     ChunkInfo,
     ChunkResult,
-    ProcessingCheckpoint,
+    StreamingChunkProcessor,
 )
-from ....domain import PHIEntity
-from ....domain.phi_types import PHIType
-from ...llm.config import LLMConfig
 
 
 @dataclass
@@ -60,25 +56,25 @@ class StreamingPHIConfig:
     # Chunking
     chunk_size: int = 2000
     chunk_overlap: int = 100
-    
+
     # LLM
-    llm_config: Optional[LLMConfig] = None
+    llm_config: LLMConfig | None = None
     use_structured_output: bool = True
-    
+
     # RAG
     enable_rag: bool = True
     rag_k: int = 3
-    
+
     # Tools
     enable_tools: bool = True
     max_tool_calls_per_chunk: int = 5
-    
+
     # Checkpoint
-    checkpoint_dir: Optional[str] = None
+    checkpoint_dir: str | None = None
     checkpoint_interval: int = 1
-    
+
     # Output
-    output_dir: Optional[str] = None
+    output_dir: str | None = None
     output_format: str = "jsonl"  # jsonl, json, or csv
 
 
@@ -88,15 +84,15 @@ class PHIChunkResult:
     chunk_id: int
     start_pos: int
     end_pos: int
-    entities: List[PHIEntity]
+    entities: list[PHIEntity]
     raw_text: str
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
     processing_time_ms: float = 0.0
     tool_calls_made: int = 0
     rag_used: bool = False
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "chunk_id": self.chunk_id,
             "start_pos": self.start_pos,
@@ -138,13 +134,13 @@ class StreamingPHIChain:
     - 每個 chunk 可呼叫工具
     - RAG 開關
     """
-    
+
     def __init__(
         self,
-        llm: Optional[BaseChatModel] = None,
-        config: Optional[StreamingPHIConfig] = None,
+        llm: BaseChatModel | None = None,
+        config: StreamingPHIConfig | None = None,
         regulation_chain=None,
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ):
         """
         Initialize streaming PHI chain
@@ -158,7 +154,7 @@ class StreamingPHIChain:
         self.config = config or StreamingPHIConfig()
         self.regulation_chain = regulation_chain
         self.tools = tools or []
-        
+
         # Initialize LLM
         if llm:
             self.llm = llm
@@ -167,7 +163,7 @@ class StreamingPHIChain:
             self.llm = create_llm(self.config.llm_config)
         else:
             self.llm = None
-        
+
         # Bind tools to LLM if available
         if self.llm and self.config.enable_tools and self.tools:
             try:
@@ -177,14 +173,14 @@ class StreamingPHIChain:
                 logger.warning("LLM does not support tool binding")
         else:
             self.llm_with_tools = self.llm
-        
+
         # RAG context cache (minimal, for current chunk only)
-        self._rag_context: Optional[str] = None
-        
+        self._rag_context: str | None = None
+
         # Create output directory if specified
         if self.config.output_dir:
             os.makedirs(self.config.output_dir, exist_ok=True)
-        
+
         # Initialize streaming processor
         self._processor = StreamingChunkProcessor(
             chunk_size=self.config.chunk_size,
@@ -194,19 +190,19 @@ class StreamingPHIChain:
             checkpoint_dir=self.config.checkpoint_dir,
             checkpoint_interval=self.config.checkpoint_interval,
         )
-        
+
         logger.info(
             f"StreamingPHIChain initialized: "
             f"chunk_size={self.config.chunk_size}, "
             f"rag={'on' if self.config.enable_rag else 'off'}, "
             f"tools={'on' if self.config.enable_tools else 'off'}"
         )
-    
+
     def process_file(
         self,
         file_path: str,
         resume: bool = True,
-        language: Optional[str] = None,
+        language: str | None = None,
     ) -> Generator[PHIChunkResult, None, None]:
         """
         Process file with streaming chunks
@@ -223,7 +219,7 @@ class StreamingPHIChain:
         self._current_language = language
         self._current_file = file_path
         self._output_file = None
-        
+
         # Setup output file if configured
         if self.config.output_dir:
             output_name = os.path.basename(file_path) + ".phi.jsonl"
@@ -231,7 +227,7 @@ class StreamingPHIChain:
                 os.path.join(self.config.output_dir, output_name),
                 'a', encoding='utf-8'
             )
-        
+
         try:
             for chunk_result in self._processor.process_file(file_path, resume):
                 # Convert to PHIChunkResult
@@ -241,13 +237,13 @@ class StreamingPHIChain:
             if self._output_file:
                 self._output_file.close()
                 self._output_file = None
-    
+
     def process_text(
         self,
         text: str,
         text_id: str = "text",
         resume: bool = True,
-        language: Optional[str] = None,
+        language: str | None = None,
     ) -> Generator[PHIChunkResult, None, None]:
         """
         Process text string with streaming chunks
@@ -256,22 +252,22 @@ class StreamingPHIChain:
         self._current_language = language
         self._current_file = text_id
         self._output_file = None
-        
+
         for chunk_result in self._processor.process_text(text, text_id, resume):
             phi_result = self._convert_result(chunk_result)
             yield phi_result
-    
-    def _process_chunk(self, content: str, chunk_info: ChunkInfo) -> Dict[str, Any]:
+
+    def _process_chunk(self, content: str, chunk_info: ChunkInfo) -> dict[str, Any]:
         """
         Process a single chunk (stateless)
         處理單個 chunk（無狀態）
         
         This is called by StreamingChunkProcessor for each chunk.
         """
-        entities: List[PHIEntity] = []
+        entities: list[PHIEntity] = []
         tool_calls = 0
         rag_used = False
-        
+
         # Step 1: Get RAG context (if enabled)
         context = ""
         if self.config.enable_rag and self.regulation_chain:
@@ -283,14 +279,14 @@ class StreamingPHIChain:
                 context = self._get_minimal_context()
         else:
             context = self._get_minimal_context()
-        
+
         # Step 2: Run tools (if enabled)
         tool_hints = ""
         if self.config.enable_tools and self.tools:
             tool_results, tool_calls = self._run_tools(content, chunk_info)
             if tool_results:
                 tool_hints = self._format_tool_hints(tool_results)
-        
+
         # Step 3: LLM identification
         if self.llm:
             try:
@@ -300,39 +296,39 @@ class StreamingPHIChain:
                 entities.extend(llm_entities)
             except Exception as e:
                 logger.error(f"LLM identification failed: {e}")
-        
+
         return {
             "entities": entities,
             "tool_calls": tool_calls,
             "rag_used": rag_used,
             "raw_text": content,
         }
-    
+
     def _get_rag_context(self, text: str) -> str:
         """Get regulation context from RAG"""
         if not self.regulation_chain:
             return self._get_minimal_context()
-        
+
         query = text[:500]  # Use first 500 chars for query
         if self._current_language:
             query = f"[Language: {self._current_language}]\n{query}"
-        
+
         try:
             docs = self.regulation_chain.retrieve_by_context(
                 medical_context=query,
                 k=self.config.rag_k
             )
-            
+
             context_parts = []
             for doc in docs:
                 source = doc.metadata.get("source", "Unknown")
                 context_parts.append(f"[{source}]\n{doc.page_content}")
-            
+
             return "\n\n".join(context_parts) if context_parts else self._get_minimal_context()
         except Exception as e:
             logger.warning(f"RAG retrieval failed: {e}")
             return self._get_minimal_context()
-    
+
     def _get_minimal_context(self) -> str:
         """Minimal context when RAG is disabled"""
         return """PHI types to identify:
@@ -343,16 +339,16 @@ class StreamingPHIChain:
 - EMAIL: Email addresses
 - LOCATION: Addresses, hospital names
 - AGE_OVER_89: Ages over 89"""
-    
+
     def _run_tools(
-        self, 
-        content: str, 
+        self,
+        content: str,
         chunk_info: ChunkInfo
-    ) -> tuple[List[Dict[str, Any]], int]:
+    ) -> tuple[list[dict[str, Any]], int]:
         """Run PHI detection tools on chunk"""
         results = []
         calls = 0
-        
+
         for tool in self.tools[:self.config.max_tool_calls_per_chunk]:
             try:
                 result = tool.invoke({"text": content})
@@ -363,23 +359,23 @@ class StreamingPHIChain:
                 calls += 1
             except Exception as e:
                 logger.debug(f"Tool {tool.name} failed: {e}")
-        
+
         return results, calls
-    
-    def _format_tool_hints(self, tool_results: List[Dict[str, Any]]) -> str:
+
+    def _format_tool_hints(self, tool_results: list[dict[str, Any]]) -> str:
         """Format tool results as hints for LLM"""
         lines = ["[Tool Detection Hints]"]
         for tr in tool_results:
             lines.append(f"- {tr['tool']}: {tr['result'][:200]}...")
         return "\n".join(lines)
-    
+
     def _identify_with_llm(
         self,
         content: str,
         context: str,
         tool_hints: str,
         chunk_info: ChunkInfo,
-    ) -> List[PHIEntity]:
+    ) -> list[PHIEntity]:
         """
         Identify PHI using LLM - uses LangChain with_structured_output
         使用 LLM 識別 PHI - 使用 LangChain with_structured_output
@@ -388,21 +384,21 @@ class StreamingPHIChain:
         使用 LangChain Runnable 模式: prompt | llm.with_structured_output(schema)
         """
         from .processors import identify_phi
-        
+
         if not self.llm:
             logger.warning("LLM not available, skipping LLM identification")
             return []
-        
+
         # Combine context with tool hints
         full_context = context
         if tool_hints:
             full_context = f"{context}\n\n{tool_hints}"
-        
+
         try:
             logger.info(f"Chunk {chunk_info.chunk_id}: Starting LLM identification (text length: {len(content)})...")
             import time
             start_time = time.time()
-            
+
             # Use identify_phi from processors.py
             # This uses: prompt | llm.with_structured_output(PHIDetectionResponse)
             entities, _ = identify_phi(
@@ -413,10 +409,10 @@ class StreamingPHIChain:
                 tool_results=None,  # Tool hints already in context
                 use_structured_output=self.config.use_structured_output,
             )
-            
+
             elapsed = time.time() - start_time
             logger.info(f"Chunk {chunk_info.chunk_id}: LLM call completed in {elapsed:.2f}s, found {len(entities)} entities")
-            
+
             # Adjust positions to account for chunk offset
             adjusted_entities = []
             for entity in entities:
@@ -429,14 +425,14 @@ class StreamingPHIChain:
                     custom_type=entity.custom_type if hasattr(entity, 'custom_type') else None,
                 )
                 adjusted_entities.append(adjusted)
-            
+
             logger.debug(f"Chunk {chunk_info.chunk_id}: identified {len(adjusted_entities)} entities")
             return adjusted_entities
-            
+
         except Exception as e:
             logger.error(f"PHI identification failed for chunk {chunk_info.chunk_id}: {e}")
             return []
-    
+
     def _convert_result(self, chunk_result: ChunkResult) -> PHIChunkResult:
         """Convert ChunkResult to PHIChunkResult"""
         if chunk_result.success and chunk_result.output:
@@ -463,7 +459,7 @@ class StreamingPHIChain:
                 error=chunk_result.error,
                 processing_time_ms=chunk_result.processing_time_ms,
             )
-    
+
     def _output_result(self, chunk_result: ChunkResult) -> None:
         """Output result immediately (called after each chunk)"""
         if self._output_file and chunk_result.success:
@@ -471,32 +467,32 @@ class StreamingPHIChain:
             self._output_file.write(json.dumps(phi_result.to_dict(), ensure_ascii=False))
             self._output_file.write("\n")
             self._output_file.flush()
-    
-    def get_progress(self, file_path: str) -> Optional[Dict[str, Any]]:
+
+    def get_progress(self, file_path: str) -> dict[str, Any] | None:
         """Get processing progress for a file"""
         return self._processor.get_progress(file_path)
-    
+
     def reset_checkpoint(self, file_path: str) -> bool:
         """Reset checkpoint for a file"""
         return self._processor.reset_checkpoint(file_path)
-    
+
     # RAG switch
     def enable_rag(self) -> None:
         """Enable RAG"""
         self.config.enable_rag = True
         logger.info("RAG enabled")
-    
+
     def disable_rag(self) -> None:
         """Disable RAG"""
         self.config.enable_rag = False
         logger.info("RAG disabled")
-    
+
     # Tool switch
     def enable_tools(self) -> None:
         """Enable tool calling"""
         self.config.enable_tools = True
         logger.info("Tools enabled")
-    
+
     def disable_tools(self) -> None:
         """Disable tool calling"""
         self.config.enable_tools = False

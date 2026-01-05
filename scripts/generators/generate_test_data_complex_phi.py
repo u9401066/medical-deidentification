@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Complex PHI Test Data Generator - Mixed Column Challenge
 生成複雜個資混雜測試數據 - 提高去識別化難度
@@ -11,23 +10,23 @@ Complex PHI Test Data Generator - Mixed Column Challenge
 4. 跨欄位個資關聯（同一個資在不同欄位以不同形式出現）
 """
 
-import random
-from datetime import datetime, timedelta
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 import os
+
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+
 
 def generate_complex_phi_test():
     """生成個資樣態複雜的測試數據"""
-    
+
     wb = Workbook()
     ws = wb.active
     ws.title = "Complex PHI Cases"
-    
+
     # 表頭設計 - 混合欄位，不能直接刪除
     header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
     header_font = Font(color="FFFFFF", bold=True, size=11)
-    
+
     headers = [
         "Case ID\n案例編號",
         "Clinical Summary\n臨床摘要\n(含姓名/年齡/診斷)",
@@ -37,13 +36,13 @@ def generate_complex_phi_test():
         "Social Context\n社會情境\n(職業/居住/家庭)",
         "Risk Indicators\n風險指標\n(年齡/罕病/遺傳)"
     ]
-    
+
     for col, header in enumerate(headers, 1):
         cell = ws.cell(1, col, header)
         cell.fill = header_fill
         cell.font = header_font
         cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    
+
     # 設置列寬
     ws.column_dimensions['A'].width = 15
     ws.column_dimensions['B'].width = 50
@@ -52,7 +51,7 @@ def generate_complex_phi_test():
     ws.column_dimensions['E'].width = 50
     ws.column_dimensions['F'].width = 45
     ws.column_dimensions['G'].width = 40
-    
+
     # 案例數據 - 各種個資樣態
     cases = [
         # Case 1: 高齡患者 (Age > 90) - 多重時間線索
@@ -65,7 +64,7 @@ def generate_complex_phi_test():
             "Retired teacher, taught at 建國中學 for 40 years (1955-1995, ages 25-65). Widower since 2010 (wife passed at age 82). Has 3 children: eldest son born 1958 (when patient was 28), daughter born 1962, youngest son born 1965.",
             "⚠️ HIGH-RISK AGE: 94 years old (DOB 1930). Patient born in Year of Horse 馬年. Mentioned living through 1945 bombing of Taipei as 15-year-old. Re-identification risk: VERY HIGH."
         ),
-        
+
         # Case 2: 罕見疾病 + 年輕患者
         (
             "CASE-002",
@@ -76,7 +75,7 @@ def generate_complex_phi_test():
             "Social worker: Patient lost job as software engineer (worked at 新竹科學園區 2019-2023) due to symptoms. Applied for disability in Feb 2024 age 28. Lives with father. Engaged but wedding postponed after diagnosis.",
             "⚠️ RARE DISEASE: HD prevalence ~1/10,000. Age 28 + HD + Hsinchu = highly identifiable. Genetic: CAG 43 repeats. Family: 3 generations affected (grandmother-mother-patient). Predicted onset age 35-40, actual 25."
         ),
-        
+
         # Case 3: 小兒罕病 + 監護人資訊
         (
             "CASE-003",
@@ -87,7 +86,7 @@ def generate_complex_phi_test():
             "Only child. Mother age 35 (born 1989), father age 38 (born 1986) - both carriers. Maternal uncle had DMD, died age 19 (2005). Parents considering IVF/PGD for second child. Family receives 罕病基金會 support.",
             "⚠️ RARE PEDIATRIC: DMD ~1/5,000 boys. Age 8 + DMD + Taichung + specific deletion = identifiable. Family: X-linked, maternal uncle affected. Carrier mother quit job 2023. Wheelchair since age 7. Progressive disease."
         ),
-        
+
         # Case 4: 職業性疾病 + 地理位置
         (
             "CASE-004",
@@ -98,7 +97,7 @@ def generate_complex_phi_test():
             "Disability: Unable to work since 2020 age 58. Filed for occupational disease compensation (approved 2021). Receives NT$35,000/month disability pension. Lives in company dormitory (since 1985, 39 years same address).",
             "Risk: Pneumoconiosis + 40 pack-year smoking = high lung CA risk. Location: 麥寮六輕 worker cluster (multiple similar cases). Age at retirement 58 (early due to disease). Same address 39 years. Son same occupation."
         ),
-        
+
         # Case 5: 精神科 + 法律案件
         (
             "CASE-005",
@@ -109,7 +108,7 @@ def generate_complex_phi_test():
             "Social: Dropped out 台大資工系 2013 (age 25) due to illness. Unemployed since. Estranged from father. Mother retired nurse, sole support. Was living 萬華區 homeless shelter before incident. Has 重大傷病卡.",
             "Legal: Police report #2024-11-10-0123. Attempted suicide at public landmark (高度可識別事件). Media reported 'man jumped from 101' Nov 10. Forensic eval ordered. Criminal charges pending vs mental health diversion."
         ),
-        
+
         # Case 6: 產科 + 高齡產婦
         (
             "CASE-006",
@@ -120,7 +119,7 @@ def generate_complex_phi_test():
             "Decision-making: Couple struggled with decision for 12 weeks. Religious (Christian, attend 信友堂). Family pressure to terminate. Finally decided to continue pregnancy Nov 2024. Planning for NICU delivery, cardiac surgery.",
             "Risk factors: Age 46 (T21 risk 1/30 at this age vs 1/700 at age 30). IVF pregnancy (3rd cycle). Primigravida at advanced age. IDDM + preeclampsia. Fetus: T21 + AVSD. Identifiable: 天母 + age 46 + IVF + T21 diagnosis."
         ),
-        
+
         # Case 7: 器官移植 + 捐贈者
         (
             "CASE-007",
@@ -131,7 +130,7 @@ def generate_complex_phi_test():
             "Donor info (sensitive): 28yo male from 南投縣, engineering student at 中興大學, accident at 台14線 mountain road Nov 15, 06:00. Next of kin: parents 陳爸爸/陳媽媽. Donor liver split: recipient + pediatric recipient.",
             "Ethical/Legal: Organ donation consent #12345. UNOS/TORSC allocation. Recipient waited 6 months (expedited due to high MELD). Required 2 donors (1st liver failed). Donor family grief counseling provided. Media interest (young donor)."
         ),
-        
+
         # Case 8: 愛滋病 + 結核病
         (
             "CASE-008",
@@ -142,7 +141,7 @@ def generate_complex_phi_test():
             "Social: Single, disclosed to mother only (father doesn't know). Sex work history (occasional). Prior STIs: Syphilis (treated 2022), gonorrhea (2023). PrEP never used. Depression diagnosed 2021, on Prozac. Substance: poppers, occasionally ketamine.",
             "Public Health: Reportable diseases (HIV + TB). Partner notification challenging (anonymous encounters). Stigma concerns. TB infectiousness: isolated until culture negative (2-4 weeks). HIV: U=U after virologic suppression. High-risk population."
         ),
-        
+
         # Case 9: 醫療糾紛 + 不良事件
         (
             "CASE-009",
@@ -153,7 +152,7 @@ def generate_complex_phi_test():
             "Investigation: Incident report filed Nov 1 (mandatory). Root cause analysis: Lack of intraop cholangiogram, surgeon fatigue (8th case that day), inadequate supervision (fellow performing, attending scrubbed in late). Patient records subpoenaed.",
             "Legal: Medical negligence lawsuit filed Dec 2024. Damage claims: NT$5M. Hospital liability insurance activated. Media coverage (reported in 蘋果日報 Dec 5). Surgeon currently on administrative leave. Case pending mediation vs litigation."
         ),
-        
+
         # Case 10: 新生兒 + 遺傳代謝疾病
         (
             "CASE-010",
@@ -164,7 +163,7 @@ def generate_complex_phi_test():
             "Family: First child for couple. Mother had prior miscarriage 2022 (unknown cause). MCAD is AR (autosomal recessive), both parents carriers (25% recurrence risk each pregnancy). Genetic counseling provided Nov 25. Family planning discussed.",
             "Risk: MCAD can cause sudden death in infancy if undiagnosed (fasting → hypoglycemia → coma). Newborn screen saved life (pre-symptomatic diagnosis). Parents need education. Identifiable: 宜蘭 + MCAD (rare) + birth date Nov 20, 2024."
         ),
-        
+
         # Case 11: 跨國醫療 + 外籍患者
         (
             "CASE-011",
@@ -175,7 +174,7 @@ def generate_complex_phi_test():
             "Ethical dilemmas: Family in Vietnam cannot afford to come (airfare ~NT$30,000). Video call with wife arranged Nov 18. Patient unresponsive. Goals of care discussion via interpreter. Wife says continue treatment. Who pays if worker uninsured portion?",
             "Outcome: Patient arrested Nov 28 (PEA), resuscitated, now brain dead. Family wants body repatriated to Vietnam (cost ~NT$200,000). Employer negotiating. Organ donation discussed but cultural objections. Case highlights migrant worker healthcare gaps."
         ),
-        
+
         # Case 12: 整形外科 + 身分辨識特徵
         (
             "CASE-012",
@@ -186,7 +185,7 @@ def generate_complex_phi_test():
             "Outcome: Salvaged nasal tip but permanent deformity. Patient devastated (livelihood dependent on appearance). Threatened lawsuit, posted negative review. Clinic offered refund + revision surgery free. Patient now off social media (deleted IG Nov 20).",
             "Identity: Highly identifiable (public figure + specific procedures + dates + location). Recognizable face (influencer). Vehicle plate. Clinic name. Rhinoplasty necrosis (rare complication ~0.5%). Professional/financial impact. Reputational concerns both sides."
         ),
-        
+
         # Case 13: 長期照護 + 失智症
         (
             "CASE-013",
@@ -197,7 +196,7 @@ def generate_complex_phi_test():
             "Goals of care: Daughter states 'Mom would not want prolonged suffering. She always said when it's time, let her go peacefully.' No CPR, no ICU, no intubation. OK with antibiotics for comfort. Hospice evaluation requested. Case manager coordinating.",
             "Psychosocial: Daughter visits NH 3x/week (lives nearby 景美). Feels guilty placing mother in NH but couldn't provide 24/7 care. Son in USA unable to visit (visited last time 2022). NH cost NT$50,000/month. Daughter pays from mother's pension/savings."
         ),
-        
+
         # Case 14: 職業運動員 + 公眾人物
         (
             "CASE-014",
@@ -208,7 +207,7 @@ def generate_complex_phi_test():
             "Career impact: Age 32, recovery 12-18 months → age 33-34 for return. Contract negotiations: team may not renew. Considering retirement if recovery poor. Financial concerns (mortgage on 高雄豪宅 NT$30M). Wife + 2 kids (ages 5, 3).",
             "Privacy violation: Public figure but medical records protected. Hospital investigating leak (photo posted on PTT). Patient considering legal action. CPBL sent letter to hospital re: confidentiality. High-profile case tests medical privacy in sports."
         ),
-        
+
         # Case 15: 毒品濫用 + 刑事案件
         (
             "CASE-015",
@@ -220,42 +219,42 @@ def generate_complex_phi_test():
             "Forensic: Medical records subpoenaed for trial (drug use evidence). Doctor testified at preliminary hearing. Blood samples stored as evidence. Complex case: Patient vs prisoner vs person with addiction/mental illness. Treatment vs punishment debate."
         )
     ]
-    
+
     # 填充數據
     for row_idx, case_data in enumerate(cases, start=2):
         for col_idx, value in enumerate(case_data, start=1):
             cell = ws.cell(row_idx, col_idx, value)
             cell.alignment = Alignment(vertical='top', wrap_text=True)
-            
+
             # 高風險案例用紅色標註
             if "⚠️" in str(value) or "HIGH-RISK" in str(value):
                 cell.font = Font(color="FF0000")
-    
+
     # 保存文件
     output_dir = "data/test"
     os.makedirs(output_dir, exist_ok=True)
     output_file = os.path.join(output_dir, "test_complex_phi_cases.xlsx")
     wb.save(output_file)
-    
+
     print(f"✅ Generated: {output_file}")
-    print(f"   - 15 complex PHI cases (各種個資樣態)")
-    print(f"   - Mixed columns (no direct deletable PHI columns)")
-    print(f"   - High-risk cases: Age >90, rare diseases, public figures")
-    print(f"   - Challenge: PHI embedded in clinical narratives")
-    print(f"\n📊 PHI Types Included:")
-    print(f"   ✓ Age >90 (Case 1)")
-    print(f"   ✓ Rare diseases (Cases 2, 3, 10)")
-    print(f"   ✓ Genetic information (Cases 2, 3, 7, 10)")
-    print(f"   ✓ Mental health (Case 5)")
-    print(f"   ✓ HIV/AIDS (Case 8)")
-    print(f"   ✓ Substance abuse (Cases 8, 15)")
-    print(f"   ✓ Criminal records (Cases 5, 9, 15)")
-    print(f"   ✓ Public figures (Cases 12, 14)")
-    print(f"   ✓ Occupational identifiers (Case 4)")
-    print(f"   ✓ Geographic identifiers (All cases)")
-    print(f"   ✓ Dates (admission, surgery, events)")
-    print(f"   ✓ Family relationships")
-    print(f"   ✓ Contact information (embedded in text)")
+    print("   - 15 complex PHI cases (各種個資樣態)")
+    print("   - Mixed columns (no direct deletable PHI columns)")
+    print("   - High-risk cases: Age >90, rare diseases, public figures")
+    print("   - Challenge: PHI embedded in clinical narratives")
+    print("\n📊 PHI Types Included:")
+    print("   ✓ Age >90 (Case 1)")
+    print("   ✓ Rare diseases (Cases 2, 3, 10)")
+    print("   ✓ Genetic information (Cases 2, 3, 7, 10)")
+    print("   ✓ Mental health (Case 5)")
+    print("   ✓ HIV/AIDS (Case 8)")
+    print("   ✓ Substance abuse (Cases 8, 15)")
+    print("   ✓ Criminal records (Cases 5, 9, 15)")
+    print("   ✓ Public figures (Cases 12, 14)")
+    print("   ✓ Occupational identifiers (Case 4)")
+    print("   ✓ Geographic identifiers (All cases)")
+    print("   ✓ Dates (admission, surgery, events)")
+    print("   ✓ Family relationships")
+    print("   ✓ Contact information (embedded in text)")
 
 if __name__ == "__main__":
     generate_complex_phi_test()

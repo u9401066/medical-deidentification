@@ -12,12 +12,12 @@ Requires: Python 3.12+
 """
 
 import asyncio
-from typing import Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
-from loguru import logger
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
+from loguru import logger
 
 from ....domain.phi_identification_models import PHIDetectionResponse
 from ...prompts import get_phi_identification_prompt, get_system_message
@@ -80,26 +80,26 @@ async def process_chunks_parallel(
     """
     # Use semaphore to limit concurrency (avoid overloading Ollama)
     semaphore = asyncio.Semaphore(max_concurrency)
-    
+
     async def process_with_semaphore(chunk: str, index: int) -> ChunkResult:
         async with semaphore:
             return await process_chunk_async(chain, chunk, index, context)
-    
+
     # Python 3.11+ TaskGroup for structured concurrency
     results: list[ChunkResult] = []
-    
+
     async with asyncio.TaskGroup() as tg:
         tasks = [
             tg.create_task(process_with_semaphore(chunk, i))
             for i, chunk in enumerate(chunks)
         ]
-    
+
     # Collect results (tasks are done after TaskGroup exits)
     results = [task.result() for task in tasks]
-    
+
     # Sort by chunk_index to maintain order
     results.sort(key=lambda r: r.chunk_index)
-    
+
     return results
 
 
@@ -115,11 +115,11 @@ def merge_chunk_results(results: list[ChunkResult]) -> PHIDetectionResponse:
         Merged PHIDetectionResponse
     """
     all_entities = []
-    
+
     for result in results:
         if result.response and result.response.entities:
             all_entities.extend(result.response.entities)
-    
+
     return PHIDetectionResponse(
         entities=all_entities,
         total_entities=len(all_entities),
@@ -150,18 +150,18 @@ def build_async_phi_chain(
         language=language or "en",
         structured=True
     )
-    
+
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_message),
         ("user", prompt_template_text)
     ])
-    
+
     # Use json_schema method - most reliable for Ollama
     chain = prompt | llm.with_structured_output(
         PHIDetectionResponse,
         method="json_schema"
     )
-    
+
     logger.debug(f"Built async PHI chain (language={language})")
     return chain
 
@@ -200,7 +200,7 @@ async def identify_phi_async(
     """
     # Build chain
     chain = build_async_phi_chain(llm, language)
-    
+
     # Split into chunks if needed
     if len(text) <= chunk_size:
         chunks = [text]
@@ -208,7 +208,7 @@ async def identify_phi_async(
         # Simple chunking by character count (could be improved)
         chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
         logger.info(f"Split text into {len(chunks)} chunks")
-    
+
     # Process chunks in parallel
     if len(chunks) == 1:
         result = await process_chunk_async(chain, chunks[0], 0, context)

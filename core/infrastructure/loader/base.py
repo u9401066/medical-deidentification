@@ -7,15 +7,15 @@ Defines abstract interfaces and common data structures for all document loaders.
 """
 
 from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Union
 from datetime import datetime
+from pathlib import Path
+from typing import Any
+
 from loguru import logger
 
 # Import domain models
 from ...domain.loader_models import (
     DocumentFormat,
-    DocumentMetadata,
     LoadedDocument,
     LoaderConfig,
 )
@@ -31,8 +31,8 @@ class DocumentLoader(ABC):
     
     所有格式特定的載入器必須繼承此類並實作 load() 方法。
     """
-    
-    def __init__(self, config: Optional[LoaderConfig] = None):
+
+    def __init__(self, config: LoaderConfig | None = None):
         """
         Initialize loader
         
@@ -40,9 +40,9 @@ class DocumentLoader(ABC):
             config: Loader configuration. Uses defaults if None.
         """
         self.config = config or LoaderConfig()
-    
+
     @abstractmethod
-    def load(self, file_path: Union[str, Path]) -> LoadedDocument:
+    def load(self, file_path: str | Path) -> LoadedDocument:
         """
         Load document from file
         
@@ -58,7 +58,7 @@ class DocumentLoader(ABC):
             IOError: If file cannot be read
         """
         pass
-    
+
     @abstractmethod
     def supports_format(self, format: DocumentFormat) -> bool:
         """
@@ -71,8 +71,8 @@ class DocumentLoader(ABC):
             True if supported, False otherwise
         """
         pass
-    
-    def load_multiple(self, file_paths: List[Union[str, Path]]) -> List[LoadedDocument]:
+
+    def load_multiple(self, file_paths: list[str | Path]) -> list[LoadedDocument]:
         """
         Load multiple documents
         
@@ -89,10 +89,10 @@ class DocumentLoader(ABC):
                 documents.append(doc)
             except Exception as e:
                 logger.error(f"Failed to load {file_path}: {e}")
-        
+
         return documents
-    
-    def _extract_file_metadata(self, file_path: Path) -> Dict[str, Any]:
+
+    def _extract_file_metadata(self, file_path: Path) -> dict[str, Any]:
         """
         Extract file metadata from filesystem
         
@@ -104,9 +104,9 @@ class DocumentLoader(ABC):
         """
         if not self.config.extract_metadata:
             return {}
-        
+
         stat = file_path.stat()
-        
+
         return {
             "filename": file_path.name,
             "filepath": file_path,
@@ -116,7 +116,7 @@ class DocumentLoader(ABC):
             "modified_at": datetime.fromtimestamp(stat.st_mtime),
             "encoding": self.config.encoding,
         }
-    
+
     def _validate_file(self, file_path: Path) -> None:
         """
         Validate file exists and is readable
@@ -130,10 +130,10 @@ class DocumentLoader(ABC):
         """
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
-        
+
         if not file_path.is_file():
             raise ValueError(f"Not a file: {file_path}")
-        
+
         if self.config.max_file_size is not None:
             file_size = file_path.stat().st_size
             if file_size > self.config.max_file_size:
@@ -141,7 +141,7 @@ class DocumentLoader(ABC):
                     f"File too large: {file_size} bytes "
                     f"(max: {self.config.max_file_size} bytes)"
                 )
-    
+
     def __repr__(self) -> str:
         """String representation"""
         return f"{self.__class__.__name__}(config={self.config})"
@@ -154,7 +154,7 @@ class BaseTextLoader(DocumentLoader):
     
     Provides common functionality for loaders that extract plain text.
     """
-    
+
     def _read_text_file(self, file_path: Path) -> str:
         """
         Read text file with encoding handling
@@ -166,22 +166,22 @@ class BaseTextLoader(DocumentLoader):
             File content as string
         """
         try:
-            with open(file_path, 'r', encoding=self.config.encoding, 
+            with open(file_path, encoding=self.config.encoding,
                      errors=self.config.encoding_errors) as f:
                 content = f.read()
-            
+
             if not self.config.preserve_formatting:
                 # Normalize whitespace
                 content = ' '.join(content.split())
-            
+
             return content
-        
-        except UnicodeDecodeError as e:
+
+        except UnicodeDecodeError:
             logger.warning(
                 f"Failed to decode {file_path} with {self.config.encoding}, "
                 f"trying with latin-1"
             )
-            with open(file_path, 'r', encoding='latin-1') as f:
+            with open(file_path, encoding='latin-1') as f:
                 return f.read()
 
 
@@ -192,7 +192,7 @@ class BaseBinaryLoader(DocumentLoader):
     
     Provides common functionality for loaders that handle binary files.
     """
-    
+
     def _read_binary_file(self, file_path: Path) -> bytes:
         """
         Read binary file

@@ -12,19 +12,17 @@ Abstract base class for all chain nodes with:
 - 可配置行為
 """
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import (
-    List, Dict, Any, Optional, Iterator, 
-    Callable, TypeVar, Generic, Union
-)
-from enum import Enum
 import time
-from loguru import logger
+from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Generic, TypeVar
 
-from langchain_core.tools import BaseTool
-from langchain_core.messages import BaseMessage, AIMessage, HumanMessage, ToolMessage
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
+from langchain_core.tools import BaseTool
+from loguru import logger
 
 
 class NodeStatus(str, Enum):
@@ -44,16 +42,16 @@ class NodeConfig:
     """
     # Tool calling
     enable_tools: bool = True
-    tools: List[BaseTool] = field(default_factory=list)
+    tools: list[BaseTool] = field(default_factory=list)
     max_tool_calls: int = 10  # Max tool calls per invocation
-    
+
     # Generation
     max_iterations: int = 100  # No hard limit, but safety cap
     stream: bool = False
-    
+
     # Timeout
     timeout_seconds: float = 300.0  # 5 minutes default
-    
+
     # Debug
     verbose: bool = False
 
@@ -66,18 +64,18 @@ class NodeResult:
     """
     status: NodeStatus
     output: Any
-    messages: List[BaseMessage] = field(default_factory=list)
+    messages: list[BaseMessage] = field(default_factory=list)
     tool_calls_made: int = 0
     iterations: int = 0
     duration_ms: float = 0.0
-    error: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     @property
     def success(self) -> bool:
         return self.status == NodeStatus.COMPLETED
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "status": self.status.value,
             "output": self.output,
@@ -107,11 +105,11 @@ class BaseNode(ABC, Generic[T]):
     - process(): Main processing logic
     - get_name(): Node identifier
     """
-    
+
     def __init__(
         self,
-        llm: Optional[BaseChatModel] = None,
-        config: Optional[NodeConfig] = None,
+        llm: BaseChatModel | None = None,
+        config: NodeConfig | None = None,
     ):
         """
         Initialize base node
@@ -122,7 +120,7 @@ class BaseNode(ABC, Generic[T]):
         """
         self.llm = llm
         self.config = config or NodeConfig()
-        
+
         # Bind tools to LLM if available
         if llm and self.config.enable_tools and self.config.tools:
             try:
@@ -133,14 +131,14 @@ class BaseNode(ABC, Generic[T]):
                 logger.warning(f"{self.get_name()}: LLM does not support tool binding")
         else:
             self.llm_with_tools = llm
-    
+
     @abstractmethod
     def get_name(self) -> str:
         """Get node name for logging and identification"""
         pass
-    
+
     @abstractmethod
-    def process(self, input_data: Dict[str, Any]) -> T:
+    def process(self, input_data: dict[str, Any]) -> T:
         """
         Main processing logic
         
@@ -151,8 +149,8 @@ class BaseNode(ABC, Generic[T]):
             Processed output of type T
         """
         pass
-    
-    def invoke(self, input_data: Dict[str, Any]) -> NodeResult:
+
+    def invoke(self, input_data: dict[str, Any]) -> NodeResult:
         """
         Execute the node with full lifecycle management
         執行節點，包含完整生命週期管理
@@ -172,42 +170,42 @@ class BaseNode(ABC, Generic[T]):
         start_time = time.time()
         iterations = 0
         tool_calls = 0
-        messages: List[BaseMessage] = []
-        
+        messages: list[BaseMessage] = []
+
         try:
             # Run main processing with iteration loop
             output = None
-            
+
             while iterations < self.config.max_iterations:
                 iterations += 1
-                
+
                 if self.config.verbose:
                     logger.debug(f"{self.get_name()}: Iteration {iterations}")
-                
+
                 # Process
                 result = self.process(input_data)
-                
+
                 # Check if we need to handle tool calls
                 if self._needs_tool_call(result):
                     if tool_calls >= self.config.max_tool_calls:
                         logger.warning(f"{self.get_name()}: Max tool calls reached ({self.config.max_tool_calls})")
                         break
-                    
+
                     # Execute tool calls
                     tool_results = self._execute_tool_calls(result)
                     tool_calls += len(tool_results)
-                    
+
                     # Add to input for next iteration
                     input_data = self._merge_tool_results(input_data, tool_results)
                     messages.extend(tool_results)
                     continue
-                
+
                 # No more tool calls needed
                 output = result
                 break
-            
+
             duration_ms = (time.time() - start_time) * 1000
-            
+
             return NodeResult(
                 status=NodeStatus.COMPLETED,
                 output=output,
@@ -216,11 +214,11 @@ class BaseNode(ABC, Generic[T]):
                 iterations=iterations,
                 duration_ms=duration_ms,
             )
-            
+
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(f"{self.get_name()}: Error - {e}")
-            
+
             return NodeResult(
                 status=NodeStatus.ERROR,
                 output=None,
@@ -230,8 +228,8 @@ class BaseNode(ABC, Generic[T]):
                 duration_ms=duration_ms,
                 error=str(e),
             )
-    
-    def stream(self, input_data: Dict[str, Any]) -> Iterator[Any]:
+
+    def stream(self, input_data: dict[str, Any]) -> Iterator[Any]:
         """
         Stream output for long generations
         串流輸出用於長生成
@@ -243,51 +241,51 @@ class BaseNode(ABC, Generic[T]):
             result = self.invoke(input_data)
             yield result
             return
-        
+
         # Streaming implementation
         # Subclasses can override for custom streaming
         for chunk in self._stream_process(input_data):
             yield chunk
-    
-    def _stream_process(self, input_data: Dict[str, Any]) -> Iterator[Any]:
+
+    def _stream_process(self, input_data: dict[str, Any]) -> Iterator[Any]:
         """Override in subclass for custom streaming"""
         yield self.process(input_data)
-    
+
     def _needs_tool_call(self, result: Any) -> bool:
         """Check if result contains tool calls that need execution"""
         if isinstance(result, AIMessage):
             return bool(getattr(result, 'tool_calls', None))
         return False
-    
-    def _execute_tool_calls(self, result: Any) -> List[ToolMessage]:
+
+    def _execute_tool_calls(self, result: Any) -> list[ToolMessage]:
         """Execute tool calls from LLM response"""
         if not isinstance(result, AIMessage):
             return []
-        
+
         tool_calls = getattr(result, 'tool_calls', [])
         if not tool_calls:
             return []
-        
+
         messages = []
         for tool_call in tool_calls:
             tool_name = tool_call.get("name", "")
             tool_args = tool_call.get("args", {})
             tool_id = tool_call.get("id", "")
-            
+
             # Find and execute tool
             tool_result = self._run_tool(tool_name, tool_args)
-            
+
             messages.append(ToolMessage(
                 content=str(tool_result),
                 tool_call_id=tool_id,
             ))
-            
+
             if self.config.verbose:
                 logger.debug(f"{self.get_name()}: Tool {tool_name} returned: {str(tool_result)[:100]}...")
-        
+
         return messages
-    
-    def _run_tool(self, tool_name: str, tool_args: Dict[str, Any]) -> Any:
+
+    def _run_tool(self, tool_name: str, tool_args: dict[str, Any]) -> Any:
         """Execute a specific tool by name"""
         for tool in self.config.tools:
             if tool.name == tool_name:
@@ -295,22 +293,22 @@ class BaseNode(ABC, Generic[T]):
                     return tool.invoke(tool_args)
                 except Exception as e:
                     logger.error(f"{self.get_name()}: Tool {tool_name} failed: {e}")
-                    return f"Tool error: {str(e)}"
-        
+                    return f"Tool error: {e!s}"
+
         return f"Unknown tool: {tool_name}"
-    
+
     def _merge_tool_results(
-        self, 
-        input_data: Dict[str, Any], 
-        tool_messages: List[ToolMessage]
-    ) -> Dict[str, Any]:
+        self,
+        input_data: dict[str, Any],
+        tool_messages: list[ToolMessage]
+    ) -> dict[str, Any]:
         """Merge tool results back into input for next iteration"""
         new_input = dict(input_data)
-        
+
         # Add tool results to messages
         existing_messages = new_input.get("messages", [])
         new_input["messages"] = existing_messages + tool_messages
-        
+
         # Also add as structured data
         tool_results = new_input.get("tool_results", [])
         for msg in tool_messages:
@@ -319,8 +317,8 @@ class BaseNode(ABC, Generic[T]):
                 "content": msg.content,
             })
         new_input["tool_results"] = tool_results
-        
+
         return new_input
-    
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.get_name()})"

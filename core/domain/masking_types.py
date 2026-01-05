@@ -50,7 +50,7 @@ class StrategyType(str, Enum):
     >>> phi_type = PHIType.AGE_OVER_89
     >>> recommended_strategy = StrategyType.GENERALIZATION
     """
-    
+
     REDACTION = "redaction"
     GENERALIZATION = "generalization"
     PSEUDONYMIZATION = "pseudonymization"

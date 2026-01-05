@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 MiniMind PHI Detection Evaluation | MiniMind PHI 檢測評估
 
@@ -13,15 +12,15 @@ Metrics:
 - Over-detection: 過度檢測分析
 """
 
+import json
 import re
 import sys
 import time
-import json
-import pandas as pd
-from pathlib import Path
-from typing import List, Dict, Tuple, Set, Optional
-from dataclasses import dataclass, field
 from collections import defaultdict
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import pandas as pd
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -38,13 +37,13 @@ class PHIInstance:
     """單個 PHI 實例"""
     phi_type: str
     content: str
-    phi_id: Optional[str] = None
+    phi_id: str | None = None
     start: int = 0
     end: int = 0
-    
+
     def __hash__(self):
         return hash((self.phi_type, self.content.strip()))
-    
+
     def __eq__(self, other):
         if not isinstance(other, PHIInstance):
             return False
@@ -55,44 +54,44 @@ class PHIInstance:
 class EvaluationResult:
     """評估結果"""
     case_id: str
-    ground_truth: List[PHIInstance]
-    detected: List[PHIInstance]
-    
+    ground_truth: list[PHIInstance]
+    detected: list[PHIInstance]
+
     # Metrics
-    true_positives: List[PHIInstance] = field(default_factory=list)
-    false_positives: List[PHIInstance] = field(default_factory=list)  # 過度檢測
-    false_negatives: List[PHIInstance] = field(default_factory=list)  # 漏檢
-    
+    true_positives: list[PHIInstance] = field(default_factory=list)
+    false_positives: list[PHIInstance] = field(default_factory=list)  # 過度檢測
+    false_negatives: list[PHIInstance] = field(default_factory=list)  # 漏檢
+
     processing_time: float = 0.0
-    
+
     @property
     def precision(self) -> float:
         tp = len(self.true_positives)
         fp = len(self.false_positives)
         return tp / (tp + fp) if (tp + fp) > 0 else 0.0
-    
+
     @property
     def recall(self) -> float:
         tp = len(self.true_positives)
         fn = len(self.false_negatives)
         return tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    
+
     @property
     def f1_score(self) -> float:
         p, r = self.precision, self.recall
         return 2 * p * r / (p + r) if (p + r) > 0 else 0.0
 
 
-def parse_phi_tags(text: str) -> List[PHIInstance]:
+def parse_phi_tags(text: str) -> list[PHIInstance]:
     """從帶標記的文本中解析 PHI 標準答案"""
     pattern = r'【PHI:(\w+):?(\w*)】([^【]+?)【/PHI】'
     instances = []
-    
+
     for match in re.finditer(pattern, text):
         phi_type = match.group(1)
         phi_id = match.group(2) if match.group(2) else None
         content = match.group(3).strip()
-        
+
         instances.append(PHIInstance(
             phi_type=phi_type,
             phi_id=phi_id,
@@ -100,7 +99,7 @@ def parse_phi_tags(text: str) -> List[PHIInstance]:
             start=match.start(),
             end=match.end()
         ))
-    
+
     return instances
 
 
@@ -118,24 +117,24 @@ def normalize_phi_type(phi_type: str) -> str:
         'PATIENT_NAME': 'NAME',
         'DOCTOR_NAME': 'NAME',
         'PHYSICIAN': 'NAME',
-        
+
         # 年齡相關
         'AGE': 'AGE',
         'AGE_OVER_89': 'AGE',
-        
+
         # 日期相關
         'DATE': 'DATE',
         'BIRTHDATE': 'DATE',
         'DOB': 'DATE',
         'ADMISSION_DATE': 'DATE',
-        
+
         # ID 相關
         'ID': 'ID',
         'ID_NUMBER': 'ID',
         'NATIONAL_ID': 'ID',
         'MRN': 'MEDICAL_RECORD_NUMBER',
         'MEDICAL_RECORD': 'MEDICAL_RECORD_NUMBER',
-        
+
         # 聯絡資訊
         'PHONE': 'PHONE',
         'TELEPHONE': 'PHONE',
@@ -143,7 +142,7 @@ def normalize_phi_type(phi_type: str) -> str:
         'EMAIL': 'EMAIL',
         'ADDRESS': 'ADDRESS',
         'LOCATION': 'LOCATION',
-        
+
         # 其他
         'FACILITY': 'FACILITY',
         'HOSPITAL': 'FACILITY',
@@ -153,10 +152,10 @@ def normalize_phi_type(phi_type: str) -> str:
     return type_mapping.get(phi_type.upper(), phi_type.upper())
 
 
-def parse_llm_response(response_text: str) -> List[PHIInstance]:
+def parse_llm_response(response_text: str) -> list[PHIInstance]:
     """解析 LLM 的 PHI 檢測回應"""
     detected = []
-    
+
     # 嘗試解析 JSON 格式
     try:
         # 尋找 JSON 區塊
@@ -175,7 +174,7 @@ def parse_llm_response(response_text: str) -> List[PHIInstance]:
             return detected
     except (json.JSONDecodeError, TypeError):
         pass
-    
+
     # 嘗試解析列表格式
     # 例如: "- NAME: 王大明" 或 "1. 姓名: 王大明"
     patterns = [
@@ -183,29 +182,29 @@ def parse_llm_response(response_text: str) -> List[PHIInstance]:
         r'\d+[.、]\s*(\w+)\s*[:：]\s*(.+?)(?=\n|$)',
         r'(\w+)\s*[:：]\s*[「『""]?(.+?)[」』""]?(?=\n|$)',
     ]
-    
+
     for pattern in patterns:
         for match in re.finditer(pattern, response_text):
             phi_type = match.group(1).strip()
             content = match.group(2).strip()
-            
+
             # 過濾掉非 PHI 的項目
             if phi_type.upper() in ['PHI', 'TYPE', 'VALUE', 'TEXT', '類型', '內容']:
                 continue
-            
+
             if content and len(content) < 100:  # 避免過長的誤判
                 detected.append(PHIInstance(
                     phi_type=normalize_phi_type(phi_type),
                     content=content
                 ))
-    
+
     return detected
 
 
 def evaluate_case(
     case_id: str,
-    ground_truth: List[PHIInstance],
-    detected: List[PHIInstance]
+    ground_truth: list[PHIInstance],
+    detected: list[PHIInstance]
 ) -> EvaluationResult:
     """評估單個案例"""
     result = EvaluationResult(
@@ -213,7 +212,7 @@ def evaluate_case(
         ground_truth=ground_truth,
         detected=detected
     )
-    
+
     # 標準化類型
     gt_normalized = {
         PHIInstance(normalize_phi_type(phi.phi_type), phi.content.strip())
@@ -223,11 +222,11 @@ def evaluate_case(
         PHIInstance(normalize_phi_type(phi.phi_type), phi.content.strip())
         for phi in detected
     }
-    
+
     # 也用內容模糊匹配
     gt_contents = {phi.content.strip().lower() for phi in ground_truth}
     det_contents = {phi.content.strip().lower() for phi in detected}
-    
+
     # 計算 TP, FP, FN
     for phi in detected:
         content_lower = phi.content.strip().lower()
@@ -235,7 +234,7 @@ def evaluate_case(
             result.true_positives.append(phi)
         else:
             result.false_positives.append(phi)
-    
+
     for phi in ground_truth:
         content_lower = phi.content.strip().lower()
         matched = any(
@@ -244,11 +243,11 @@ def evaluate_case(
         )
         if not matched:
             result.false_negatives.append(phi)
-    
+
     return result
 
 
-def run_minimind_detection(text: str, llm, timeout: int = 120) -> Tuple[List[PHIInstance], float]:
+def run_minimind_detection(text: str, llm, timeout: int = 120) -> tuple[list[PHIInstance], float]:
     """使用 LLM 執行 PHI 檢測"""
     prompt = f"""請從以下醫療文本中識別所有個人健康資訊 (PHI)。
 
@@ -273,13 +272,13 @@ PHI 類型包括：
 {text[:2000]}
 
 請列出所有 PHI："""
-    
+
     start_time = time.time()
     try:
         response = llm.invoke(prompt)
         content = response.content if hasattr(response, 'content') else str(response)
         elapsed = time.time() - start_time
-        
+
         detected = parse_llm_response(content)
         return detected, elapsed
     except Exception as e:
@@ -288,26 +287,26 @@ PHI 類型包括：
         raise RuntimeError(f"LLM 呼叫失敗: {e}") from e
 
 
-def print_evaluation_report(results: List[EvaluationResult], model_name: str):
+def print_evaluation_report(results: list[EvaluationResult], model_name: str):
     """列印評估報告"""
     print("\n" + "=" * 80)
-    print(f"📊 MiniMind PHI Detection Evaluation Report")
+    print("📊 MiniMind PHI Detection Evaluation Report")
     print(f"   Model: {model_name}")
     print("=" * 80)
-    
+
     total_gt = sum(len(r.ground_truth) for r in results)
     total_detected = sum(len(r.detected) for r in results)
     total_tp = sum(len(r.true_positives) for r in results)
     total_fp = sum(len(r.false_positives) for r in results)
     total_fn = sum(len(r.false_negatives) for r in results)
     total_time = sum(r.processing_time for r in results)
-    
+
     # 總體指標
     precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
     recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
-    
-    print(f"\n📈 Overall Metrics | 總體指標")
+
+    print("\n📈 Overall Metrics | 總體指標")
     print("-" * 40)
     print(f"  Ground Truth PHI:     {total_gt:>5}")
     print(f"  Detected PHI:         {total_detected:>5}")
@@ -319,52 +318,52 @@ def print_evaluation_report(results: List[EvaluationResult], model_name: str):
     print(f"  Recall:     {recall:.2%}  (避免漏檢)")
     print(f"  F1 Score:   {f1:.2%}  (綜合評分)")
     print(f"  Avg Time:   {total_time/len(results):.2f}s per case")
-    
+
     # 各案例詳情
-    print(f"\n📋 Per-Case Results | 各案例結果")
+    print("\n📋 Per-Case Results | 各案例結果")
     print("-" * 80)
     print(f"{'Case ID':<12} {'GT':>4} {'Det':>4} {'TP':>4} {'FP':>4} {'FN':>4} {'Prec':>7} {'Rec':>7} {'F1':>7} {'Time':>6}")
     print("-" * 80)
-    
+
     for r in results:
         print(f"{r.case_id:<12} {len(r.ground_truth):>4} {len(r.detected):>4} "
               f"{len(r.true_positives):>4} {len(r.false_positives):>4} {len(r.false_negatives):>4} "
               f"{r.precision:>6.1%} {r.recall:>6.1%} {r.f1_score:>6.1%} {r.processing_time:>5.1f}s")
-    
+
     # 過度檢測分析
     if total_fp > 0:
-        print(f"\n⚠️  Over-Detection Analysis | 過度檢測分析")
+        print("\n⚠️  Over-Detection Analysis | 過度檢測分析")
         print("-" * 60)
         fp_by_type = defaultdict(list)
         for r in results:
             for fp in r.false_positives:
                 fp_by_type[fp.phi_type].append((r.case_id, fp.content))
-        
+
         for phi_type, items in sorted(fp_by_type.items(), key=lambda x: -len(x[1])):
             print(f"\n  {phi_type}: {len(items)} 次過度檢測")
             for case_id, content in items[:5]:  # 只顯示前 5 個
                 print(f"    - [{case_id}] \"{content[:30]}{'...' if len(content) > 30 else ''}\"")
             if len(items) > 5:
                 print(f"    ... 還有 {len(items)-5} 個")
-    
+
     # 漏檢分析
     if total_fn > 0:
-        print(f"\n❌ Missed Detection Analysis | 漏檢分析")
+        print("\n❌ Missed Detection Analysis | 漏檢分析")
         print("-" * 60)
         fn_by_type = defaultdict(list)
         for r in results:
             for fn in r.false_negatives:
                 fn_by_type[fn.phi_type].append((r.case_id, fn.content))
-        
+
         for phi_type, items in sorted(fn_by_type.items(), key=lambda x: -len(x[1])):
             print(f"\n  {phi_type}: {len(items)} 次漏檢")
             for case_id, content in items[:5]:
                 print(f"    - [{case_id}] \"{content[:30]}{'...' if len(content) > 30 else ''}\"")
             if len(items) > 5:
                 print(f"    ... 還有 {len(items)-5} 個")
-    
+
     # 評分等級
-    print(f"\n🏆 Performance Grade | 效能等級")
+    print("\n🏆 Performance Grade | 效能等級")
     print("-" * 40)
     if f1 >= 0.9:
         grade = "A+ (Excellent)"
@@ -378,33 +377,33 @@ def print_evaluation_report(results: List[EvaluationResult], model_name: str):
         grade = "D (Needs Improvement)"
     else:
         grade = "F (Poor)"
-    
+
     print(f"  Overall Grade: {grade}")
-    print(f"  Note: MiniMind is a 104M parameter model")
-    print(f"        For production, consider Qwen 2.5 7B+")
-    
+    print("  Note: MiniMind is a 104M parameter model")
+    print("        For production, consider Qwen 2.5 7B+")
+
     print("\n" + "=" * 80)
 
 
 def main():
     """主函數"""
     # Fix Windows encoding
-    import io
     import argparse
+    import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    
+
     # Parse arguments
     parser = argparse.ArgumentParser(description='Evaluate PHI detection performance')
-    parser.add_argument('--model', type=str, default='granite', 
+    parser.add_argument('--model', type=str, default='granite',
                         choices=['granite', 'qwen', 'llama'],
                         help='Model to evaluate: granite (default), qwen, llama')
     args = parser.parse_args()
-    
+
     print(f"[Loading] {args.model} model...", flush=True)
-    
+
     # Import and create LLM
     from core.infrastructure.llm import LLMPresets, create_llm
-    
+
     try:
         if args.model == 'granite':
             llm = create_llm(LLMPresets.local_granite())
@@ -418,38 +417,38 @@ def main():
         else:
             llm = create_llm(LLMPresets.local_granite())
             model_name = "granite4:1b (1.6B)"
-        
+
         # 測試 LLM 連線
         print(f"[Test] Testing {model_name} connection...", flush=True)
         test_response = llm.invoke("Say OK")
         print(f"[OK] Model ready: {model_name}", flush=True)
-        
+
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
         logger.info("Make sure Ollama is running and model is installed:")
-        logger.info(f"  1. ollama serve")
-        logger.info(f"  2. ollama pull granite4:1b")
+        logger.info("  1. ollama serve")
+        logger.info("  2. ollama pull granite4:1b")
         return
-    
+
     # Load test data
     test_file = Path("data/test/test_phi_tagged_cases.xlsx")
     if not test_file.exists():
         logger.error(f"Test file not found: {test_file}")
         return
-    
+
     print(f"[Data] Loading test data from {test_file}", flush=True)
     df = pd.read_excel(test_file)
     print(f"[Data] Loaded {len(df)} rows", flush=True)
-    
+
     print(f"[Info] Testing ALL {len(df)} cases for complete evaluation", flush=True)
-    
+
     results = []
-    
+
     # Process each case
     for idx, row in df.iterrows():
         case_id = row['Case ID']
         print(f"\n🔍 Starting {case_id}...", flush=True)
-        
+
         # 合併所有文本欄位
         text_columns = [
             'Clinical Summary\n(含標記的 PHI)',
@@ -457,39 +456,39 @@ def main():
             'Medical History\n(含標記的時間/地點)',
             'Treatment Notes\n(含標記的醫師/日期)'
         ]
-        
+
         full_text_with_tags = ""
         for col in text_columns:
             if col in df.columns and pd.notna(row[col]):
                 full_text_with_tags += str(row[col]) + "\n"
-        
+
         # 解析標準答案
         ground_truth = parse_phi_tags(full_text_with_tags)
-        
+
         # 移除標記，準備送給 LLM
         clean_text = remove_phi_tags(full_text_with_tags)
-        
+
         print(f"   Processing {case_id} ({len(ground_truth)} PHI in ground truth)...", flush=True)
-        
+
         # 執行 MiniMind 檢測
         detected, elapsed = run_minimind_detection(clean_text, llm)
-        
+
         # 評估結果
         result = evaluate_case(case_id, ground_truth, detected)
         result.processing_time = elapsed
         results.append(result)
-        
+
         print(f"   Detected: {len(detected)}, TP: {len(result.true_positives)}, "
               f"FP: {len(result.false_positives)}, FN: {len(result.false_negatives)}, "
               f"Time: {elapsed:.1f}s")
-    
+
     # 列印完整報告
     print_evaluation_report(results, model_name)
-    
+
     # 儲存結果
     output_file = Path(f"data/output/reports/{args.model}_evaluation_report.json")
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     report_data = {
         "model": model_name,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -521,10 +520,10 @@ def main():
             for r in results
         ]
     }
-    
+
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(report_data, f, ensure_ascii=False, indent=2)
-    
+
     print(f"\n📄 Report saved to: {output_file}")
 
 

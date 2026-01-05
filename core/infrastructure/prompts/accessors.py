@@ -5,7 +5,6 @@ Prompt 存取函數
 Functions to retrieve prompts by name, language, and version.
 """
 
-from typing import Dict, Optional
 import re
 
 from .registry import PROMPT_REGISTRY
@@ -14,7 +13,7 @@ from .registry import PROMPT_REGISTRY
 def get_prompt(
     prompt_name: str,
     language: str = "en",
-    version: Optional[str] = None
+    version: str | None = None
 ) -> str:
     """
     Get prompt template by name and language
@@ -44,12 +43,12 @@ def get_prompt(
             raise KeyError(f"Prompt '{prompt_name}' not found")
         # Sort by version number and get latest
         key = sorted(matching_keys)[-1]
-    
+
     # Get prompt dict
     prompt_dict = PROMPT_REGISTRY.get(key)
     if not prompt_dict:
         raise KeyError(f"Prompt '{key}' not found in registry")
-    
+
     # Get language version
     prompt = prompt_dict.get(language)
     if not prompt:
@@ -57,7 +56,7 @@ def get_prompt(
         prompt = prompt_dict.get("en")
         if not prompt:
             raise KeyError(f"Prompt '{key}' has no template for language '{language}' or fallback 'en'")
-    
+
     return prompt
 
 
@@ -161,7 +160,7 @@ def get_system_message(
     return get_prompt(f"system_{role}", language=language)
 
 
-def list_available_prompts() -> Dict[str, list]:
+def list_available_prompts() -> dict[str, list]:
     """
     List all available prompts
     
@@ -203,10 +202,10 @@ def validate_prompt_format(prompt: str, required_vars: list) -> bool:
     """
     # Find all variables in prompt using regex
     found_vars = re.findall(r'\{(\w+)\}', prompt)
-    
+
     # Check if all required vars are present
     for var in required_vars:
         if var not in found_vars:
             return False
-    
+
     return True

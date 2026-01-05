@@ -6,10 +6,11 @@ Contains all domain models related to document loading and metadata.
 包含所有與文檔載入和元數據相關的領域模型。
 """
 
-from pathlib import Path
-from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -26,7 +27,7 @@ class DocumentFormat(str, Enum):
     XML = "xml"
     FHIR = "fhir"
     UNKNOWN = "unknown"
-    
+
     @classmethod
     def from_extension(cls, extension: str) -> "DocumentFormat":
         """
@@ -56,29 +57,29 @@ class DocumentMetadata(BaseModel):
     - Content information (encoding, language)
     - Custom metadata from source
     """
-    
+
     # File information
     filename: str = Field(description="Original filename")
-    filepath: Optional[Path] = Field(default=None, description="Full file path")
-    file_size: Optional[int] = Field(default=None, description="File size in bytes")
+    filepath: Path | None = Field(default=None, description="Full file path")
+    file_size: int | None = Field(default=None, description="File size in bytes")
     format: DocumentFormat = Field(description="Document format")
-    
+
     # Temporal information
-    created_at: Optional[datetime] = Field(default=None, description="File creation time")
-    modified_at: Optional[datetime] = Field(default=None, description="File modification time")
+    created_at: datetime | None = Field(default=None, description="File creation time")
+    modified_at: datetime | None = Field(default=None, description="File modification time")
     loaded_at: datetime = Field(default_factory=datetime.now, description="When loaded")
-    
+
     # Content information
     encoding: str = Field(default="utf-8", description="Text encoding")
-    language: Optional[str] = Field(default=None, description="Document language (e.g., 'zh-TW', 'en')")
-    
+    language: str | None = Field(default=None, description="Document language (e.g., 'zh-TW', 'en')")
+
     # Sheet/page information (for multi-part documents)
-    sheet_name: Optional[str] = Field(default=None, description="Excel sheet name")
-    page_number: Optional[int] = Field(default=None, description="PDF page number")
-    
+    sheet_name: str | None = Field(default=None, description="Excel sheet name")
+    page_number: int | None = Field(default=None, description="PDF page number")
+
     # Custom metadata
-    custom: Dict[str, Any] = Field(default_factory=dict, description="Custom metadata")
-    
+    custom: dict[str, Any] = Field(default_factory=dict, description="Custom metadata")
+
     class Config:
         arbitrary_types_allowed = True
 
@@ -90,26 +91,26 @@ class LoadedDocument(BaseModel):
     
     Represents a document that has been successfully loaded and parsed.
     """
-    
+
     content: str = Field(description="Document text content")
     metadata: DocumentMetadata = Field(description="Document metadata")
-    
+
     # Optional structured data (for CSV, JSON, etc.)
-    structured_data: Optional[Dict[str, Any]] = Field(
+    structured_data: dict[str, Any] | None = Field(
         default=None,
         description="Structured data (for CSV, JSON, etc.)"
     )
-    
+
     # Optional multiple records (for CSV with multiple rows)
-    records: Optional[List[Dict[str, Any]]] = Field(
+    records: list[dict[str, Any]] | None = Field(
         default=None,
         description="Multiple records (e.g., CSV rows)"
     )
-    
+
     def __str__(self) -> str:
         """String representation"""
         return f"LoadedDocument(filename={self.metadata.filename}, length={len(self.content)})"
-    
+
     def __repr__(self) -> str:
         """Detailed representation"""
         return (
@@ -126,47 +127,47 @@ class LoaderConfig(BaseModel):
     Configuration for document loaders
     文件載入器配置
     """
-    
+
     # Encoding
     encoding: str = Field(default="utf-8", description="Text encoding")
     encoding_errors: str = Field(
         default="replace",
         description="How to handle encoding errors: 'strict', 'ignore', 'replace'"
     )
-    
+
     # Content extraction
     extract_metadata: bool = Field(default=True, description="Extract file metadata")
     preserve_formatting: bool = Field(default=False, description="Preserve formatting (spaces, newlines)")
-    
+
     # Excel-specific
-    excel_sheet_name: Optional[str] = Field(
+    excel_sheet_name: str | None = Field(
         default=None,
         description="Specific sheet to load (None = all sheets)"
     )
     excel_skip_rows: int = Field(default=0, description="Rows to skip in Excel")
-    
+
     # CSV-specific
     csv_delimiter: str = Field(default=",", description="CSV delimiter")
     csv_quotechar: str = Field(default='"', description="CSV quote character")
     csv_has_header: bool = Field(default=True, description="CSV has header row")
-    
+
     # PDF-specific
     pdf_extract_images: bool = Field(default=False, description="Extract images from PDF")
-    pdf_page_range: Optional[tuple[int, int]] = Field(
+    pdf_page_range: tuple[int, int] | None = Field(
         default=None,
         description="Page range to extract (start, end)"
     )
-    
+
     # HTML-specific
     html_extract_text_only: bool = Field(default=True, description="Extract text only from HTML")
     html_remove_scripts: bool = Field(default=True, description="Remove script tags")
-    
+
     # Performance
-    max_file_size: Optional[int] = Field(
+    max_file_size: int | None = Field(
         default=None,
         description="Max file size in bytes (None = unlimited)"
     )
-    
+
     class Config:
         arbitrary_types_allowed = True
 

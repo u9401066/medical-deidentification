@@ -16,59 +16,36 @@ Orchestrates the complete de-identification workflow:
 5. 驗證並返回結果
 """
 
-from .engine import (
-    DeidentificationEngine,
-    EngineConfig,
-    ProcessingResult,
-    ProcessingStatus
-)
-
-from .pipeline import (
-    DeidentificationPipeline,
-    PipelineStage,
-    StageResult
-)
-
-from .context import (
-    ProcessingContext,
-    DocumentContext,
-    RegulationContext
-)
-
 from ...domain import StrategyType
-from .strategies import (
-    MaskingStrategy,
-    RedactionStrategy,
-    GeneralizationStrategy,
-    PseudonymizationStrategy,
-    DateShiftingStrategy,
-    PartialMaskingStrategy,
-    SuppressionStrategy,
-    create_masking_strategy,
-    get_default_strategy_for_phi_type
-)
-
 from .batch_processor import (
     BatchPHIProcessor,
     BatchProcessingConfig,
     BatchProcessingResult,
     RowProcessingResult,
-    save_batch_results
+    save_batch_results,
 )
-
+from .context import DocumentContext, ProcessingContext, RegulationContext
+from .engine import DeidentificationEngine, EngineConfig, ProcessingResult, ProcessingStatus
 from .output_manager import (
-    OutputManager,
     OutputConfig,
+    OutputManager,
     get_default_output_manager,
-    set_default_output_manager,
+    get_report_path,
     get_result_path,
-    get_report_path
+    set_default_output_manager,
 )
-
-from .report_generator import (
-    ReportGenerator,
-    generate_batch_report,
-    save_batch_report
+from .pipeline import DeidentificationPipeline, PipelineStage, StageResult
+from .report_generator import ReportGenerator, generate_batch_report, save_batch_report
+from .strategies import (
+    DateShiftingStrategy,
+    GeneralizationStrategy,
+    MaskingStrategy,
+    PartialMaskingStrategy,
+    PseudonymizationStrategy,
+    RedactionStrategy,
+    SuppressionStrategy,
+    create_masking_strategy,
+    get_default_strategy_for_phi_type,
 )
 
 __all__ = [
@@ -77,17 +54,17 @@ __all__ = [
     "EngineConfig",
     "ProcessingResult",
     "ProcessingStatus",
-    
+
     # Pipeline
     "DeidentificationPipeline",
     "PipelineStage",
     "StageResult",
-    
+
     # Context
     "ProcessingContext",
     "DocumentContext",
     "RegulationContext",
-    
+
     # Strategies
     "MaskingStrategy",
     "StrategyType",
@@ -99,14 +76,14 @@ __all__ = [
     "SuppressionStrategy",
     "create_masking_strategy",
     "get_default_strategy_for_phi_type",
-    
+
     # Batch Processing
     "BatchPHIProcessor",
     "BatchProcessingConfig",
     "BatchProcessingResult",
     "RowProcessingResult",
     "save_batch_results",
-    
+
     # Output Management
     "OutputManager",
     "OutputConfig",
@@ -114,7 +91,7 @@ __all__ = [
     "set_default_output_manager",
     "get_result_path",
     "get_report_path",
-    
+
     # Report Generation
     "ReportGenerator",
     "generate_batch_report",

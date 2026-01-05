@@ -69,6 +69,10 @@ A Python-based medical text de-identification toolkit that leverages LLM/Agent t
 
 ## Architecture
 
+DDD (Domain-Driven Design) with 4 layers: Domain, Application, Infrastructure, Interface. The core logic is now located in the 'core/' directory (formerly 'medical_deidentification/'). Uses a hybrid PHI detection pipeline (Regex + SpaCy + LLM) and RAG for regulation retrieval.
+
+
+
 DDD (Domain-Driven Design) with streaming FIFO chunk processing for unlimited file sizes
 
 
@@ -129,6 +133,16 @@ rich = "^13.0"    # Terminal UI
 - Documentation: Inline docstrings (Google style) + MkDocs
 
 ## Technologies
+
+- Python 3.12
+- uv (Package Manager)
+- Ruff (Linter/Formatter)
+- Ollama (Local LLM)
+- LangChain
+- DSPy
+- FAISS
+
+
 
 - Python 3.10
 - LangChain
@@ -214,6 +228,17 @@ rich = "^13.0"    # Terminal UI
 
 
 ## Libraries and Dependencies
+
+- langchain-core>=1.0.0
+- langchain-ollama>=1.0.0
+- dspy>=2.5.0
+- faiss-cpu>=1.7.4
+- sentence-transformers>=2.3.1
+- pydantic>=2.6.0
+- ruff>=0.8.0
+- uv>=0.9.17
+
+
 
 - langchain
 - langchain-ollama
@@ -315,6 +340,10 @@ rich = "^13.0"    # Terminal UI
 
 
 ## Project Description
+
+LLM-powered medical text de-identification toolkit with RAG-enhanced regulation retrieval. Supports multi-language medical records and automated PHI identification and masking. Optimized for Python 3.12 and local LLM execution (Ollama).
+
+
 
 Medical de-identification toolkit using LLM-based PHI detection with DSPy integration
 

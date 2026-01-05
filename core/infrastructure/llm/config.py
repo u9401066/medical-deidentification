@@ -5,9 +5,9 @@ Centralized configuration for LLM providers.
 LLM 提供者的統一配置。
 """
 
-from typing import Optional, Literal
-from pydantic import BaseModel, Field
+from typing import Literal
 
+from pydantic import BaseModel, Field
 
 # Supported LLM providers
 LLMProvider = Literal["openai", "anthropic", "ollama"]
@@ -94,95 +94,95 @@ class LLMConfig(BaseModel):
         ...     max_tokens=4096
         ... )
     """
-    
+
     provider: LLMProvider = Field(
         default="openai",
         description="LLM provider: 'openai' or 'anthropic'"
     )
-    
+
     model_name: str = Field(
         default="gpt-4o-mini",
         description="Model name (e.g., 'gpt-4o-mini', 'gpt-4o', 'claude-3-opus-20240229')"
     )
-    
+
     temperature: float = Field(
         default=0.0,
         ge=0.0,
         le=2.0,
         description="Sampling temperature (0.0=deterministic, 1.0=creative)"
     )
-    
-    max_tokens: Optional[int] = Field(
+
+    max_tokens: int | None = Field(
         default=None,
         ge=1,
         description="Maximum tokens in response (None=provider default)"
     )
-    
+
     timeout: float = Field(
         default=60.0,
         ge=1.0,
         description="Request timeout in seconds"
     )
-    
+
     max_retries: int = Field(
         default=3,
         ge=0,
         description="Maximum retry attempts for failed requests"
     )
-    
-    api_key: Optional[str] = Field(
+
+    api_key: str | None = Field(
         default=None,
         description="API key (None=use environment variable)"
     )
-    
-    api_base: Optional[str] = Field(
+
+    api_base: str | None = Field(
         default=None,
         description="Custom API base URL (None=provider default)"
     )
-    
+
     streaming: bool = Field(
         default=False,
         description="Enable streaming responses"
     )
-    
+
     verbose: bool = Field(
         default=False,
         description="Enable verbose logging"
     )
-    
+
     # GPU/Hardware Acceleration Settings (for Ollama and local models)
     use_gpu: bool = Field(
         default=True,
         description="Enable GPU acceleration (for Ollama and local models)"
     )
-    
-    num_gpu: Optional[int] = Field(
+
+    num_gpu: int | None = Field(
         default=None,
         ge=0,
         description="Number of GPUs to use (None = auto-detect all, 0 = CPU only, 1+ = specific count)"
     )
-    
-    gpu_layers: Optional[int] = Field(
+
+    gpu_layers: int | None = Field(
         default=None,
         ge=0,
         description="Number of model layers to offload to GPU (None = all layers, 0 = CPU only)"
     )
-    
+
     # Ollama keep_alive: How long to keep model loaded in memory
     # Ollama keep_alive: 模型在記憶體中保持載入的時間
-    keep_alive: Optional[str] = Field(
+    keep_alive: str | None = Field(
         default="30m",
         description="How long to keep model loaded (e.g., '5m', '1h', '-1' for forever). Ollama only."
     )
-    
+
     # Ollama num_ctx: Context window size
     # Ollama num_ctx: 上下文窗口大小
-    num_ctx: Optional[int] = Field(
+    num_ctx: int | None = Field(
         default=8192,
         ge=512,
         description="Context window size for Ollama models (default: 8192)"
     )
-    
+
     def validate_model(self) -> None:
         """
         Validate model name matches provider
@@ -199,7 +199,7 @@ class LLMConfig(BaseModel):
             valid_models = OLLAMA_MODELS + MINIMIND_MODELS
         else:
             raise ValueError(f"Unknown provider: {self.provider}")
-        
+
         # Allow any model name (for flexibility with new models)
         # Just warn if not in known list
         if self.model_name not in valid_models:
@@ -208,7 +208,7 @@ class LLMConfig(BaseModel):
                 f"Model '{self.model_name}' not in known {self.provider} models. "
                 f"Known models: {', '.join(valid_models)}"
             )
-    
+
     def get_provider_kwargs(self) -> dict:
         """
         Get provider-specific kwargs for LangChain
@@ -224,21 +224,21 @@ class LLMConfig(BaseModel):
             "streaming": self.streaming,
             "verbose": self.verbose,
         }
-        
+
         if self.max_tokens is not None:
             kwargs["max_tokens"] = self.max_tokens if self.provider != "ollama" else self.max_tokens
             # Ollama uses num_predict instead of max_tokens
             if self.provider == "ollama":
                 kwargs["num_predict"] = self.max_tokens
                 del kwargs["max_tokens"]
-        
+
         if self.api_key is not None:
             if self.provider == "openai":
                 kwargs["openai_api_key"] = self.api_key
             elif self.provider == "anthropic":
                 kwargs["anthropic_api_key"] = self.api_key
             # Ollama doesn't require API key
-        
+
         if self.api_base is not None:
             if self.provider == "openai":
                 kwargs["openai_api_base"] = self.api_base
@@ -248,7 +248,7 @@ class LLMConfig(BaseModel):
         elif self.provider == "ollama":
             # Default Ollama base URL
             kwargs["base_url"] = "http://localhost:11434"
-        
+
         # Add GPU configuration for Ollama
         if self.provider == "ollama":
             kwargs["use_gpu"] = self.use_gpu
@@ -262,9 +262,9 @@ class LLMConfig(BaseModel):
             # Context window size
             if self.num_ctx is not None:
                 kwargs["num_ctx"] = self.num_ctx
-        
+
         return kwargs
-    
+
     def __repr__(self) -> str:
         return f"LLMConfig(provider={self.provider}, model={self.model_name}, temp={self.temperature})"
 
@@ -275,7 +275,7 @@ class LLMPresets:
     Preset LLM configurations for common use cases
     常用場景的預設 LLM 配置
     """
-    
+
     @staticmethod
     def phi_identification() -> LLMConfig:
         """
@@ -290,7 +290,7 @@ class LLMPresets:
             temperature=0.0,
             max_tokens=2048,
         )
-    
+
     @staticmethod
     def regulation_analysis() -> LLMConfig:
         """
@@ -305,7 +305,7 @@ class LLMPresets:
             temperature=0.2,
             max_tokens=3000,
         )
-    
+
     @staticmethod
     def claude_opus() -> LLMConfig:
         """
@@ -318,7 +318,7 @@ class LLMPresets:
             temperature=0.0,
             max_tokens=4096,
         )
-    
+
     @staticmethod
     def claude_sonnet() -> LLMConfig:
         """
@@ -331,7 +331,7 @@ class LLMPresets:
             temperature=0.0,
             max_tokens=4096,
         )
-    
+
     @staticmethod
     def gpt_4o() -> LLMConfig:
         """
@@ -344,7 +344,7 @@ class LLMPresets:
             temperature=0.0,
             max_tokens=4096,
         )
-    
+
     @staticmethod
     def gpt_3_5_fast() -> LLMConfig:
         """
@@ -357,7 +357,7 @@ class LLMPresets:
             temperature=0.0,
             max_tokens=1000,
         )
-    
+
     @staticmethod
     def local_granite() -> LLMConfig:
         """
@@ -372,7 +372,7 @@ class LLMPresets:
             temperature=0.0,
             max_tokens=2048,
         )
-    
+
     @staticmethod
     def local_qwen() -> LLMConfig:
         """
@@ -385,7 +385,7 @@ class LLMPresets:
             temperature=0.0,
             max_tokens=2048,
         )
-    
+
     @staticmethod
     def local_llama() -> LLMConfig:
         """
@@ -398,7 +398,7 @@ class LLMPresets:
             temperature=0.0,
             max_tokens=2048,
         )
-    
+
     @staticmethod
     def local_minimind() -> LLMConfig:
         """
@@ -425,7 +425,7 @@ class LLMPresets:
             max_tokens=1024,  # MiniMind trained with 512 context, extended to 1024
             use_gpu=True,     # Enables GPU if available, falls back to CPU
         )
-    
+
     @staticmethod
     def local_minimind_small() -> LLMConfig:
         """
@@ -447,7 +447,7 @@ class LLMPresets:
             max_tokens=512,
             use_gpu=True,
         )
-    
+
     @staticmethod
     def local_minimind_reasoning() -> LLMConfig:
         """

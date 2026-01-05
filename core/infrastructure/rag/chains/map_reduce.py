@@ -7,16 +7,14 @@ Implements MapReduce pattern using LangChain for processing long medical texts:
 - Reduce stage: Merge and deduplicate results (pure data processing)
 """
 
-from typing import List, Tuple, Optional
 from dataclasses import replace
-from loguru import logger
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
+from loguru import logger
 
 from ....domain import PHIEntity
 from ....domain.phi_identification_models import (
-    PHIIdentificationResult,
     PHIDetectionResponse,
 )
 from ...prompts import get_phi_map_reduce_prompt, get_system_message
@@ -46,28 +44,28 @@ def build_map_chain(llm) -> Runnable:
     # Get prompt template from centralized prompts module
     prompt_text = get_phi_map_reduce_prompt()
     system_message = get_system_message("phi_expert")
-    
+
     # Create ChatPromptTemplate using LangChain
     map_prompt = ChatPromptTemplate.from_messages([
         ("system", system_message),
         ("user", prompt_text)
     ])
-    
+
     # Build chain: prompt → LLM with structured output
     # This creates a Runnable that can be invoked with {"page_content": "..."}
     map_chain: Runnable = (
-        map_prompt 
+        map_prompt
         | llm.with_structured_output(PHIDetectionResponse)
     )
-    
+
     logger.debug("Built MapReduce map chain with centralized prompt and LangChain Runnable")
     return map_chain
 
 
 def merge_phi_results(
-    chunk_results: List[Tuple[PHIDetectionResponse, int, str]],
+    chunk_results: list[tuple[PHIDetectionResponse, int, str]],
     original_text: str
-) -> List[PHIEntity]:
+) -> list[PHIEntity]:
     """
     Merge PHI results from all chunks (Reduce stage)
     合併所有 chunk 的 PHI 結果（Reduce 階段）
@@ -89,27 +87,27 @@ def merge_phi_results(
         List of PHIEntity with absolute positions
     """
     all_entities = []
-    
+
     for detection_response, chunk_start_pos, chunk_text in chunk_results:
         if not detection_response.entities:
             continue
-            
+
         for result in detection_response.entities:
             # Convert PHIIdentificationResult to PHIEntity
             entity = result.to_phi_entity()
-            
+
             # Find absolute position in original text
             # Use chunk_text.find() to locate entity within chunk first
             entity_text = result.entity_text
             entity_start_in_chunk = chunk_text.find(entity_text, 0)
-            
+
             if entity_start_in_chunk != -1:
                 # Calculate absolute position
                 absolute_start = chunk_start_pos + entity_start_in_chunk
                 absolute_end = absolute_start + len(entity_text)
-                
+
                 # Verify entity exists at calculated position
-                if (absolute_start < len(original_text) and 
+                if (absolute_start < len(original_text) and
                     original_text[absolute_start:absolute_end] == entity_text):
                     # Create adjusted entity with absolute positions
                     adjusted_entity = replace(
@@ -135,14 +133,14 @@ def merge_phi_results(
                         )
             else:
                 logger.warning(f"Could not find entity '{entity_text[:30]}...' in chunk")
-    
+
     # Deduplicate entities (same text at overlapping positions)
     unique_entities = deduplicate_entities(all_entities)
-    
+
     logger.debug(
         f"Merged {len(all_entities)} entities → {len(unique_entities)} unique entities"
     )
-    
+
     return unique_entities
 
 
@@ -150,8 +148,8 @@ def identify_phi_with_map_reduce(
     text: str,
     llm,
     text_splitter,
-    language: Optional[str] = None
-) -> List[PHIEntity]:
+    language: str | None = None
+) -> list[PHIEntity]:
     """
     Process long text using MapReduce pattern with LangChain
     使用 LangChain 的 MapReduce 模式處理長文本
@@ -171,46 +169,46 @@ def identify_phi_with_map_reduce(
         List of PHIEntity with absolute positions
     """
     logger.info(f"MapReduce: Processing {len(text)} chars with LangChain")
-    
+
     # 1. Split text into chunks
     chunks = text_splitter.split_text(text)
     logger.info(f"MapReduce: Split into {len(chunks)} chunks")
-    
+
     # 2. Build map chain (LangChain Runnable)
     map_chain = build_map_chain(llm)
-    
+
     # 3. Map stage: Process each chunk using the chain
     chunk_results = []
     current_pos = 0
-    
+
     for i, chunk in enumerate(chunks):
         import time
         chunk_start = time.time()
-        
+
         progress_pct = (i / len(chunks)) * 100
         logger.info(
             f"MapReduce Map {i+1}/{len(chunks)} ({progress_pct:.1f}%): "
             f"Processing chunk at pos {current_pos} ({len(chunk)} chars)"
         )
-        
+
         try:
             # Invoke LangChain Runnable with chunk content
             # The chain will apply prompt template and call LLM
             detection_response = map_chain.invoke({"page_content": chunk})
-            
+
             # Calculate performance metrics
             chunk_duration = time.time() - chunk_start
             tokens_per_sec = len(chunk.split()) / chunk_duration if chunk_duration > 0 else 0
-            
+
             # Store result with position info
             chunk_results.append((detection_response, current_pos, chunk))
-            
+
             logger.info(
                 f"MapReduce Map {i+1}/{len(chunks)}: "
                 f"Found {len(detection_response.entities)} PHI entities "
                 f"({chunk_duration:.2f}s, {tokens_per_sec:.1f} tokens/sec)"
             )
-            
+
         except Exception as e:
             logger.error(
                 f"MapReduce Map {i+1}/{len(chunks)} failed: {e}"
@@ -221,23 +219,23 @@ def identify_phi_with_map_reduce(
                 has_phi=False
             )
             chunk_results.append((empty_response, current_pos, chunk))
-        
+
         # Update position for next chunk
         current_pos += len(chunk)
-    
+
     # 4. Reduce stage: Merge results (pure data processing, no LLM)
     logger.info(f"MapReduce Reduce: Merging {len(chunk_results)} chunk results...")
-    
+
     # Calculate overall statistics
     total_chunks = len(chunks)
     successful_chunks = len([r for r in chunk_results if r[0].entities])
     total_phi_found = sum(len(r[0].entities) for r in chunk_results)
-    
+
     entities = merge_phi_results(chunk_results, text)
-    
+
     logger.success(
         f"MapReduce complete: {len(entities)} unique PHI entities identified "
         f"({total_phi_found} raw detections from {successful_chunks}/{total_chunks} chunks)"
     )
-    
+
     return entities

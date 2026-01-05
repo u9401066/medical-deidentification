@@ -34,10 +34,10 @@ Usage:
 """
 
 from .base_tool import BasePHITool, ToolResult
-from .tool_runner import ToolRunner
-from .regex_phi_tool import RegexPHITool
 from .id_validator_tool import IDValidatorTool
 from .phone_tool import PhoneTool
+from .regex_phi_tool import RegexPHITool
+from .tool_runner import ToolRunner
 
 # SpaCy tool is optional (requires spacy to be installed)
 try:

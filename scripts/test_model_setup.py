@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Simple test to verify model comparison works"""
 import sys
+
 print("Starting test...", flush=True)
 
 sys.path.insert(0, 'd:/workspace251122')
@@ -14,6 +15,7 @@ if not test_file.exists():
     sys.exit(1)
 
 import pandas as pd
+
 df = pd.read_excel(test_file)
 print(f"Loaded {len(df)} rows", flush=True)
 print(f"Columns: {df.columns.tolist()}", flush=True)

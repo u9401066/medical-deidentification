@@ -22,24 +22,22 @@ NOT responsible for:
 - Persisting medical text (uses MedicalTextRetriever for ephemeral processing)
 """
 
-from typing import List, Dict, Any, Optional
-from loguru import logger
+from typing import Any
 
-from ..llm.factory import create_llm
-from ...domain import PHIEntity
-from .regulation_retrieval_chain import RegulationRetrievalChain
-from .text_splitter import MedicalTextSplitter
-from .embeddings import EmbeddingsManager
+from loguru import logger
 
 # Import PHI identification models from domain layer
 from ...domain.phi_identification_models import (
     PHIIdentificationConfig,
 )
+from ..llm.factory import create_llm
+from .chains.map_reduce import identify_phi_with_map_reduce
+from .chains.processors import identify_phi_direct
 
 # Import modularized chain components
 from .chains.utils import get_minimal_context
-from .chains.map_reduce import identify_phi_with_map_reduce
-from .chains.processors import identify_phi_direct
+from .regulation_retrieval_chain import RegulationRetrievalChain
+from .text_splitter import MedicalTextSplitter
 
 
 class PHIIdentificationChain:
@@ -74,11 +72,11 @@ class PHIIdentificationChain:
         >>> # Get PHI entities
         >>> entities = result["entities"]  # List[PHIEntity]
     """
-    
+
     def __init__(
         self,
-        regulation_chain: Optional[RegulationRetrievalChain] = None,
-        config: Optional[PHIIdentificationConfig] = None,
+        regulation_chain: RegulationRetrievalChain | None = None,
+        config: PHIIdentificationConfig | None = None,
         chunk_size: int = 500,
         chunk_overlap: int = 50,
         max_text_length: int = 2000,  # 超過此長度則分段處理
@@ -101,22 +99,22 @@ class PHIIdentificationChain:
         self.regulation_chain = regulation_chain
         self.config = config or PHIIdentificationConfig()
         self.max_text_length = max_text_length
-        
+
         # Validate: if retrieve_regulation_context=True, regulation_chain must be provided
         if self.config.retrieve_regulation_context and regulation_chain is None:
             raise ValueError(
                 "regulation_chain is required when retrieve_regulation_context=True"
             )
-        
+
         # Initialize LLM
         self.llm = create_llm(self.config.llm_config)
-        
+
         # Initialize MedicalTextSplitter for MapReduce chunking
         self.text_splitter = MedicalTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap
         )
-        
+
         # Get LLM info for logging (handle dict or object)
         if isinstance(self.config.llm_config, dict):
             provider = self.config.llm_config.get("provider", "unknown")
@@ -124,20 +122,20 @@ class PHIIdentificationChain:
         else:
             provider = self.config.llm_config.provider
             model_name = self.config.llm_config.model_name
-        
+
         logger.info(
             f"PHIIdentificationChain initialized with "
             f"LLM: {provider}/{model_name}, "
             f"max_text_length: {max_text_length}"
         )
-    
+
     def identify_phi(
         self,
         text: str,
-        language: Optional[str] = None,
+        language: str | None = None,
         return_source: bool = False,
         return_entities: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Identify PHI in medical text
         
@@ -165,7 +163,7 @@ class PHIIdentificationChain:
             - source_documents: Regulation docs used (if return_source=True)
         """
         logger.info(f"Identifying PHI in text ({len(text)} chars)")
-        
+
         # Check if text needs chunking
         if len(text) > self.max_text_length:
             logger.info(
@@ -175,14 +173,14 @@ class PHIIdentificationChain:
             return self._identify_phi_chunked(text, language, return_source, return_entities)
         else:
             return self._identify_phi_direct(text, language, return_source, return_entities)
-    
+
     def _identify_phi_direct(
         self,
         text: str,
-        language: Optional[str] = None,
+        language: str | None = None,
         return_source: bool = False,
         return_entities: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Direct PHI identification for short texts
         Delegates to chains.processors.identify_phi_direct
@@ -201,14 +199,14 @@ class PHIIdentificationChain:
             return_source=return_source,
             return_entities=return_entities,
         )
-    
+
     def _identify_phi_chunked(
         self,
         text: str,
-        language: Optional[str] = None,
+        language: str | None = None,
         return_source: bool = False,
         return_entities: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Chunked PHI identification for long texts using MapReduce
         Delegates to chains.map_reduce.identify_phi_with_map_reduce
@@ -220,7 +218,7 @@ class PHIIdentificationChain:
             text_splitter=self.text_splitter,
             language=language
         )
-        
+
         # Build response
         result = {
             "text": text,
@@ -228,11 +226,11 @@ class PHIIdentificationChain:
             "total_entities": len(entities),
             "has_phi": len(entities) > 0
         }
-        
+
         if return_entities:
             result["entities"] = entities
-        
+
         if return_source:
             result["source_documents"] = []  # MapReduce doesn't use regulation docs
-        
+
         return result

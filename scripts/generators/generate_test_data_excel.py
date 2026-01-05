@@ -9,10 +9,10 @@ WARNING: All data is synthetic. Never use real PHI!
 警告: 所有資料都是合成的。絕不使用真實個資！
 """
 
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from datetime import datetime, timedelta
 import random
+
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
 
 
 def generate_test_excel_multilanguage():
@@ -24,15 +24,15 @@ def generate_test_excel_multilanguage():
     語言: 繁體中文、英文、日文、韓文、泰文
     """
     wb = Workbook()
-    
+
     # Sheet 1: Patient Demographics (多語言患者基本資料)
     ws1 = wb.active
     ws1.title = "Patient Demographics"
-    
+
     # Headers with styling - added narrative description column
     headers = [
         "Patient ID\n病患編號\n患者ID",
-        "Name\n姓名\n이름", 
+        "Name\n姓名\n이름",
         "DOB\n出生日期\n生年月日",
         "Age\n年齡\n나이",
         "Gender\n性別\n性別",
@@ -42,17 +42,17 @@ def generate_test_excel_multilanguage():
         "Insurance\n保險號碼\n保険番号",
         "Patient Summary\n病患摘要\n患者概要"  # NEW: Narrative description with embedded PHI
     ]
-    
+
     # Style headers
     header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
     header_font = Font(bold=True, color="FFFFFF", size=11)
-    
+
     for col, header in enumerate(headers, 1):
         cell = ws1.cell(1, col, header)
         cell.fill = header_fill
         cell.font = header_font
         cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    
+
     # Generate 50 diverse patient records with narrative descriptions
     # Each tuple: (ID, Name, DOB, Age, Gender, Phone, Email, Address, Insurance, Narrative)
     patients = [
@@ -120,7 +120,7 @@ Follow-up: Cardiac Rehabilitation Program starting January 20, 2024 | Cardiology
 Emergency Contact: Please call 02-2234-5678 or email chen.jg@hospital.tw for any concerns. Patient 陳建國 (age 69, DOB 1955-03-15) residing at 信義路四段123號5樓 should seek immediate care if chest pain recurs.
 
 【臨床醫師簽名】Dr. 李文華, Chief of Cardiology, NTUH | Date: January 13, 2024"""),
-        
+
         ("MRN-2024-002", "林雅婷", "1992-07-22", 32, "女", "04-2345-6789", "lin.yt@email.com", "台中市西屯區文心路二段456號", "NHI-B987654321",
          """【Obstetrics & Gynecology Medical Record 婦產科病歷】
 Patient: 林雅婷 (Lin Ya-Ting) | MRN: MRN-2024-002 | DOB: 1992年7月22日 (July 22, 1992) | Age: 32歲 (32 years old) | Gender: 女性 (Female)
@@ -274,7 +274,7 @@ Discharge Instructions:
 Patient 林雅婷 (age 32, born 1992-07-22, residing at 文心路二段456號) understands all discharge instructions and has no questions. Emergency contact: 04-2345-6789.
 
 【主治醫師】Dr. 張美玲, OB/GYN, Taichung Veterans General Hospital | Date: January 18, 2024"""),
-        
+
         ("MRN-2024-003", "王大明", "1978-11-08", 46, "男", "07-3456-7890", "wang.dm@example.tw", "高雄市苓雅區中山二路789號12樓", "NHI-C456789123",
          """【Orthopedic Surgery Medical Record 骨科病歷】
 Patient Name: 王大明 (Wang Da-Ming) | MRN: MRN-2024-003 | DOB: 1978年11月8日 (November 8, 1978) | Age: 46歲 (46 years old) | Gender: 男性 (Male)
@@ -509,7 +509,7 @@ Disability Paperwork: Provided for employer, patient expected to be off work for
 Patient 王大明 (MRN-2024-003, age 46, address 高雄市苓雅區中山二路789號12樓, phone 07-3456-7890, email wang.dm@example.tw, insurance NHI-C456789123) verbalizes understanding of all discharge instructions, has no questions at this time. Wife present during discharge teaching and will assist at home.
 
 【主治醫師】Dr. 林建宏 (Lin Jian-Hong), Orthopedic Trauma Surgery, 高雄長庚紀念醫院 | Date: February 5, 2024"""),
-        
+
         # English names with embedded PHI - EXTENDED TO >1024 TOKENS
         ("MRN-2024-004", "John Smith", "1963-05-12", 61, "Male", "+886-2-8765-4321", "john.smith@hospital.org", "15F, No. 234, Renai Road, Taipei", "INS-US-789456123",
          """【Internal Medicine - Endocrinology Service 內科內分泌科病歷】
@@ -766,35 +766,35 @@ Discharge Medications: Insulin Glargine, Insulin Lispro, Metformin (resumed), Am
 Follow-up: Endocrinology Clinic March 17, 2024, Ophthalmology March 20, 2024
 
 【Attending Physician】Dr. Michael Chen (陳明哲醫師), MD, PhD, Endocrinology, TVGH | Date: March 10, 2024"""),
-        
+
         ("MRN-2024-005", "Mary Johnson", "1988-09-30", 36, "Female", "+886-4-7654-3210", "mary.j@email.com", "Apt 8B, Lane 156, Zhongxiao E Rd, Taipei", "INS-UK-456123789",
          "Ms. Mary Johnson (female, born September 30, 1988, age 36) visited Chang Gung Hospital on Feb 20, 2024. Contact details: mobile +886-4-7654-3210, email mary.j@email.com. Lives in Apt 8B, Lane 156, Zhongxiao East Road, Taipei. Insurance: INS-UK-456123789. Patient Mary Johnson (born 1988/09/30) can be reached at the above phone or apartment 8B in Lane 156."),
-        
+
         # Japanese names with embedded PHI
         ("MRN-2024-006", "田中太郎 (Tanaka Taro)", "1970-02-18", 54, "男性", "03-9876-5432", "tanaka.t@hospital.jp", "東京都新宿区西新宿2-8-1", "保険-JP-123456789",
          "患者の田中太郎様(生年月日:1970年2月18日、54歳男性)が2024年3月12日に台北日本人クリニックを受診。連絡先:03-9876-5432、メール:tanaka.t@hospital.jp。住所:東京都新宿区西新宿2-8-1。保険番号:保険-JP-123456789。Mr. Tanaka Taro (born Feb 18, 1970) contacted at 03-9876-5432 regarding his condition. Patient 田中 mentioned his address in 西新宿 during intake."),
-        
+
         ("MRN-2024-007", "佐藤花子 (Sato Hanako)", "1985-12-25", 38, "女性", "06-8765-4321", "sato.h@email.jp", "大阪府大阪市北区梅田3-1-3", "保険-JP-987654321",
          "佐藤花子さん(1985年12月25日生まれ、38歳女性)が馬偕醫院婦産科を2024年2月28日に訪問。電話06-8765-4321、Email: sato.h@email.jp。居住地:大阪府大阪市北区梅田3-1-3。保険:保険-JP-987654321。Ms. Sato Hanako (DOB: 12/25/1985) can be contacted via phone 06-8765-4321 or at her residence in 梅田区."),
-        
+
         # Korean names with embedded PHI
         ("MRN-2024-008", "김민준 (Kim Min-jun)", "1995-04-07", 29, "남성", "010-1234-5678", "kim.mj@hospital.kr", "서울특별시 강남구 테헤란로 152", "건보-KR-890123456",
          "환자 김민준님 (생년월일: 1995년 4월 7일, 29세 남성)이 2024년 3월 5일 台北馬偕醫院에 내원하셨습니다. 연락처: 010-1234-5678, 이메일: kim.mj@hospital.kr. 주소: 서울특별시 강남구 테헤란로 152. 건강보험: 건보-KR-890123456. Patient Kim Min-jun (born April 7, 1995) contacted via 010-1234-5678. Mentioned living in 강남구 Gangnam during consultation."),
-        
+
         ("MRN-2024-009", "박서연 (Park Seo-yeon)", "1982-08-14", 42, "여성", "010-9876-5432", "park.sy@email.kr", "부산광역시 해운대구 우동 1408", "건보-KR-567890123",
          "Ms. 박서연 (1982년 8월 14일생, 42세 여성) visited 台中榮總 on Jan 25, 2024. Phone: 010-9876-5432, Email: park.sy@email.kr. Address: 부산광역시 해운대구 우동 1408. Insurance: 건보-KR-567890123. Patient Park Seo-yeon (born Aug 14, 1982) can be reached at mobile 010-9876-5432 or email park.sy@email.kr. Lives in 해운대구 Haeundae."),
-        
+
         # Thai names with embedded PHI
         ("MRN-2024-010", "สมชาย วงศ์ไทย (Somchai Wongthai)", "1968-06-20", 56, "ชาย", "+66-2-123-4567", "somchai.w@hospital.th", "123 ถนนสุขุมวิท แขวงคลองเตย กรุงเทพฯ", "NHSO-TH-1234567890",
          "คนไข้ สมชาย วงศ์ไทย (เกิด 20 มิถุนายน 1968, อายุ 56 ปี เพศชาย) มาโรงพยาบาล台北榮總 วันที่ 15 มกราคม 2024. โทร: +66-2-123-4567, อีเมล: somchai.w@hospital.th. ที่อยู่: 123 ถนนสุขุมวิท แขวงคลองเตย กรุงเทพฯ. บัตรประชาชน: NHSO-TH-1234567890. Mr. Somchai Wongthai (born June 20, 1968) contacted at +66-2-123-4567. Patient mentioned living on Sukhumvit Road (ถนนสุขุมวิท) in Bangkok."),
-        
+
         # Mixed examples with narrative PHI
         ("MRN-2024-011", "李秀英 (Lee Soo-young)", "1991-01-15", 33, "Female", "02-5555-6666", "lee.sy@example.com", "新北市板橋區文化路一段188號", "NHI-D789123456",
          "Patient 李秀英/Lee Soo-young (born 1991/01/15, 33-year-old female) admitted to 亞東醫院 on March 1, 2024. Contact: 02-5555-6666 or lee.sy@example.com. Lives in 新北市板橋區文化路一段188號. Insurance: NHI-D789123456. Ms. Lee (DOB: Jan 15, 1991) mentioned celebrating her 33rd birthday recently during consultation."),
-        
+
         ("MRN-2024-012", "วิชัย เจริญสุข / Vichai Chen", "1975-10-03", 49, "男/Male", "+66-2-987-6543", "vichai.c@email.com", "台北市松山區南京東路五段123號8F", "NHI-E123987456",
          "Mr. วิชัย เจริญสุข (Vichai Chen), born October 3, 1975 (49歲), Thai-Taiwanese patient visited 台大醫院 on Feb 14, 2024. โทร: +66-2-987-6543, Email: vichai.c@email.com. ที่อยู่: 台北市松山區南京東路五段123號8F. 保險: NHI-E123987456. Patient Vichai (born 03/10/1975) can be contacted at phone +66-2-987-6543 or at his apartment 8F on Nanjing E Road (南京東路)."),
-        
+
         # High-risk cases (Age > 90) with detailed narratives - EXTENDED TO >1024 TOKENS
         ("MRN-2024-013", "張老太太", "1928-03-22", 96, "女", "02-1111-2222", "chang.family@email.tw", "台北市士林區中正路456號", "NHI-F456789012",
          """【老年醫學科病歷 Geriatric Medicine Record】⚠️ HIGHLY IDENTIFIABLE - AGE 96
@@ -1024,18 +1024,18 @@ Patient 張老太太 (age 96, DOB 1928-03-22, previously living at 士林區中�
 【主治醫師】Dr. 王建民 (Wang Jian-Min), Geriatric Medicine, TVGH | Date: January 19, 2024
 
 ⚠️ PRIVACY NOTE: This patient's age (96 years) and long-term residence at 士林區中正路456號 (64 years at same address) make her HIGHLY RE-IDENTIFIABLE. Proper de-identification MUST redact/modify age to ">89" and consider address generalization."""),
-        
+
         ("MRN-2024-014", "山田一郎 (Yamada Ichiro)", "1932-11-30", 92, "男性", "03-2222-3333", "yamada.family@jp.com", "台北市大同區迪化街一段234號", "保険-JP-234567890",
          "患者 山田一郎様 (Yamada Ichiro), 生年月日 1932年11月30日、現在92歳の男性。2024年2月1日に台大醫院神経内科に入院。連絡先: 03-2222-3333、メール: yamada.family@jp.com。住所: 台北市大同區迪化街一段234號。保険: 保険-JP-234567890。⚠️ HIGH-RISK: Age 92. Mr. Yamada (born Nov 30, 1932) has lived in 迪化街 Dihua Street since 1950s. Contact family at 03-2222-3333."),
-        
+
         # Rare disease cases with sensitive information
         ("MRN-2024-015", "劉小華", "1998-05-18", 26, "女", "04-6666-7777", "liu.xh@rare.org.tw", "台中市北區三民路三段99號", "NHI-G789012345",
          "Patient 劉小華, female, DOB 1998-05-18 (26歲), diagnosed with Fabry Disease (法布瑞氏症) - RARE DISEASE at 台中榮總罕見疾病中心 on Jan 10, 2024. ⚠️ RARE DISEASE - highly identifiable! Contact: 04-6666-7777, liu.xh@rare.org.tw. Address: 台中市北區三民路三段99號. Insurance: NHI-G789012345. Ms. Liu (born May 18, 1998) mentioned her rare diagnosis and regular enzyme replacement therapy. Lives in 三民路 Sanmin Road."),
-        
+
         ("MRN-2024-016", "เด็กหญิง ดาวใจ / Daowjai", "2010-07-12", 14, "หญิง/Female", "+66-2-777-8888", "daowjai.parent@email.th", "台北市內湖區成功路四段188號", "NHI-H012345678",
          "Pediatric patient เด็กหญิง ดาวใจ (Daowjai), born July 12, 2010 (14歲 female), diagnosed with Pompe Disease (龐貝氏症) - RARE PEDIATRIC DISEASE at 馬偕醫院小兒罕病科 on Feb 15, 2024. ⚠️ RARE DISEASE + MINOR! Parent contact: +66-2-777-8888, daowjai.parent@email.th. Address: 台北市內湖區成功路四段188號. Insurance: NHI-H012345678. Young patient Daowjai (DOB: 07/12/2010, age 14) receives weekly ERT. Thai family living in 內湖區 Neihu District."),
     ]
-    
+
     # Add more random patients to reach 50
     additional_names = [
         ("陳雅芳", "台灣"),
@@ -1044,7 +1044,7 @@ Patient 張老太太 (age 96, DOB 1928-03-22, previously living at 士林區中�
         ("최지우 (Choi Ji-woo)", "韓國"),
         ("สุภาพ แสงทอง", "泰國"),
     ]
-    
+
     for i in range(17, 51):
         name_data = random.choice(additional_names)
         age = random.randint(20, 95)
@@ -1059,10 +1059,10 @@ Patient 張老太太 (age 96, DOB 1928-03-22, previously living at 士林區中�
         district = random.choice(['大安', '信義', '中山', '內湖', '松山'])
         address = f"台北市{district}區測試路{random.randint(1,999)}號"
         insurance = f"NHI-{chr(65+random.randint(0,25))}{random.randint(100000000,999999999)}"
-        
+
         # Generate narrative with embedded PHI
         narrative = f"Patient {name_data[0]} (born {dob}, age {age}, {gender}) visited hospital on 2024-0{random.randint(1,3)}-{random.randint(10,28)}. Contact: {phone} or {email}. Lives in {address} ({district}區). Insurance: {insurance}. Patient mentioned being {age} years old and living in {district} District during intake. Can be reached at phone {phone}."
-        
+
         patients.append((
             mrn,
             name_data[0],
@@ -1075,95 +1075,95 @@ Patient 張老太太 (age 96, DOB 1928-03-22, previously living at 士林區中�
             insurance,
             narrative
         ))
-    
+
     # Write patient data
     for row_idx, patient in enumerate(patients, 2):
         for col_idx, value in enumerate(patient, 1):
             cell = ws1.cell(row_idx, col_idx, value)
             cell.alignment = Alignment(vertical='center', wrap_text=True)
-    
+
     # Auto-size columns (10 columns now including narrative)
     for col in range(1, 10):
         ws1.column_dimensions[chr(64+col)].width = 20
     # Make narrative column wider
     ws1.column_dimensions['J'].width = 80
-    
+
     ws1.row_dimensions[1].height = 45
-    
+
     # Sheet 2: Clinical Visits (臨床就診記錄)
     ws2 = wb.create_sheet("Clinical Visits")
-    
+
     visit_headers = [
-        "Visit ID", "Patient ID", "Visit Date\n就診日期", 
+        "Visit ID", "Patient ID", "Visit Date\n就診日期",
         "Hospital\n醫院", "Ward\n病房", "Bed\n床號",
         "Doctor\n主治醫師", "Diagnosis\n診斷", "Treatment\n治療",
         "Clinical Notes\n臨床記錄"  # NEW: Narrative notes with embedded PHI
     ]
-    
+
     for col, header in enumerate(visit_headers, 1):
         cell = ws2.cell(1, col, header)
         cell.fill = header_fill
         cell.font = header_font
         cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    
+
     visits = [
-        ("V-001", "MRN-2024-001", "2024-01-15", "台大醫院 / NTUH", "心臟內科病房 5A", "Bed-512", 
+        ("V-001", "MRN-2024-001", "2024-01-15", "台大醫院 / NTUH", "心臟內科病房 5A", "Bed-512",
          "Dr. 李文華", "Hypertension (高血壓)", "Amlodipine 5mg",
          "Patient 陳建國 (MRN-2024-001, age 69, DOB 1955-03-15) admitted to Ward 5A, Bed 512 on Jan 15, 2024. Dr. 李文華 noted BP 165/95. Contact: 02-2234-5678. Patient lives at 台北市大安區信義路四段123號5樓. Started on Amlodipine 5mg. Follow-up scheduled. Call 02-2234-5678 to confirm appointment."),
-        
+
         ("V-002", "MRN-2024-006", "2024-01-20", "台北榮總 / TVGH", "神經內科 7B", "Bed-703",
          "Dr. 鈴木一郎 / Dr. Suzuki", "Parkinson's Disease (帕金森氏症)", "Levodopa",
          "田中太郎様 (Tanaka Taro, MRN-2024-006, born 1970-02-18, 54歳) admitted to Neurology Ward 7B, Bed 703 on 2024/01/20. Dr. 鈴木一郎診察。Contact: 03-9876-5432, tanaka.t@hospital.jp. Address: 東京都新宿区西新宿2-8-1. Started Levodopa treatment for Parkinson's."),
-        
+
         ("V-003", "MRN-2024-013", "2024-02-01", "三軍總醫院 / TSGH", "老年醫學科 3C", "Bed-305",
          "Dr. 王建民", "Age-related frailty (老年衰弱症) - Age 96", "Rehabilitation",
          "⚠️ HIGH-RISK AGE 96: 張老太太 (Mrs. Chang, MRN-2024-013, born 1928-03-22, currently 96 years old) admitted to Geriatrics Ward 3C, Bed 305. Family contact: 02-1111-2222. Patient lives at 台北市士林區中正路456號. Dr. 王建民 notes severe frailty in 96-year-old patient. Rehab plan initiated. Contact daughter at 02-1111-2222."),
-        
+
         ("V-004", "MRN-2024-015", "2024-02-10", "台中榮總 / TCVGH", "罕見疾病中心 2F", "Bed-201",
          "Dr. 陳美玲", "Fabry Disease (法布瑞氏症) - Rare", "Enzyme replacement therapy",
          "⚠️ RARE DISEASE: 劉小華 (Ms. Liu, MRN-2024-015, born 1998-05-18, age 26) admitted to Rare Disease Center, 2F, Bed 201 on Feb 10. Diagnosed with Fabry Disease (法布瑞氏症) - extremely rare condition. Contact: 04-6666-7777, liu.xh@rare.org.tw. Lives at 台中市北區三民路三段99號. Dr. 陳美玲 started ERT. Patient Liu (26歲) with rare Fabry Disease."),
-        
+
         ("V-005", "MRN-2024-008", "2024-02-15", "서울대병원 / Seoul National Hospital", "내과 4층", "침대-401",
          "Dr. 김철수", "Type 2 Diabetes (제2형 당뇨병)", "Metformin 500mg",
          "환자 김민준 (Kim Min-jun, MRN-2024-008, 생년월일 1995-04-07, 29세) 내과 4층 침대 401호에 2024년 2월 15일 입원. 연락처: 010-1234-5678, kim.mj@hospital.kr. 주소: 서울특별시 강남구 테헤란로 152. Dr. 김철수 진료. Metformin 500mg 처방. Patient Kim (born Apr 7, 1995) lives in 강남구 Gangnam."),
-        
+
         ("V-006", "MRN-2024-010", "2024-03-01", "โรงพยาบาลจุฬาลงกรณ์ / Chulalongkorn Hospital", "หอผู้ป่วย 6A", "เตียง-615",
          "Dr. วิชัย สุขใจ", "Dengue Fever (ไข้เลือดออก)", "Supportive care",
          "คนไข้ สมชาย วงศ์ไทย (Somchai Wongthai, MRN-2024-010, เกิด 1968-06-20, อายุ 56 ปี) เข้าพักหอผู้ป่วย 6A เตียง 615 วันที่ 1 มีนาคม 2024. โทร: +66-2-123-4567, somchai.w@hospital.th. ที่อยู่: 123 ถนนสุขุมวิท กรุงเทพฯ. Dr. วิชัย สุขใจ วินิจฉัย Dengue Fever. Mr. Somchai (born June 20, 1968) from Sukhumvit Road."),
-        
+
         ("V-007", "MRN-2024-014", "2024-03-10", "台北慈濟醫院 / Tzu Chi Hospital", "老人科 8B", "Bed-802",
          "Dr. 林志明", "Dementia (失智症) - Age 92", "Donepezil + Care plan",
          "⚠️ HIGH-RISK AGE 92: 山田一郎様 (Yamada Ichiro, MRN-2024-014, 生年月日 1932-11-30, 92歳) 老人科 8B病棟 Bed 802に入院。連絡: 03-2222-3333, yamada.family@jp.com. 住所: 台北市大同區迪化街一段234號. Dr. 林志明 diagnosed dementia in 92-year-old patient. Donepezil started. Contact family at 03-2222-3333."),
-        
+
         ("V-008", "MRN-2024-016", "2024-03-20", "馬偕醫院 / Mackay Hospital", "小兒罕病科 2A", "Bed-210",
          "Dr. 張小芬", "Pompe Disease (龐貝氏症) - Rare pediatric", "ERT weekly",
          "⚠️ RARE DISEASE + MINOR: เด็กหญิง ดาวใจ (Daowjai, MRN-2024-016, born 2010-07-12, age 14) admitted to Pediatric Rare Disease Ward 2A, Bed 210. Pompe Disease (龐貝氏症) - rare pediatric condition. Parent contact: +66-2-777-8888, daowjai.parent@email.th. Address: 台北市內湖區成功路四段188號. Dr. 張小芬 managing weekly ERT for 14-year-old Daowjai with rare Pompe Disease."),
     ]
-    
+
     for row_idx, visit in enumerate(visits, 2):
         for col_idx, value in enumerate(visit, 1):
             cell = ws2.cell(row_idx, col_idx, value)
             cell.alignment = Alignment(vertical='center', wrap_text=True)
-    
+
     for col in range(1, 10):
         ws2.column_dimensions[chr(64+col)].width = 25
     # Make clinical notes column wider
     ws2.column_dimensions['J'].width = 80
-    
+
     # Sheet 3: Lab Results (檢驗報告)
     ws3 = wb.create_sheet("Lab Results")
-    
+
     lab_headers = [
         "Lab ID", "Patient ID", "Test Date", "Test Name\n檢查項目",
         "Result\n結果", "Unit", "Reference Range\n參考值", "Status"
     ]
-    
+
     for col, header in enumerate(lab_headers, 1):
         cell = ws3.cell(1, col, header)
         cell.fill = header_fill
         cell.font = header_font
         cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    
+
     labs = [
         ("LAB-001", "MRN-2024-001", "2024-01-15", "Blood Pressure (血壓)", "165/95", "mmHg", "120/80", "High"),
         ("LAB-002", "MRN-2024-006", "2024-01-20", "Alpha-synuclein (α-突觸核蛋白)", "Elevated", "ng/mL", "Normal", "Abnormal"),
@@ -1172,22 +1172,22 @@ Patient 張老太太 (age 96, DOB 1928-03-22, previously living at 士林區中�
         ("LAB-005", "MRN-2024-008", "2024-02-15", "HbA1c (당화혈색소)", "8.2", "%", "<5.7", "High"),
         ("LAB-006", "MRN-2024-016", "2024-03-20", "GAA enzyme (acid α-glucosidase)", "<1", "nmol/hr/mg", "3-15", "Critical"),
     ]
-    
+
     for row_idx, lab in enumerate(labs, 2):
         for col_idx, value in enumerate(lab, 1):
             cell = ws3.cell(row_idx, col_idx, value)
             cell.alignment = Alignment(vertical='center', wrap_text=True)
-    
+
     for col in range(1, 9):
         ws3.column_dimensions[chr(64+col)].width = 22
-    
+
     # Save file
     filename = "data/test/test_medical_records_multilang.xlsx"
     wb.save(filename)
     print(f"✅ Generated: {filename}")
-    print(f"   - 50 patients with PHI in 5 languages")
-    print(f"   - Multiple sheets with clinical data")
-    print(f"   - High-risk cases: Age >90, Rare diseases")
+    print("   - 50 patients with PHI in 5 languages")
+    print("   - Multiple sheets with clinical data")
+    print("   - High-risk cases: Age >90, Rare diseases")
     return filename
 
 

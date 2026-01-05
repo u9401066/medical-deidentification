@@ -279,7 +279,7 @@ def create_i2b2_format_excel(output_path: str):
     for example in I2B2_SYNTHETIC_EXAMPLES:
         gt_texts = [gt[0] for gt in example["ground_truth"]]
         gt_types = [gt[1] for gt in example["ground_truth"]]
-        
+
         rows.append({
             "Case ID": example["id"],
             "Clinical Text": example["text"],
@@ -287,7 +287,7 @@ def create_i2b2_format_excel(output_path: str):
             "PHI Types": "\n".join(gt_types),
             "PHI Count": len(example["ground_truth"]),
         })
-    
+
     df = pd.DataFrame(rows)
     df.to_excel(output_path, index=False)
     print(f"✓ Created {output_path}")
@@ -302,25 +302,25 @@ def create_tagged_format_excel(output_path: str):
     rows = []
     for example in I2B2_SYNTHETIC_EXAMPLES:
         text = example["text"]
-        
+
         # Add tags to text
         tagged_text = text
         # Sort by position (longest first to avoid nested replacements)
         sorted_gt = sorted(example["ground_truth"], key=lambda x: len(x[0]), reverse=True)
-        
+
         for i, (phi_text, phi_type) in enumerate(sorted_gt):
             if phi_text in tagged_text:
                 tag_id = f"{phi_type[0]}{i:03d}"
                 tagged = f"【PHI:{phi_type}:{tag_id}】{phi_text}【/PHI】"
                 # Only replace first occurrence
                 tagged_text = tagged_text.replace(phi_text, tagged, 1)
-        
+
         rows.append({
             "Case ID": example["id"],
             "Tagged Clinical Text": tagged_text,
             "PHI Count": len(example["ground_truth"]),
         })
-    
+
     df = pd.DataFrame(rows)
     df.to_excel(output_path, index=False)
     print(f"✓ Created {output_path}")
@@ -329,17 +329,17 @@ def create_tagged_format_excel(output_path: str):
 def main():
     output_dir = project_root / "data" / "test"
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     print("=" * 60)
     print("Preparing Public PHI Test Datasets")
     print("=" * 60)
-    
+
     print("\n📦 Creating i2b2-format synthetic dataset...")
     create_i2b2_format_excel(str(output_dir / "i2b2_synthetic_test.xlsx"))
-    
+
     print("\n📦 Creating tagged format dataset...")
     create_tagged_format_excel(str(output_dir / "i2b2_synthetic_tagged.xlsx"))
-    
+
     print("\n" + "=" * 60)
     print("📋 Dataset Information:")
     print("=" * 60)
@@ -362,7 +362,7 @@ Other public resources:
 - MTSamples (synthetic clinical texts): https://mtsamples.com/
 - Medical-NER datasets on Hugging Face
     """)
-    
+
     print("\n✅ Done!")
 
 

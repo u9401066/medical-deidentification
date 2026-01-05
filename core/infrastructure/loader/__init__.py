@@ -24,30 +24,28 @@ Features:
 """
 
 from .base import (
+    DocumentFormat,  # Add DocumentFormat export
     DocumentLoader,
-    LoadedDocument,
     DocumentMetadata,
+    LoadedDocument,
     LoaderConfig,
-    DocumentFormat  # Add DocumentFormat export
 )
-
-from .loaders import (
-    TextLoader,
-    CSVLoader,
-    ExcelLoader,
-    WordLoader,
-    JSONLoader,
-    PDFLoader,
-    HTMLLoader,
-    XMLLoader,
-    FHIRLoader
-)
-
 from .factory import (
     DocumentLoaderFactory,
     create_loader,
     load_document,
-    load_documents_from_directory
+    load_documents_from_directory,
+)
+from .loaders import (
+    CSVLoader,
+    ExcelLoader,
+    FHIRLoader,
+    HTMLLoader,
+    JSONLoader,
+    PDFLoader,
+    TextLoader,
+    WordLoader,
+    XMLLoader,
 )
 
 __all__ = [
@@ -57,7 +55,7 @@ __all__ = [
     "DocumentMetadata",
     "LoaderConfig",
     "DocumentFormat",  # Add to exports
-    
+
     # Format-specific loaders
     "TextLoader",
     "CSVLoader",
@@ -68,7 +66,7 @@ __all__ = [
     "HTMLLoader",
     "XMLLoader",
     "FHIRLoader",
-    
+
     # Factory and utilities
     "DocumentLoaderFactory",
     "create_loader",

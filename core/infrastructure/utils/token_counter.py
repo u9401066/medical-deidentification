@@ -5,7 +5,7 @@ Utility for counting tokens in text for performance analysis.
 用於計算文本中的 token 數量以進行性能分析。
 """
 
-from typing import Optional
+
 from loguru import logger
 
 
@@ -21,7 +21,7 @@ class TokenCounter:
     更準確的計數需要安裝 tiktoken：
         pip install tiktoken
     """
-    
+
     def __init__(self, model_name: str = "llama3.1:8b"):
         """
         Initialize token counter
@@ -31,7 +31,7 @@ class TokenCounter:
         """
         self.model_name = model_name
         self._encoder = None
-        
+
         # Try to import tiktoken for accurate counting
         try:
             import tiktoken
@@ -47,7 +47,7 @@ class TokenCounter:
         except ImportError:
             logger.debug("tiktoken not installed, using approximate counting")
             self._tiktoken = None
-    
+
     def count_tokens(self, text: str) -> int:
         """
         Count tokens in text
@@ -61,7 +61,7 @@ class TokenCounter:
         """
         if not text:
             return 0
-        
+
         if self._encoder:
             # Use tiktoken for accurate counting
             return len(self._encoder.encode(text))
@@ -72,7 +72,7 @@ class TokenCounter:
             # - Chinese: ~1.5-2 chars per token
             # - Mixed: ~3 chars per token (conservative estimate)
             return self._approximate_count(text)
-    
+
     def _approximate_count(self, text: str) -> int:
         """
         Approximate token count using character-based heuristics
@@ -88,7 +88,7 @@ class TokenCounter:
         chinese_chars = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
         english_chars = sum(1 for c in text if c.isascii() and c.isalpha())
         other_chars = len(text) - chinese_chars - english_chars
-        
+
         # Estimate tokens based on character type
         # Chinese: ~1.5 chars per token
         # English: ~4 chars per token
@@ -98,9 +98,9 @@ class TokenCounter:
             english_chars / 4.0 +
             other_chars / 2.0
         )
-        
+
         return int(estimated_tokens)
-    
+
     def format_token_rate(
         self,
         total_tokens: int,
@@ -119,10 +119,10 @@ class TokenCounter:
         """
         if elapsed_seconds <= 0:
             return "N/A"
-        
+
         tokens_per_sec = total_tokens / elapsed_seconds
         return f"{tokens_per_sec:.1f} tokens/sec"
-    
+
     def get_statistics(
         self,
         input_text: str,
@@ -144,7 +144,7 @@ class TokenCounter:
         input_tokens = self.count_tokens(input_text)
         output_tokens = self.count_tokens(output_text)
         total_tokens = input_tokens + output_tokens
-        
+
         stats = {
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
@@ -154,9 +154,9 @@ class TokenCounter:
             "input_tokens_per_second": input_tokens / elapsed_seconds if elapsed_seconds > 0 else 0,
             "output_tokens_per_second": output_tokens / elapsed_seconds if elapsed_seconds > 0 else 0,
         }
-        
+
         return stats
-    
+
     def print_statistics(
         self,
         input_text: str,
@@ -173,7 +173,7 @@ class TokenCounter:
             elapsed_seconds: Processing time
         """
         stats = self.get_statistics(input_text, output_text, elapsed_seconds)
-        
+
         print(f"\n{'='*60}")
         print("Token Statistics | Token 統計")
         print(f"{'='*60}")
@@ -189,7 +189,7 @@ class TokenCounter:
 
 
 # Global default counter
-_default_counter: Optional[TokenCounter] = None
+_default_counter: TokenCounter | None = None
 
 
 def get_default_counter(model_name: str = "llama3.1:8b") -> TokenCounter:

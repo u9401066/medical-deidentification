@@ -21,26 +21,23 @@ Benefits over pre-scanning approach:
 - Can request specific tools based on context
 """
 
-from typing import List, Dict, Any, Optional, Callable
-from dataclasses import dataclass
+from typing import Any
+
+from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.tools import BaseTool, tool
 from loguru import logger
 
-from langchain_core.tools import tool, BaseTool, StructuredTool
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-
-from ..llm.factory import create_llm
 from ...domain import PHIEntity
-from ...domain.phi_types import PHIType
 from ...domain.phi_identification_models import (
     PHIIdentificationConfig,
-    PHIIdentificationResult,
-    PHIDetectionResponse,
 )
-from ..tools import ToolRunner, ToolResult, RegexPHITool, IDValidatorTool, PhoneTool
+from ...domain.phi_types import PHIType
+from ..llm.factory import create_llm
+from ..tools import IDValidatorTool, PhoneTool, RegexPHITool, ToolResult, ToolRunner
 
 
-def create_phi_tools() -> List[BaseTool]:
+def create_phi_tools() -> list[BaseTool]:
     """
     Create LangChain tools from PHI detection tools
     將 PHI 檢測工具轉換為 LangChain 工具格式
@@ -48,7 +45,7 @@ def create_phi_tools() -> List[BaseTool]:
     Returns:
         List of LangChain BaseTool instances
     """
-    
+
     @tool
     def scan_for_patterns(text: str) -> str:
         """
@@ -68,17 +65,17 @@ def create_phi_tools() -> List[BaseTool]:
         """
         regex_tool = RegexPHITool()
         results = regex_tool.scan(text)
-        
+
         if not results:
             return "No patterns found."
-        
+
         # Format results for LLM
         findings = []
         for r in results:
             findings.append(f"- {r.phi_type.value}: '{r.text}' (confidence: {r.confidence:.0%})")
-        
+
         return "Found patterns:\n" + "\n".join(findings)
-    
+
     @tool
     def validate_taiwan_id(id_number: str) -> str:
         """
@@ -94,9 +91,9 @@ def create_phi_tools() -> List[BaseTool]:
         """
         validator = IDValidatorTool()
         is_valid, id_type = validator.validate_id(id_number)
-        
+
         return f"ID: {id_number}\nType: {id_type}\nValid checksum: {is_valid}"
-    
+
     @tool
     def scan_phone_numbers(text: str) -> str:
         """
@@ -115,17 +112,17 @@ def create_phi_tools() -> List[BaseTool]:
         """
         phone_tool = PhoneTool()
         results = phone_tool.scan(text)
-        
+
         if not results:
             return "No phone numbers found."
-        
+
         findings = []
         for r in results:
             phone_type = r.metadata.get("phone_type", "UNKNOWN")
             findings.append(f"- {r.text} ({phone_type}, confidence: {r.confidence:.0%})")
-        
+
         return "Found phone numbers:\n" + "\n".join(findings)
-    
+
     @tool
     def scan_all_phi(text: str) -> str:
         """
@@ -141,27 +138,27 @@ def create_phi_tools() -> List[BaseTool]:
         """
         runner = ToolRunner.create_default()
         results = runner.run_all(text)
-        
+
         if not results:
             return "No PHI patterns detected by tools."
-        
+
         # Group by PHI type
-        grouped: Dict[str, List[ToolResult]] = {}
+        grouped: dict[str, list[ToolResult]] = {}
         for r in results:
             phi_type = r.phi_type.value if hasattr(r.phi_type, 'value') else str(r.phi_type)
             if phi_type not in grouped:
                 grouped[phi_type] = []
             grouped[phi_type].append(r)
-        
+
         # Format output
         lines = ["PHI Detection Results:"]
         for phi_type, type_results in grouped.items():
             lines.append(f"\n{phi_type}:")
             for r in type_results:
                 lines.append(f"  - '{r.text}' at position {r.start_pos}-{r.end_pos} (confidence: {r.confidence:.0%})")
-        
+
         return "\n".join(lines)
-    
+
     return [scan_for_patterns, validate_taiwan_id, scan_phone_numbers, scan_all_phi]
 
 
@@ -184,7 +181,7 @@ class PHIIdentificationAgent:
         ...     "患者張三，身份證 A123456789，電話 0912-345-678"
         ... )
     """
-    
+
     SYSTEM_PROMPT = """You are a PHI (Protected Health Information) identification expert.
 Your task is to identify all PHI entities in medical text that need to be de-identified.
 
@@ -219,10 +216,10 @@ Always output your final answer in this JSON format:
     ]
 }
 """
-    
+
     def __init__(
         self,
-        config: Optional[PHIIdentificationConfig] = None,
+        config: PHIIdentificationConfig | None = None,
         max_iterations: int = 5,
     ):
         """
@@ -234,13 +231,13 @@ Always output your final answer in this JSON format:
         """
         self.config = config or PHIIdentificationConfig()
         self.max_iterations = max_iterations
-        
+
         # Initialize LLM
         self.llm = create_llm(self.config.llm_config)
-        
+
         # Create tools
         self.tools = create_phi_tools()
-        
+
         # Bind tools to LLM (if supported)
         try:
             self.llm_with_tools = self.llm.bind_tools(self.tools)
@@ -250,18 +247,18 @@ Always output your final answer in this JSON format:
             self._supports_tool_calling = False
             self.llm_with_tools = self.llm
             logger.warning("LLM does not support tool-calling, falling back to prompt-based approach")
-        
+
         # Build prompt
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", self.SYSTEM_PROMPT),
             MessagesPlaceholder(variable_name="messages"),
         ])
-    
+
     def identify_phi(
         self,
         text: str,
-        language: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        language: str | None = None,
+    ) -> dict[str, Any]:
         """
         Identify PHI in medical text using agent with tools
         使用代理和工具識別醫療文本中的 PHI
@@ -274,38 +271,38 @@ Always output your final answer in this JSON format:
             Dictionary with entities and metadata
         """
         logger.info(f"Agent identifying PHI in text ({len(text)} chars)")
-        
+
         # Build initial message
         user_message = f"Please identify all PHI in the following medical text:\n\n{text}"
         if language:
             user_message = f"[Language: {language}]\n\n{user_message}"
-        
-        messages: List[Any] = [HumanMessage(content=user_message)]
+
+        messages: list[Any] = [HumanMessage(content=user_message)]
         response = None  # Initialize response for type checker
-        
+
         # Agent loop
         for iteration in range(self.max_iterations):
             logger.debug(f"Agent iteration {iteration + 1}/{self.max_iterations}")
-            
+
             # Get LLM response
             response = self.llm_with_tools.invoke(
                 self.prompt.invoke({"messages": messages})
             )
-            
+
             messages.append(response)
-            
+
             # Check if LLM wants to call tools
             if hasattr(response, 'tool_calls') and response.tool_calls:
                 # Execute tool calls
                 for tool_call in response.tool_calls:
                     tool_name = tool_call["name"]
                     tool_args = tool_call["args"]
-                    
+
                     logger.debug(f"Agent calling tool: {tool_name}")
-                    
+
                     # Find and execute tool
                     tool_result = self._execute_tool(tool_name, tool_args)
-                    
+
                     # Add tool result to messages
                     messages.append(ToolMessage(
                         content=tool_result,
@@ -315,15 +312,15 @@ Always output your final answer in this JSON format:
                 # No more tool calls - LLM is done
                 logger.debug("Agent finished (no more tool calls)")
                 break
-        
+
         # Parse final response
         if response is None:
             logger.error("No response from agent")
             return self._parse_response("", text, language)
-        
+
         return self._parse_response(response.content, text, language)
-    
-    def _execute_tool(self, tool_name: str, tool_args: Dict[str, Any]) -> str:
+
+    def _execute_tool(self, tool_name: str, tool_args: dict[str, Any]) -> str:
         """Execute a tool by name"""
         for tool in self.tools:
             if tool.name == tool_name:
@@ -331,29 +328,29 @@ Always output your final answer in this JSON format:
                     return tool.invoke(tool_args)
                 except Exception as e:
                     logger.error(f"Tool {tool_name} failed: {e}")
-                    return f"Tool error: {str(e)}"
-        
+                    return f"Tool error: {e!s}"
+
         return f"Unknown tool: {tool_name}"
-    
+
     def _parse_response(
-        self, 
-        response_text: str, 
+        self,
+        response_text: str,
         original_text: str,
-        language: Optional[str]
-    ) -> Dict[str, Any]:
+        language: str | None
+    ) -> dict[str, Any]:
         """Parse LLM response to extract PHI entities"""
         import json
         import re
-        
+
         entities = []
-        
+
         try:
             # Try to extract JSON from response
             json_match = re.search(r'\{[\s\S]*"entities"[\s\S]*\}', response_text)
             if json_match:
                 data = json.loads(json_match.group(0))
                 raw_entities = data.get("entities", [])
-                
+
                 for e in raw_entities:
                     # Convert to PHIEntity
                     phi_type_str = e.get("type", "OTHER")
@@ -361,7 +358,7 @@ Always output your final answer in this JSON format:
                         phi_type = PHIType(phi_type_str)
                     except ValueError:
                         phi_type = PHIType.OTHER
-                    
+
                     entity_text = e.get("text", "")
                     start_pos = original_text.find(entity_text)
                     entity = PHIEntity(
@@ -372,10 +369,10 @@ Always output your final answer in this JSON format:
                         confidence=e.get("confidence", 0.8),
                     )
                     entities.append(entity)
-                    
+
         except (json.JSONDecodeError, KeyError) as e:
             logger.warning(f"Failed to parse agent response: {e}")
-        
+
         return {
             "text": original_text,
             "language": language or "unknown",

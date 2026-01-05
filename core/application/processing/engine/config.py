@@ -6,8 +6,9 @@ Defines configuration classes for the de-identification engine.
 定義去識別化引擎的配置類別。
 """
 
-from typing import Dict, Any, Optional
 from enum import Enum
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from ....domain import PHIType, StrategyType
@@ -57,13 +58,13 @@ class EngineConfig(BaseModel):
         ...     }
         ... )
     """
-    
+
     # Loader configuration
-    loader_config: Optional[LoaderConfig] = Field(
+    loader_config: LoaderConfig | None = Field(
         default=None,
         description="Document loader configuration"
     )
-    
+
     # RAG configuration
     use_rag: bool = Field(
         default=True,
@@ -81,21 +82,21 @@ class EngineConfig(BaseModel):
         default="multilingual",
         description="Embeddings model preset"
     )
-    
+
     # Masking strategy
     default_strategy: StrategyType = Field(
         default=StrategyType.REDACTION,
         description="Default masking strategy"
     )
-    strategy_config: Dict[str, Any] = Field(
+    strategy_config: dict[str, Any] = Field(
         default_factory=dict,
         description="Strategy configuration"
     )
-    phi_specific_strategies: Dict[PHIType, StrategyType] = Field(
+    phi_specific_strategies: dict[PHIType, StrategyType] = Field(
         default_factory=dict,
         description="PHI-type specific strategies"
     )
-    
+
     # Processing options
     batch_size: int = Field(
         default=10,
@@ -105,7 +106,7 @@ class EngineConfig(BaseModel):
         default=False,
         description="Enable parallel processing (future)"
     )
-    
+
     # Validation
     validate_output: bool = Field(
         default=True,
@@ -118,6 +119,6 @@ class EngineConfig(BaseModel):
 
 
 __all__ = [
-    "ProcessingStatus",
     "EngineConfig",
+    "ProcessingStatus",
 ]

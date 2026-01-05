@@ -2,9 +2,9 @@
 Integration Tests for LLM Module | LLM 模組整合測試
 """
 
-import pytest
 import time
-from typing import Optional
+
+import pytest
 
 
 class TestLLMConfig:
@@ -13,16 +13,16 @@ class TestLLMConfig:
     def test_all_presets_exist(self):
         """測試所有預設配置存在"""
         from core.infrastructure.llm import LLMPresets
-        
+
         # Cloud presets
         assert hasattr(LLMPresets, 'gpt_4o')
         assert hasattr(LLMPresets, 'claude_opus')
         assert hasattr(LLMPresets, 'claude_sonnet')
-        
+
         # Local presets
         assert hasattr(LLMPresets, 'local_qwen')
         assert hasattr(LLMPresets, 'local_llama')
-        
+
         # MiniMind presets
         assert hasattr(LLMPresets, 'local_minimind')
         assert hasattr(LLMPresets, 'local_minimind_small')
@@ -31,12 +31,12 @@ class TestLLMConfig:
     def test_model_lists_exist(self):
         """測試模型列表存在"""
         from core.infrastructure.llm import (
-            OPENAI_MODELS,
             ANTHROPIC_MODELS,
-            OLLAMA_MODELS,
             MINIMIND_MODELS,
+            OLLAMA_MODELS,
+            OPENAI_MODELS,
         )
-        
+
         assert len(OPENAI_MODELS) >= 3
         assert len(ANTHROPIC_MODELS) >= 3
         assert len(OLLAMA_MODELS) >= 3
@@ -45,7 +45,7 @@ class TestLLMConfig:
     def test_llm_config_validation(self):
         """測試 LLM 配置驗證"""
         from core.infrastructure.llm import LLMConfig
-        
+
         # Valid config
         config = LLMConfig(
             provider="ollama",
@@ -54,7 +54,7 @@ class TestLLMConfig:
             max_tokens=2048
         )
         assert config.provider == "ollama"
-        
+
         # Invalid provider should raise
         with pytest.raises(ValueError):
             LLMConfig(provider="invalid_provider", model_name="test")
@@ -62,12 +62,12 @@ class TestLLMConfig:
     def test_minimind_config_values(self):
         """測試 MiniMind 配置值"""
         from core.infrastructure.llm import LLMPresets
-        
+
         config = LLMPresets.local_minimind()
         assert config.provider == "ollama"
         assert config.model_name == "jingyaogong/minimind2"
         assert config.temperature == 0.0
-        
+
         config_small = LLMPresets.local_minimind_small()
         assert "small" in config_small.model_name
 
@@ -83,8 +83,8 @@ class TestLLMFactory:
     @pytest.mark.slow
     def test_create_ollama_llm(self):
         """測試建立 Ollama LLM"""
-        from core.infrastructure.llm import create_llm, LLMPresets
-        
+        from core.infrastructure.llm import LLMPresets, create_llm
+
         try:
             llm = create_llm(LLMPresets.local_minimind())
             assert llm is not None
@@ -98,7 +98,7 @@ class TestOllamaConnection:
     def test_ollama_server_running(self):
         """測試 Ollama 伺服器運行中"""
         import requests
-        
+
         try:
             response = requests.get("http://localhost:11434/api/tags", timeout=5)
             assert response.status_code == 200
@@ -108,7 +108,7 @@ class TestOllamaConnection:
     def test_minimind_model_available(self):
         """測試 MiniMind 模型可用"""
         import requests
-        
+
         try:
             response = requests.get("http://localhost:11434/api/tags", timeout=5)
             if response.status_code == 200:
@@ -129,7 +129,7 @@ class TestMiniMindFunctional:
     @pytest.fixture(scope="class")
     def minimind_llm(self):
         """建立 MiniMind LLM"""
-        from core.infrastructure.llm import create_llm, LLMPresets
+        from core.infrastructure.llm import LLMPresets, create_llm
         try:
             return create_llm(LLMPresets.local_minimind())
         except Exception as e:
@@ -154,6 +154,6 @@ class TestMiniMindFunctional:
         start = time.time()
         minimind_llm.invoke("Test")
         elapsed = time.time() - start
-        
+
         # MiniMind 應該在 30 秒內響應
         assert elapsed < 30, f"Response too slow: {elapsed:.2f}s"

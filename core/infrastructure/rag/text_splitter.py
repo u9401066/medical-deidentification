@@ -6,7 +6,7 @@ Lightweight text splitting for medical documents.
 輕量級醫療文檔分割。
 """
 
-from typing import List
+
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from loguru import logger
 
@@ -39,7 +39,7 @@ class MedicalTextSplitter:
         >>> splitter = MedicalTextSplitter(chunk_size=1000, chunk_overlap=100)
         >>> chunks = splitter.split_text(text)
     """
-    
+
     def __init__(
         self,
         chunk_size: int = 500,
@@ -54,19 +54,19 @@ class MedicalTextSplitter:
         """
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
-        
+
         self._text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             length_function=len,
             separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
         )
-        
+
         logger.debug(
             f"[TextSplitter] Initialized "
             f"(chunk_size={chunk_size}, chunk_overlap={chunk_overlap})"
         )
-    
+
     @classmethod
     def from_config(cls, config: MedicalRetrieverConfig) -> "MedicalTextSplitter":
         """
@@ -82,8 +82,8 @@ class MedicalTextSplitter:
             chunk_size=config.chunk_size,
             chunk_overlap=config.chunk_overlap
         )
-    
-    def split_text(self, text: str) -> List[str]:
+
+    def split_text(self, text: str) -> list[str]:
         """
         Split medical text into chunks
         
@@ -104,7 +104,7 @@ class MedicalTextSplitter:
             f"[TextSplitter] Split {len(text)} chars → {len(chunks)} chunks"
         )
         return chunks
-    
+
     def get_chunk_count(self, text: str) -> int:
         """
         Get estimated number of chunks without splitting
@@ -117,7 +117,7 @@ class MedicalTextSplitter:
         """
         estimated = max(1, len(text) // (self.chunk_size - self.chunk_overlap))
         return estimated
-    
+
     def __repr__(self) -> str:
         return (
             f"MedicalTextSplitter("

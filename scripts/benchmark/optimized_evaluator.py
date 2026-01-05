@@ -10,14 +10,11 @@ Optimized PHI Evaluator | 優化版 PHI 評估器
 預期效能: ~1000 tokens / 60s (CPU)
 """
 
-import re
 import json
+import re
 import time
-import asyncio
-from pathlib import Path
-from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
-from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
@@ -42,7 +39,7 @@ class FastPHI(BaseModel):
 
 class FastPHIList(BaseModel):
     """PHI 列表"""
-    p: List[FastPHI] = Field(default_factory=list)
+    p: list[FastPHI] = Field(default_factory=list)
 
 
 # 簡化的 type mapping
@@ -72,11 +69,11 @@ class OptimizedPHIDetector:
     
     使用簡化 prompt 和批次處理加速
     """
-    
+
     # 極簡 prompt (節省 input tokens)
     PROMPT = "PHI(t=text,y=type NAME/DATE/PHONE/EMAIL/ID/LOCATION):"
-    
-    def __init__(self, config: Optional[OptimizedConfig] = None):
+
+    def __init__(self, config: OptimizedConfig | None = None):
         self.config = config or OptimizedConfig()
         self.llm = ChatOllama(
             model=self.config.model,
@@ -85,15 +82,15 @@ class OptimizedPHIDetector:
             num_predict=self.config.num_predict,
         )
         self.structured_llm = self.llm.with_structured_output(
-            FastPHIList, 
+            FastPHIList,
             method='json_schema'
         )
-        
+
         # 統計
         self.total_calls = 0
         self.total_time = 0.0
-    
-    def detect(self, text: str) -> List[Tuple[str, str]]:
+
+    def detect(self, text: str) -> list[tuple[str, str]]:
         """
         單一文本 PHI 偵測
         
@@ -105,15 +102,15 @@ class OptimizedPHIDetector:
             result = self.structured_llm.invoke(f"{self.PROMPT} {text[:500]}")
             self.total_calls += 1
             self.total_time += time.time() - start
-            
+
             if result and result.p:
                 return [(p.t, normalize_type(p.y)) for p in result.p]
-        except Exception as e:
+        except Exception:
             pass
-        
+
         return []
-    
-    def detect_batch(self, texts: List[str]) -> List[List[Tuple[str, str]]]:
+
+    def detect_batch(self, texts: list[str]) -> list[list[tuple[str, str]]]:
         """
         批次 PHI 偵測
         
@@ -121,13 +118,13 @@ class OptimizedPHIDetector:
         """
         if not texts:
             return []
-        
+
         # 合併文本
         combined = "\n".join([
-            f"[{i}]{t[:200]}" 
+            f"[{i}]{t[:200]}"
             for i, t in enumerate(texts)
         ])
-        
+
         start = time.time()
         try:
             # 使用非結構化輸出加速
@@ -136,27 +133,27 @@ class OptimizedPHIDetector:
             )
             self.total_calls += 1
             self.total_time += time.time() - start
-            
+
             # 解析結果
             return self._parse_batch_result(result.content, len(texts))
-            
-        except Exception as e:
+
+        except Exception:
             return [[] for _ in texts]
-    
+
     def _parse_batch_result(
-        self, 
-        content: str, 
+        self,
+        content: str,
         expected_count: int
-    ) -> List[List[Tuple[str, str]]]:
+    ) -> list[list[tuple[str, str]]]:
         """解析批次結果"""
         results = [[] for _ in range(expected_count)]
-        
+
         # 嘗試解析 JSON 格式
         try:
             # 找所有 JSON objects
             pattern = r'\{[^}]+\}'
             matches = re.findall(pattern, content)
-            
+
             current_idx = 0
             for match in matches:
                 try:
@@ -167,13 +164,13 @@ class OptimizedPHIDetector:
                         )
                 except:
                     pass
-                    
+
         except Exception:
             pass
-        
+
         return results
-    
-    def get_stats(self) -> Dict:
+
+    def get_stats(self) -> dict:
         """取得統計資訊"""
         return {
             "total_calls": self.total_calls,
@@ -186,7 +183,7 @@ def run_optimized_benchmark(
     data_path: Path,
     limit: int = 20,
     batch_size: int = 1,
-) -> Dict:
+) -> dict:
     """
     執行優化版 benchmark
     
@@ -198,56 +195,56 @@ def run_optimized_benchmark(
     Returns:
         評估結果
     """
-    from scripts.benchmark import load_benchmark_data, calculate_metrics
+    from scripts.benchmark import load_benchmark_data
     from scripts.benchmark.metrics import normalize_phi_type
-    
+
     # 載入資料
     samples = list(load_benchmark_data(data_path, format='presidio'))[:limit]
     print(f"📁 載入 {len(samples)} 筆資料")
-    
+
     # 建立偵測器
     detector = OptimizedPHIDetector()
     print(f"🔧 使用 {detector.config.model}, ctx={detector.config.num_ctx}")
-    
+
     # 評估
     total_tp = 0
     total_fp = 0
     total_fn = 0
-    
+
     start = time.time()
-    
+
     for i, sample in enumerate(samples):
         if (i + 1) % 5 == 0:
             print(f"⏳ {i+1}/{len(samples)}...")
-        
+
         # 偵測
         predictions = detector.detect(sample.text)
-        
+
         # 標準化 ground truth
         gt = [(ann.text, normalize_phi_type(ann.phi_type)) for ann in sample.annotations]
         pred_normalized = [(t, normalize_phi_type(y)) for t, y in predictions]
-        
+
         # 計算 metrics (簡化版)
         gt_set = set(t.lower() for t, _ in gt)
         pred_set = set(t.lower() for t, _ in pred_normalized)
-        
+
         tp = len(gt_set & pred_set)
         fp = len(pred_set - gt_set)
         fn = len(gt_set - pred_set)
-        
+
         total_tp += tp
         total_fp += fp
         total_fn += fn
-    
+
     elapsed = time.time() - start
-    
+
     # 計算指標
     precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
     recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
-    
+
     stats = detector.get_stats()
-    
+
     return {
         "samples": len(samples),
         "time": elapsed,
@@ -262,16 +259,16 @@ def run_optimized_benchmark(
 
 if __name__ == "__main__":
     import sys
-    
+
     data_path = Path("data/benchmark/presidio_synthetic.jsonl")
     limit = int(sys.argv[1]) if len(sys.argv) > 1 else 10
-    
+
     print("=" * 60)
     print("📊 Optimized PHI Benchmark")
     print("=" * 60)
-    
+
     result = run_optimized_benchmark(data_path, limit=limit)
-    
+
     print("\n" + "=" * 60)
     print("📈 Results")
     print("=" * 60)

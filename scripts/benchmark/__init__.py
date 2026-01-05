@@ -23,35 +23,33 @@ report.print_summary()
 ```
 """
 
-from .metrics import (
-    calculate_precision,
-    calculate_recall,
-    calculate_f1,
-    calculate_metrics,
-    calculate_metrics_by_type,
-    match_entities,
-    normalize_phi_type,
-    ConfusionMatrix,
-    EvaluationMetrics,
+from .data_loader import (
+    BenchmarkSample,
+    CBLUELoader,
+    I2B2Loader,
+    JSONLoader,
+    PHIAnnotation,
+    PresidioEvaluatorLoader,
+    load_all,
+    load_benchmark_data,
 )
-
 from .evaluator import (
-    PHIEvaluator,
-    EvaluationResult,
     EvaluationReport,
+    EvaluationResult,
+    PHIEvaluator,
     create_detector_from_engine,
     quick_evaluate,
 )
-
-from .data_loader import (
-    load_benchmark_data,
-    load_all,
-    BenchmarkSample,
-    PHIAnnotation,
-    JSONLoader,
-    I2B2Loader,
-    CBLUELoader,
-    PresidioEvaluatorLoader,
+from .metrics import (
+    ConfusionMatrix,
+    EvaluationMetrics,
+    calculate_f1,
+    calculate_metrics,
+    calculate_metrics_by_type,
+    calculate_precision,
+    calculate_recall,
+    match_entities,
+    normalize_phi_type,
 )
 
 __all__ = [

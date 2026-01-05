@@ -18,36 +18,35 @@ NEW in v1.1.0:
 - Optimization result persistence to YAML
 """
 
+from .metrics import (
+    EvaluationResult,
+    PHIEvaluator,
+    phi_f1_score,
+    phi_precision,
+    phi_recall,
+)
+from .optimizer import (
+    OptimizationResult,
+    PHIPromptOptimizer,
+    load_optimized_identifier,
+    # NEW: YAML integration
+    optimize_and_save_to_yaml,
+    optimize_phi_identifier,
+)
 from .phi_module import (
+    LIGHTWEIGHT_MODELS,
     # Core module
     PHIIdentifier,
-    PHIEntity as DSPyPHIEntity,
-    parse_phi_entities,
-    
+    # NEW: YAML-based configuration
+    PHIIdentifierWithConfig,
     # Configuration
     configure_dspy_ollama,
     configure_dspy_openai,
-    LIGHTWEIGHT_MODELS,
-    
-    # NEW: YAML-based configuration
-    PHIIdentifierWithConfig,
     create_phi_identifier_from_yaml,
+    parse_phi_entities,
 )
-from .metrics import (
-    phi_precision,
-    phi_recall,
-    phi_f1_score,
-    PHIEvaluator,
-    EvaluationResult,
-)
-from .optimizer import (
-    PHIPromptOptimizer,
-    OptimizationResult,
-    optimize_phi_identifier,
-    
-    # NEW: YAML integration
-    optimize_and_save_to_yaml,
-    load_optimized_identifier,
+from .phi_module import (
+    PHIEntity as DSPyPHIEntity,
 )
 
 __all__ = [
@@ -55,28 +54,28 @@ __all__ = [
     "PHIIdentifier",
     "DSPyPHIEntity",
     "parse_phi_entities",
-    
+
     # Configuration
     "configure_dspy_ollama",
     "configure_dspy_openai",
     "LIGHTWEIGHT_MODELS",
-    
+
     # NEW: YAML-based Configuration
     "PHIIdentifierWithConfig",
     "create_phi_identifier_from_yaml",
-    
+
     # Metrics
     "phi_precision",
-    "phi_recall", 
+    "phi_recall",
     "phi_f1_score",
     "PHIEvaluator",
     "EvaluationResult",
-    
+
     # Optimizer
     "PHIPromptOptimizer",
     "OptimizationResult",
     "optimize_phi_identifier",
-    
+
     # NEW: YAML Integration
     "optimize_and_save_to_yaml",
     "load_optimized_identifier",

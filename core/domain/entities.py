@@ -6,9 +6,8 @@ Core entities for medical document de-identification.
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
-from .phi_types import PHIType, CustomPHIType
+from .phi_types import CustomPHIType, PHIType
 
 
 @dataclass(frozen=True)
@@ -22,16 +21,16 @@ class PHIEntity:
     Supports both standard PHIType enum and custom types discovered from regulations.
     同時支援標準 PHIType enum 和從法規中發現的自定義類型。
     """
-    
+
     type: PHIType  # Standard PHI type (use PHIType.CUSTOM for custom types)
     text: str  # The actual PHI text detected
     start_pos: int  # Start position in document
     end_pos: int  # End position in document
     confidence: float  # Detection confidence (0.0-1.0)
     reason: str = ""  # Why this is considered PHI according to regulations
-    regulation_source: Optional[str] = None  # Which regulation rule detected it
-    custom_type: Optional[CustomPHIType] = None  # Custom PHI type if applicable
-    
+    regulation_source: str | None = None  # Which regulation rule detected it
+    custom_type: CustomPHIType | None = None  # Custom PHI type if applicable
+
     def __post_init__(self) -> None:
         """Validate invariants | 驗證不變量"""
         if not 0.0 <= self.confidence <= 1.0:
@@ -40,7 +39,7 @@ class PHIEntity:
             raise ValueError("Invalid position range")
         if self.type == PHIType.CUSTOM and self.custom_type is None:
             raise ValueError("custom_type must be provided when type is CUSTOM")
-    
+
     def get_type_name(self) -> str:
         """
         Get the display name of this PHI type | 獲取此 PHI 類型的顯示名稱
@@ -51,7 +50,7 @@ class PHIEntity:
         if self.type == PHIType.CUSTOM and self.custom_type:
             return self.custom_type.name
         return self.type.value
-    
+
     def get_full_description(self) -> str:
         """
         Get full description of this PHI entity | 獲取此 PHI 實體的完整描述
@@ -65,7 +64,7 @@ class PHIEntity:
         if self.regulation_source:
             base += f" [Source: {self.regulation_source}]"
         return base
-    
+
     def is_high_risk(self) -> bool:
         """
         Check if this PHI entity is high-risk for identification | 檢查是否為高識別風險
@@ -80,12 +79,12 @@ class PHIEntity:
             PHIType.GENETIC_INFO,
             PHIType.SSN,
         ]
-        
+
         if self.type in high_risk_types:
             return True
-        
+
         # Check custom type risk
         if self.custom_type and self.custom_type.is_high_risk:
             return True
-        
+
         return False

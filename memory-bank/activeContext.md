@@ -2,33 +2,7 @@
 
 ## Current Goals
 
-- ## 當前工作焦點 (2025-12-30)
-- ### Benchmark 建立計畫
-- #### 黃金標準資料集 (Gold Standards)
-- 1. **i2b2 2006 De-identification Challenge**
-- - 889 份出院摘要 (Discharge Summaries)
-- - HIPAA 18 類 PHI 標註
-- - 業界標準 baseline
-- 2. **i2b2 2014 De-identification Challenge**
-- - 1,304 份病歷，更多樣的 PHI 格式
-- - 取得方式：DBMI Data Portal (n2c2) 註冊申請
-- 3. **CBLUE CMeEE (中文)**
-- - 中文醫療實體識別 Benchmark
-- - 可測試「醫療機構」、「部位」等欄位
-- - GitHub: CBLUE
-- #### 合成資料工具
-- 1. **Synthea** - 合成病患生成器 (Java)
-- - 可生成 HL7/FHIR 標準病歷
-- - 英文為主，結構完整
-- 2. **Microsoft Presidio Evaluator**
-- - 假資料生成 + F1-Score 計算
-- - 完整評估流程
-- ### 技術棧
-- - **Python**: 3.12.12
-- - **Package Manager**: uv 0.9.17
-- - **LLM**: granite4:1b (131K context)
-- - **LangChain**: with_structured_output(method="json_schema")
-- - **單元測試**: 85/85 passed (100%)
+- Refactored project structure (moved medical_deidentification to core), ran ruff for linting/formatting, and preparing to push changes.
 
 ## Current Session Focus (Dec 30, 2025)
 

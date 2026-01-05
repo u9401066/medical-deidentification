@@ -17,15 +17,14 @@ Manages YAML-based prompt configurations with:
 - 優化結果保存
 """
 
-import json
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import yaml
-from jinja2 import Environment, BaseLoader, TemplateSyntaxError
+from jinja2 import BaseLoader, Environment, TemplateSyntaxError
 from loguru import logger
 
 # Default prompts directory
@@ -37,10 +36,10 @@ class PHITypeConfig:
     """PHI type configuration from YAML"""
     name: str
     description: str
-    examples: List[str] = field(default_factory=list)
-    regex_patterns: List[str] = field(default_factory=list)
+    examples: list[str] = field(default_factory=list)
+    regex_patterns: list[str] = field(default_factory=list)
     priority: str = "medium"
-    special_rule: Optional[str] = None
+    special_rule: str | None = None
 
 
 @dataclass
@@ -48,9 +47,9 @@ class FewShotExample:
     """Few-shot example for optimization"""
     input: str
     output: str
-    note: Optional[str] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
+    note: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "input": self.input,
             "output": self.output,
@@ -63,8 +62,8 @@ class PromptTemplate:
     """Single prompt template"""
     name: str
     template: str
-    variables: List[str] = field(default_factory=list)
-    
+    variables: list[str] = field(default_factory=list)
+
     def render(self, **kwargs) -> str:
         """Render template with variables"""
         env = Environment(loader=BaseLoader())
@@ -95,21 +94,21 @@ class ModelConfig:
 class OptimizationConfig:
     """Optimization settings"""
     default_method: str = "bootstrap_fewshot"
-    bootstrap_fewshot: Dict[str, Any] = field(default_factory=lambda: {
+    bootstrap_fewshot: dict[str, Any] = field(default_factory=lambda: {
         "max_bootstrapped_demos": 3,
         "max_labeled_demos": 3,
         "max_rounds": 1,
     })
-    mipro: Dict[str, Any] = field(default_factory=lambda: {
+    mipro: dict[str, Any] = field(default_factory=lambda: {
         "num_candidates": 10,
         "init_temperature": 1.0,
     })
-    targets: Dict[str, float] = field(default_factory=lambda: {
+    targets: dict[str, float] = field(default_factory=lambda: {
         "min_f1_score": 0.80,
         "max_response_time_ms": 5000,
         "max_prompt_tokens": 1500,
     })
-    weights: Dict[str, float] = field(default_factory=lambda: {
+    weights: dict[str, float] = field(default_factory=lambda: {
         "f1_score": 0.70,
         "time_factor": 0.15,
         "prompt_factor": 0.15,
@@ -127,34 +126,34 @@ class PromptConfig:
     version: str
     description: str
     author: str = ""
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    
+    created_at: str | None = None
+    updated_at: str | None = None
+
     # Benchmark results
-    benchmark: Dict[str, Any] = field(default_factory=dict)
-    
+    benchmark: dict[str, Any] = field(default_factory=dict)
+
     # PHI types
-    phi_types: Dict[str, PHITypeConfig] = field(default_factory=dict)
-    
+    phi_types: dict[str, PHITypeConfig] = field(default_factory=dict)
+
     # Prompt templates
-    prompts: Dict[str, PromptTemplate] = field(default_factory=dict)
-    
+    prompts: dict[str, PromptTemplate] = field(default_factory=dict)
+
     # Few-shot examples
-    few_shot_examples: List[FewShotExample] = field(default_factory=list)
-    
+    few_shot_examples: list[FewShotExample] = field(default_factory=list)
+
     # Optimization settings
     optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
-    
+
     # Model-specific configs
-    model_configs: Dict[str, ModelConfig] = field(default_factory=dict)
-    
+    model_configs: dict[str, ModelConfig] = field(default_factory=dict)
+
     # Source file path
-    source_path: Optional[Path] = None
-    
+    source_path: Path | None = None
+
     def get_prompt(
-        self, 
+        self,
         name: str = "simplified",
-        model_name: Optional[str] = None,
+        model_name: str | None = None,
         **kwargs
     ) -> str:
         """
@@ -173,28 +172,28 @@ class PromptConfig:
         if model_name and model_name in self.model_configs:
             config = self.model_configs[model_name]
             name = config.prompt_style
-        
+
         # Get template
         if name not in self.prompts:
             available = list(self.prompts.keys())
             raise ValueError(f"Prompt '{name}' not found. Available: {available}")
-        
+
         template = self.prompts[name]
-        
+
         # Add phi_types to kwargs if needed
         if "phi_types" in template.variables and "phi_types" not in kwargs:
             kwargs["phi_types"] = {
                 k: {"description": v.description, "examples": v.examples}
                 for k, v in self.phi_types.items()
             }
-        
+
         return template.render(**kwargs)
-    
+
     def get_model_config(self, model_name: str) -> ModelConfig:
         """Get configuration for a specific model"""
         if model_name in self.model_configs:
             return self.model_configs[model_name]
-        
+
         # Return default config
         return ModelConfig(
             model_name=model_name,
@@ -202,18 +201,18 @@ class PromptConfig:
             temperature=0.1,
             max_tokens=1024,
         )
-    
-    def get_phi_type_list(self) -> List[str]:
+
+    def get_phi_type_list(self) -> list[str]:
         """Get list of all PHI type names"""
         return list(self.phi_types.keys())
-    
-    def get_few_shot_examples(self, n: Optional[int] = None) -> List[FewShotExample]:
+
+    def get_few_shot_examples(self, n: int | None = None) -> list[FewShotExample]:
         """Get few-shot examples (optionally limited)"""
         if n is None:
             return self.few_shot_examples
         return self.few_shot_examples[:n]
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary (for saving)"""
         return {
             "metadata": {
@@ -282,8 +281,8 @@ class PromptManager:
         # Save optimized version
         manager.save_optimized(config, new_version="1.1.0")
     """
-    
-    def __init__(self, prompts_dir: Optional[Union[str, Path]] = None):
+
+    def __init__(self, prompts_dir: str | Path | None = None):
         """
         Initialize prompt manager
         
@@ -291,14 +290,14 @@ class PromptManager:
             prompts_dir: Directory containing prompt YAML files
         """
         self.prompts_dir = Path(prompts_dir) if prompts_dir else DEFAULT_PROMPTS_DIR
-        self._cache: Dict[str, PromptConfig] = {}
-        
+        self._cache: dict[str, PromptConfig] = {}
+
         logger.info(f"PromptManager initialized with dir: {self.prompts_dir}")
-    
+
     def load(
-        self, 
+        self,
         name: str,
-        version: Optional[str] = None,
+        version: str | None = None,
         reload: bool = False,
     ) -> PromptConfig:
         """
@@ -314,11 +313,11 @@ class PromptManager:
             PromptConfig object
         """
         cache_key = f"{name}:{version or 'latest'}"
-        
+
         # Return cached if available
         if not reload and cache_key in self._cache:
             return self._cache[cache_key]
-        
+
         # Find YAML file
         if version:
             yaml_path = self.prompts_dir / f"{name}.v{version}.yaml"
@@ -326,28 +325,28 @@ class PromptManager:
                 yaml_path = self.prompts_dir / f"{name}.{version}.yaml"
         else:
             yaml_path = self.prompts_dir / f"{name}.yaml"
-        
+
         if not yaml_path.exists():
             raise FileNotFoundError(f"Prompt config not found: {yaml_path}")
-        
+
         # Load and parse YAML
         logger.info(f"Loading prompt config: {yaml_path}")
-        with open(yaml_path, "r", encoding="utf-8") as f:
+        with open(yaml_path, encoding="utf-8") as f:
             raw_config = yaml.safe_load(f)
-        
+
         # Parse config
         config = self._parse_config(raw_config, yaml_path)
-        
+
         # Cache and return
         self._cache[cache_key] = config
         return config
-    
-    def _parse_config(self, raw: Dict[str, Any], source_path: Path) -> PromptConfig:
+
+    def _parse_config(self, raw: dict[str, Any], source_path: Path) -> PromptConfig:
         """Parse raw YAML dict into PromptConfig"""
-        
+
         # Parse metadata
         metadata = raw.get("metadata", {})
-        
+
         # Parse PHI types
         phi_types = {}
         for name, type_data in raw.get("phi_types", {}).items():
@@ -359,7 +358,7 @@ class PromptManager:
                 priority=type_data.get("priority", "medium"),
                 special_rule=type_data.get("special_rule"),
             )
-        
+
         # Parse prompts
         prompts = {}
         for name, prompt_data in raw.get("prompts", {}).items():
@@ -368,7 +367,7 @@ class PromptManager:
                 template=prompt_data.get("template", ""),
                 variables=prompt_data.get("variables", []),
             )
-        
+
         # Parse few-shot examples
         few_shot = []
         for ex in raw.get("few_shot_examples", []):
@@ -377,7 +376,7 @@ class PromptManager:
                 output=ex.get("output", ""),
                 note=ex.get("note"),
             ))
-        
+
         # Parse optimization config
         opt_raw = raw.get("optimization", {})
         dspy_raw = opt_raw.get("dspy", {})
@@ -388,7 +387,7 @@ class PromptManager:
             targets=opt_raw.get("targets", {}),
             weights=opt_raw.get("weights", {}),
         )
-        
+
         # Parse model configs
         model_configs = {}
         for model_name, model_data in raw.get("model_configs", {}).items():
@@ -400,7 +399,7 @@ class PromptManager:
                 use_cot=model_data.get("use_cot", False),
                 notes=model_data.get("notes", ""),
             )
-        
+
         return PromptConfig(
             name=metadata.get("name", source_path.stem),
             version=metadata.get("version", "1.0.0"),
@@ -416,11 +415,11 @@ class PromptManager:
             model_configs=model_configs,
             source_path=source_path,
         )
-    
+
     def save(
         self,
         config: PromptConfig,
-        path: Optional[Union[str, Path]] = None,
+        path: str | Path | None = None,
     ) -> Path:
         """
         Save prompt configuration to YAML
@@ -437,27 +436,27 @@ class PromptManager:
             path = self.prompts_dir / f"{config.name}.v{config.version}.yaml"
         else:
             path = Path(path)
-        
+
         # Update timestamp
         config.updated_at = datetime.now().strftime("%Y-%m-%d")
-        
+
         # Convert to dict
         data = config.to_dict()
-        
+
         # Save as YAML
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-        
+
         logger.info(f"Saved prompt config to: {path}")
         return path
-    
+
     def save_optimized(
         self,
         config: PromptConfig,
-        new_version: Optional[str] = None,
-        benchmark_results: Optional[Dict[str, Any]] = None,
-        new_examples: Optional[List[FewShotExample]] = None,
+        new_version: str | None = None,
+        benchmark_results: dict[str, Any] | None = None,
+        new_examples: list[FewShotExample] | None = None,
     ) -> Path:
         """
         Save optimized prompt configuration with new version
@@ -477,7 +476,7 @@ class PromptManager:
             parts = config.version.split(".")
             parts[-1] = str(int(parts[-1]) + 1)
             new_version = ".".join(parts)
-        
+
         # Create new config
         new_config = PromptConfig(
             name=config.name,
@@ -493,10 +492,10 @@ class PromptManager:
             optimization=config.optimization,
             model_configs=config.model_configs,
         )
-        
+
         return self.save(new_config)
-    
-    def list_prompts(self) -> List[Dict[str, Any]]:
+
+    def list_prompts(self) -> list[dict[str, Any]]:
         """
         List all available prompts
         列出所有可用的 prompts
@@ -505,15 +504,15 @@ class PromptManager:
             List of dicts with name, version, description
         """
         prompts = []
-        
+
         for yaml_file in self.prompts_dir.glob("*.yaml"):
             if yaml_file.name == "schema.yaml":
                 continue
-            
+
             try:
-                with open(yaml_file, "r", encoding="utf-8") as f:
+                with open(yaml_file, encoding="utf-8") as f:
                     raw = yaml.safe_load(f)
-                
+
                 metadata = raw.get("metadata", {})
                 prompts.append({
                     "name": metadata.get("name", yaml_file.stem),
@@ -523,10 +522,10 @@ class PromptManager:
                 })
             except Exception as e:
                 logger.warning(f"Failed to read {yaml_file}: {e}")
-        
+
         return prompts
-    
-    def validate(self, config: PromptConfig) -> List[str]:
+
+    def validate(self, config: PromptConfig) -> list[str]:
         """
         Validate prompt configuration
         驗證 prompt 配置
@@ -535,7 +534,7 @@ class PromptManager:
             List of validation errors (empty if valid)
         """
         errors = []
-        
+
         # Check required fields
         if not config.name:
             errors.append("Missing required field: name")
@@ -543,30 +542,30 @@ class PromptManager:
             errors.append("Missing required field: version")
         if not config.prompts:
             errors.append("No prompt templates defined")
-        
+
         # Validate version format
         if not re.match(r"^\d+\.\d+\.\d+$", config.version):
             errors.append(f"Invalid version format: {config.version} (expected: X.Y.Z)")
-        
+
         # Validate prompts have templates
         for name, prompt in config.prompts.items():
             if not prompt.template:
                 errors.append(f"Prompt '{name}' has empty template")
-        
+
         # Validate few-shot examples
         for i, ex in enumerate(config.few_shot_examples):
             if not ex.input:
                 errors.append(f"Few-shot example {i} has empty input")
             if not ex.output:
                 errors.append(f"Few-shot example {i} has empty output")
-        
+
         return errors
 
 
 # Convenience function
 def load_prompt_config(
     name: str = "phi_identification",
-    version: Optional[str] = None,
+    version: str | None = None,
 ) -> PromptConfig:
     """
     Load prompt configuration (convenience function)
@@ -585,12 +584,12 @@ def load_prompt_config(
 
 # Export
 __all__ = [
-    "PromptManager",
-    "PromptConfig",
-    "PromptTemplate",
-    "PHITypeConfig",
     "FewShotExample",
     "ModelConfig",
     "OptimizationConfig",
+    "PHITypeConfig",
+    "PromptConfig",
+    "PromptManager",
+    "PromptTemplate",
     "load_prompt_config",
 ]

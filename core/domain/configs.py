@@ -9,10 +9,9 @@ All configuration BaseModel classes belong here (DDD principle).
 所有配置 BaseModel 類別都屬於這裡（DDD 原則）。
 """
 
-from typing import Dict, List, Optional, Any
 from pathlib import Path
-from pydantic import BaseModel, Field
 
+from pydantic import BaseModel, Field
 
 # ============================================================================
 # RAG Configuration Models
@@ -20,7 +19,7 @@ from pydantic import BaseModel, Field
 
 class EmbeddingsConfig(BaseModel):
     """嵌入模型配置"""
-    
+
     model_name: str = Field(
         default="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
         description="HuggingFace model name for embeddings"
@@ -33,7 +32,7 @@ class EmbeddingsConfig(BaseModel):
         default_factory=lambda: {"normalize_embeddings": True},
         description="Encoding kwargs for generating embeddings"
     )
-    cache_folder: Optional[str] = Field(
+    cache_folder: str | None = Field(
         default=None,
         description="Local cache folder for downloaded models"
     )
@@ -41,7 +40,7 @@ class EmbeddingsConfig(BaseModel):
 
 class RegulationStoreConfig(BaseModel):
     """法規向量庫配置"""
-    
+
     source_dir: Path = Field(
         default=Path("regulations/source_documents"),
         description="Directory containing regulation source documents"
@@ -58,7 +57,7 @@ class RegulationStoreConfig(BaseModel):
         default=200,
         description="Overlap between chunks"
     )
-    file_patterns: List[str] = Field(
+    file_patterns: list[str] = Field(
         default_factory=lambda: ["**/*.md", "**/*.txt"],
         description="File patterns to load"
     )
@@ -66,7 +65,7 @@ class RegulationStoreConfig(BaseModel):
 
 class RegulationRetrieverConfig(BaseModel):
     """法規檢索器配置"""
-    
+
     search_type: str = Field(
         default="mmr",
         description="Search type: 'similarity' or 'mmr' (Maximal Marginal Relevance)"
@@ -88,7 +87,7 @@ class RegulationRetrieverConfig(BaseModel):
         le=1.0,
         description="Lambda multiplier for MMR (0=diversity, 1=relevance)"
     )
-    score_threshold: Optional[float] = Field(
+    score_threshold: float | None = Field(
         default=None,
         description="Minimum relevance score threshold"
     )
@@ -96,7 +95,7 @@ class RegulationRetrieverConfig(BaseModel):
 
 class RegulationRetrievalConfig(BaseModel):
     """法規檢索鏈配置"""
-    
+
     retriever_config: RegulationRetrieverConfig = Field(
         default_factory=RegulationRetrieverConfig,
         description="Retriever configuration"
@@ -117,7 +116,7 @@ class RegulationRetrievalConfig(BaseModel):
 
 class MedicalRetrieverConfig(BaseModel):
     """醫療文本檢索器配置"""
-    
+
     search_type: str = Field(
         default="similarity",
         description="Search type: 'similarity' (MMR not recommended for small medical docs)"
@@ -128,7 +127,7 @@ class MedicalRetrieverConfig(BaseModel):
         le=20,
         description="Number of chunks to retrieve (smaller for medical docs)"
     )
-    score_threshold: Optional[float] = Field(
+    score_threshold: float | None = Field(
         default=None,
         description="Minimum relevance score threshold"
     )

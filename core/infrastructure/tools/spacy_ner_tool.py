@@ -10,7 +10,7 @@ Supported models:
 """
 
 import logging
-from typing import List, Dict, Optional, Any
+from typing import Any
 
 from core.domain.phi_types import PHIType
 from core.infrastructure.tools.base_tool import BasePHITool, ToolResult
@@ -37,33 +37,33 @@ class SpaCyNERTool(BasePHITool):
         SpaCy model must be installed separately:
         python -m spacy download zh_core_web_sm
     """
-    
+
     # Mapping from SpaCy entity types to PHI types
     # SpaCy 實體類型到 PHI 類型的對應
-    ENTITY_TYPE_MAP: Dict[str, PHIType] = {
+    ENTITY_TYPE_MAP: dict[str, PHIType] = {
         # Person names
         "PERSON": PHIType.NAME,
         "PER": PHIType.NAME,  # Some models use PER
-        
+
         # Locations
         "GPE": PHIType.LOCATION,  # Geopolitical entity (country, city, state)
         "LOC": PHIType.LOCATION,  # Non-GPE locations
         "FAC": PHIType.LOCATION,  # Facilities (buildings, airports)
-        
+
         # Organizations (could be hospitals, departments)
         "ORG": PHIType.HOSPITAL_NAME,
-        
+
         # Dates
         "DATE": PHIType.DATE,
         "TIME": PHIType.DATE,
-        
+
         # Other
         "CARDINAL": PHIType.OTHER,  # Numerals
         "ORDINAL": PHIType.OTHER,  # Ordinals
     }
-    
+
     # Confidence scores for different entity types
-    CONFIDENCE_MAP: Dict[str, float] = {
+    CONFIDENCE_MAP: dict[str, float] = {
         "PERSON": 0.85,
         "PER": 0.85,
         "GPE": 0.80,
@@ -75,11 +75,11 @@ class SpaCyNERTool(BasePHITool):
         "CARDINAL": 0.50,
         "ORDINAL": 0.50,
     }
-    
+
     def __init__(
-        self, 
+        self,
         model_name: str = "zh_core_web_sm",
-        entity_types: Optional[List[str]] = None,
+        entity_types: list[str] | None = None,
         min_confidence: float = 0.5
     ):
         """
@@ -95,21 +95,21 @@ class SpaCyNERTool(BasePHITool):
         self._nlp = None  # Lazy load
         self._entity_types = entity_types or list(self.ENTITY_TYPE_MAP.keys())
         self._min_confidence = min_confidence
-        self._load_error: Optional[str] = None
-    
+        self._load_error: str | None = None
+
     @property
     def name(self) -> str:
         return f"spacy_ner_tool:{self._model_name}"
-    
+
     @property
-    def supported_types(self) -> List[PHIType]:
+    def supported_types(self) -> list[PHIType]:
         return [
             PHIType.NAME,
             PHIType.LOCATION,
             PHIType.HOSPITAL_NAME,
             PHIType.DATE,
         ]
-    
+
     def _ensure_model_loaded(self) -> bool:
         """
         Ensure SpaCy model is loaded (lazy loading)
@@ -120,10 +120,10 @@ class SpaCyNERTool(BasePHITool):
         """
         if self._nlp is not None:
             return True
-        
+
         if self._load_error is not None:
             return False
-        
+
         try:
             import spacy
             self._nlp = spacy.load(self._model_name)
@@ -137,8 +137,8 @@ class SpaCyNERTool(BasePHITool):
             self._load_error = f"SpaCy model '{self._model_name}' not found. Install with: python -m spacy download {self._model_name}"
             logger.warning(self._load_error)
             return False
-    
-    def scan(self, text: str) -> List[ToolResult]:
+
+    def scan(self, text: str) -> list[ToolResult]:
         """
         Scan text using SpaCy NER
         使用 SpaCy NER 掃描文本
@@ -152,25 +152,25 @@ class SpaCyNERTool(BasePHITool):
         if not self._ensure_model_loaded():
             logger.debug(f"SpaCy model not available: {self._load_error}")
             return []
-        
+
         results = []
-        
+
         try:
             doc = self._nlp(text)
-            
+
             for ent in doc.ents:
                 # Skip if not in our tracked entity types
                 if ent.label_ not in self._entity_types:
                     continue
-                
+
                 # Get PHI type mapping
                 phi_type = self.ENTITY_TYPE_MAP.get(ent.label_, PHIType.OTHER)
                 confidence = self.CONFIDENCE_MAP.get(ent.label_, 0.5)
-                
+
                 # Skip if below minimum confidence
                 if confidence < self._min_confidence:
                     continue
-                
+
                 results.append(ToolResult(
                     text=ent.text,
                     phi_type=phi_type,
@@ -183,27 +183,27 @@ class SpaCyNERTool(BasePHITool):
                         "spacy_label_desc": ent.label_ if hasattr(ent, 'label_') else "",
                     }
                 ))
-                
+
         except Exception as e:
             logger.error(f"SpaCy NER error: {e}")
-        
+
         return results
-    
+
     def is_available(self) -> bool:
         """
         Check if SpaCy model is available
         檢查 SpaCy 模型是否可用
         """
         return self._ensure_model_loaded()
-    
-    def get_model_info(self) -> Dict[str, Any]:
+
+    def get_model_info(self) -> dict[str, Any]:
         """
         Get information about the loaded model
         獲取載入模型的資訊
         """
         if not self._ensure_model_loaded():
             return {"error": self._load_error}
-        
+
         return {
             "model_name": self._model_name,
             "pipeline": self._nlp.pipe_names if self._nlp else [],
@@ -219,21 +219,21 @@ class OptionalSpaCyNERTool(BasePHITool):
     This wrapper ensures the tool doesn't break the pipeline if SpaCy is not available.
     此封裝確保即使 SpaCy 不可用，也不會中斷處理流程。
     """
-    
+
     def __init__(self, model_name: str = "zh_core_web_sm"):
-        self._inner_tool: Optional[SpaCyNERTool] = None
+        self._inner_tool: SpaCyNERTool | None = None
         self._model_name = model_name
         self._tried_loading = False
-    
+
     @property
     def name(self) -> str:
         return f"optional_spacy_ner:{self._model_name}"
-    
+
     @property
-    def supported_types(self) -> List[PHIType]:
+    def supported_types(self) -> list[PHIType]:
         return [PHIType.NAME, PHIType.LOCATION, PHIType.HOSPITAL_NAME, PHIType.DATE]
-    
-    def scan(self, text: str) -> List[ToolResult]:
+
+    def scan(self, text: str) -> list[ToolResult]:
         """Scan text, returning empty list if SpaCy unavailable"""
         if not self._tried_loading:
             self._tried_loading = True
@@ -243,8 +243,8 @@ class OptionalSpaCyNERTool(BasePHITool):
                     self._inner_tool = None
             except Exception:
                 self._inner_tool = None
-        
+
         if self._inner_tool:
             return self._inner_tool.scan(text)
-        
+
         return []

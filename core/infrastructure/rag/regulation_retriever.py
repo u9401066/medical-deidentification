@@ -6,7 +6,8 @@ Specialized retriever for persistent regulation documents with MMR support.
 專門用於持久化法規文件的檢索器，支援 MMR（最大邊際相關性）。
 """
 
-from typing import List, Optional, Dict, Any
+from typing import Any
+
 from langchain_core.documents import Document
 from loguru import logger
 
@@ -63,11 +64,11 @@ class RegulationRetriever:
         ...     combine_strategy="union"
         ... )
     """
-    
+
     def __init__(
         self,
         vector_store: RegulationVectorStore,
-        config: Optional[RegulationRetrieverConfig] = None
+        config: RegulationRetrieverConfig | None = None
     ):
         """
         Initialize regulation retriever
@@ -78,10 +79,10 @@ class RegulationRetriever:
         """
         self.vector_store = vector_store
         self.config = config or RegulationRetrieverConfig()
-        
+
         # Setup base retriever
         self._setup_retriever()
-    
+
     def _setup_retriever(self) -> None:
         """Setup retriever based on configuration"""
         if self.config.search_type == "mmr":
@@ -98,17 +99,17 @@ class RegulationRetriever:
                 f"(k={self.config.k}, lambda={self.config.lambda_mult})"
             )
         else:  # similarity
-            search_kwargs: Dict[str, Any] = {"k": self.config.k}
+            search_kwargs: dict[str, Any] = {"k": self.config.k}
             if self.config.score_threshold is not None:
                 search_kwargs["score_threshold"] = self.config.score_threshold
-            
+
             self.base_retriever = self.vector_store.vectorstore.as_retriever(
                 search_type="similarity",
                 search_kwargs=search_kwargs
             )
             logger.debug(f"RegulationRetriever setup: similarity (k={self.config.k})")
-    
-    def retrieve(self, query: str) -> List[Document]:
+
+    def retrieve(self, query: str) -> list[Document]:
         """
         Retrieve relevant regulation documents
         
@@ -119,16 +120,16 @@ class RegulationRetriever:
             List of relevant regulation documents
         """
         logger.info(f"[Regulation] Retrieving for: {query[:50]}...")
-        
+
         docs = self.base_retriever.invoke(query)
-        
+
         logger.info(f"[Regulation] Retrieved {len(docs)} documents")
         return docs
-    
+
     def retrieve_with_scores(
         self,
         query: str
-    ) -> List[tuple[Document, float]]:
+    ) -> list[tuple[Document, float]]:
         """
         Retrieve regulation documents with relevance scores
         
@@ -139,29 +140,29 @@ class RegulationRetriever:
             List of (document, score) tuples
         """
         logger.info(f"[Regulation] Retrieving with scores: {query[:50]}...")
-        
+
         docs_with_scores = self.vector_store.similarity_search_with_score(
             query=query,
             k=self.config.k
         )
-        
+
         # Apply score threshold if set
         if self.config.score_threshold is not None:
             docs_with_scores = [
                 (doc, score) for doc, score in docs_with_scores
                 if score >= self.config.score_threshold
             ]
-        
+
         logger.info(
             f"[Regulation] Retrieved {len(docs_with_scores)} documents with scores"
         )
         return docs_with_scores
-    
+
     def retrieve_by_phi_type(
         self,
         phi_type: str,
-        context: Optional[str] = None
-    ) -> List[Document]:
+        context: str | None = None
+    ) -> list[Document]:
         """
         Retrieve regulations for specific PHI type
         
@@ -174,20 +175,20 @@ class RegulationRetriever:
         """
         # Build query from PHI type
         query_parts = [phi_type.replace("_", " ").lower()]
-        
+
         if context:
             query_parts.append(context)
-        
+
         query = " ".join(query_parts)
-        
+
         logger.info(f"[Regulation] Retrieving for PHI type: {phi_type}")
         return self.retrieve(query)
-    
+
     def retrieve_multi_phi(
         self,
-        phi_types: List[str],
+        phi_types: list[str],
         combine_strategy: str = "union"
-    ) -> List[Document]:
+    ) -> list[Document]:
         """
         Retrieve regulations for multiple PHI types
         
@@ -202,12 +203,12 @@ class RegulationRetriever:
             f"[Regulation] Multi-PHI retrieval for {len(phi_types)} types "
             f"(strategy: {combine_strategy})"
         )
-        
+
         if combine_strategy == "union":
             # Retrieve for all types and deduplicate
             all_docs = []
             seen_content = set()
-            
+
             for phi_type in phi_types:
                 docs = self.retrieve_by_phi_type(phi_type)
                 for doc in docs:
@@ -215,21 +216,21 @@ class RegulationRetriever:
                     if content_hash not in seen_content:
                         all_docs.append(doc)
                         seen_content.add(content_hash)
-            
+
             logger.info(f"[Regulation] Union: {len(all_docs)} unique documents")
             return all_docs
-        
+
         else:  # intersection
             # Find documents that appear for all PHI types
             if not phi_types:
                 return []
-            
+
             # Get docs for first type
             common_docs = {
                 hash(doc.page_content): doc
                 for doc in self.retrieve_by_phi_type(phi_types[0])
             }
-            
+
             # Intersect with remaining types
             for phi_type in phi_types[1:]:
                 docs = self.retrieve_by_phi_type(phi_type)
@@ -238,15 +239,15 @@ class RegulationRetriever:
                     h: doc for h, doc in common_docs.items()
                     if h in current_hashes
                 }
-            
+
             result = list(common_docs.values())
             logger.info(f"[Regulation] Intersection: {len(result)} common documents")
             return result
-    
-    def get_config(self) -> Dict[str, Any]:
+
+    def get_config(self) -> dict[str, Any]:
         """Get current retriever configuration"""
         return self.config.model_dump()
-    
+
     def update_config(self, **kwargs) -> None:
         """
         Update retriever configuration
@@ -258,12 +259,12 @@ class RegulationRetriever:
         for key, value in kwargs.items():
             if hasattr(self.config, key):
                 setattr(self.config, key, value)
-        
+
         # Recreate retriever with new config
         self._setup_retriever()
-        
+
         logger.info(f"[Regulation] Config updated: {kwargs}")
-    
+
     def __repr__(self) -> str:
         return (
             f"RegulationRetriever("
@@ -307,5 +308,5 @@ def create_regulation_retriever(
         lambda_mult=lambda_mult,
         **kwargs
     )
-    
+
     return RegulationRetriever(vector_store, config)

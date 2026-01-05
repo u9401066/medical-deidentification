@@ -16,12 +16,11 @@ Presidio Evaluator 特點：
     python -m scripts.benchmark.presidio_integration evaluate --data data/benchmark/presidio_test.jsonl
 """
 
-from pathlib import Path
-from typing import List, Dict, Optional, Any
-import json
 import argparse
+import json
 import logging
 import sys
+from pathlib import Path
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -41,10 +40,10 @@ def check_presidio_installed() -> bool:
 
 def generate_synthetic_data(
     count: int = 100,
-    output_path: Optional[Path] = None,
+    output_path: Path | None = None,
     locale: str = "en_US",
-    templates: Optional[List[str]] = None,
-) -> List[Dict]:
+    templates: list[str] | None = None,
+) -> list[dict]:
     """
     使用 Presidio Evaluator 產生合成 PHI 資料
     
@@ -61,18 +60,18 @@ def generate_synthetic_data(
         raise ImportError(
             "presidio-evaluator not installed. Run: uv add presidio-evaluator"
         )
-    
+
     from presidio_evaluator.data_generator import PresidioDataGenerator
     from presidio_evaluator.data_generator.faker_extensions import (
         FakerSpansResult,
     )
-    
+
     # 建立 generator
     generator = PresidioDataGenerator(
         locale=locale,
         lower_case_ratio=0.0,  # 保持原始大小寫
     )
-    
+
     # 使用預設 templates 或自訂
     if templates is None:
         # Presidio Evaluator 內建 templates
@@ -88,15 +87,15 @@ def generate_synthetic_data(
             "{{name}} scheduled for {{date}} at {{time}} in room {{room_number}}",
             "Doctor {{name}} referred patient to {{organization}}",
         ]
-    
+
     # 產生資料
     samples = []
     for i in range(count):
         template = templates[i % len(templates)]
-        
+
         try:
             result: FakerSpansResult = generator.generate(template)
-            
+
             sample = {
                 "id": f"presidio_{i:05d}",
                 "full_text": result.full_text,
@@ -113,25 +112,25 @@ def generate_synthetic_data(
                 "template": template,
             }
             samples.append(sample)
-            
+
         except Exception as e:
             logger.warning(f"Failed to generate sample {i}: {e}")
-    
+
     # 儲存
     if output_path:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         with open(output_path, "w", encoding="utf-8") as f:
             for sample in samples:
                 f.write(json.dumps(sample, ensure_ascii=False) + "\n")
-        
+
         print(f"✅ 產生 {len(samples)} 筆資料，儲存至 {output_path}")
-    
+
     return samples
 
 
-def generate_taiwan_templates() -> List[str]:
+def generate_taiwan_templates() -> list[str]:
     """
     產生台灣醫療情境 templates
     
@@ -152,9 +151,9 @@ def generate_taiwan_templates() -> List[str]:
 def run_evaluation(
     data_path: Path,
     model: str = "granite4:1b",
-    save_path: Optional[Path] = None,
-    limit: Optional[int] = None,
-) -> Dict:
+    save_path: Path | None = None,
+    limit: int | None = None,
+) -> dict:
     """
     使用本專案的 PHI 識別系統評估合成資料
     
@@ -167,45 +166,45 @@ def run_evaluation(
     Returns:
         評估結果摘要
     """
-    from scripts.benchmark import PHIEvaluator, load_benchmark_data
-    
+    from scripts.benchmark import PHIEvaluator
+
     # 嘗試載入專案的 PHI 識別系統
     try:
         from core.infrastructure.dspy import (
             create_phi_identifier_from_yaml as create_phi_identifier,
         )
-        
+
         # 建立 detector wrapper
         phi_identifier = create_phi_identifier(model_name=model)
-        
-        def detector(text: str) -> List[tuple]:
+
+        def detector(text: str) -> list[tuple]:
             result = phi_identifier(text)
             if hasattr(result, 'phi_entities'):
                 return [(e.text, e.phi_type) for e in result.phi_entities]
             elif hasattr(result, 'entities'):
                 return [(e["text"], e["phi_type"]) for e in result.entities]
             return []
-        
+
     except ImportError:
         # Fallback: 使用簡單的 regex detector 作為示範
         import re
-        
+
         PATTERNS = {
             "EMAIL": r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
             "PHONE": r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b',
             "SSN": r'\b\d{3}-\d{2}-\d{4}\b',
             "DATE": r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b',
         }
-        
-        def detector(text: str) -> List[tuple]:
+
+        def detector(text: str) -> list[tuple]:
             results = []
             for phi_type, pattern in PATTERNS.items():
                 for match in re.finditer(pattern, text):
                     results.append((match.group(), phi_type))
             return results
-        
+
         print("⚠️  使用 regex fallback detector (未載入專案 PHI 識別系統)")
-    
+
     # 執行評估
     evaluator = PHIEvaluator(detector=detector, match_type="partial")
     report = evaluator.evaluate(
@@ -214,7 +213,7 @@ def run_evaluation(
         limit=limit,
         save_path=save_path,
     )
-    
+
     return {
         "precision": report.metrics.overall.precision,
         "recall": report.metrics.overall.recall,
@@ -240,9 +239,9 @@ def main():
   python -m scripts.benchmark.presidio_integration full --count 50
         """,
     )
-    
+
     subparsers = parser.add_subparsers(dest="command", help="命令")
-    
+
     # generate 子命令
     gen_parser = subparsers.add_parser("generate", help="產生合成資料")
     gen_parser.add_argument("--count", "-n", type=int, default=100, help="樣本數")
@@ -253,33 +252,33 @@ def main():
         help="輸出路徑",
     )
     gen_parser.add_argument("--locale", default="en_US", help="Faker locale")
-    
+
     # evaluate 子命令
     eval_parser = subparsers.add_parser("evaluate", help="評估")
     eval_parser.add_argument("--data", "-d", type=Path, required=True, help="資料路徑")
     eval_parser.add_argument("--model", "-m", default="granite4:1b", help="模型名稱")
     eval_parser.add_argument("--output", "-o", type=Path, help="報告輸出路徑")
     eval_parser.add_argument("--limit", type=int, help="限制樣本數")
-    
+
     # full 子命令 (產生 + 評估)
     full_parser = subparsers.add_parser("full", help="完整流程 (產生 + 評估)")
     full_parser.add_argument("--count", "-n", type=int, default=50, help="樣本數")
     full_parser.add_argument("--model", "-m", default="granite4:1b", help="模型名稱")
-    
+
     args = parser.parse_args()
-    
+
     if args.command == "generate":
         if not check_presidio_installed():
             print("❌ presidio-evaluator 未安裝")
             print("   請執行: uv add presidio-evaluator")
             sys.exit(1)
-        
+
         generate_synthetic_data(
             count=args.count,
             output_path=args.output,
             locale=args.locale,
         )
-    
+
     elif args.command == "evaluate":
         result = run_evaluation(
             data_path=args.data,
@@ -288,11 +287,11 @@ def main():
             limit=args.limit,
         )
         print(f"\n📊 結果: P={result['precision']:.3f} R={result['recall']:.3f} F1={result['f1']:.3f}")
-    
+
     elif args.command == "full":
         # 產生
         data_path = Path("data/benchmark/presidio_synthetic.jsonl")
-        
+
         if check_presidio_installed():
             generate_synthetic_data(count=args.count, output_path=data_path)
         else:
@@ -310,7 +309,7 @@ def main():
                         ]
                     },
                     {
-                        "id": "sample_2", 
+                        "id": "sample_2",
                         "full_text": "Contact me at 555-123-4567 or john@example.com",
                         "spans": [
                             {"entity_type": "PHONE", "entity_value": "555-123-4567", "start_position": 14, "end_position": 26},
@@ -320,11 +319,11 @@ def main():
                 ]
                 for s in samples:
                     f.write(json.dumps(s) + "\n")
-        
+
         # 評估
         result = run_evaluation(data_path=data_path, model=args.model)
         print(f"\n📊 結果: P={result['precision']:.3f} R={result['recall']:.3f} F1={result['f1']:.3f}")
-    
+
     else:
         parser.print_help()
 

@@ -109,10 +109,10 @@ The system is organized into **6 core modules** aligned with DDD principles:
 **Status**: ✅ Implementation Complete | 實作完成
 
 **Implemented Files**:
-- `infrastructure/loader/base.py` (400 lines) - Abstract base classes and data models
-- `infrastructure/loader/loaders.py` (750 lines) - 10 format-specific loaders
-- `infrastructure/loader/factory.py` (320 lines) - Factory pattern and utilities
-- `infrastructure/loader/__init__.py` - Module exports
+- `core/infrastructure/loader/base.py` (400 lines) - Abstract base classes and data models
+- `core/infrastructure/loader/loaders.py` (750 lines) - 10 format-specific loaders
+- `core/infrastructure/loader/factory.py` (320 lines) - Factory pattern and utilities
+- `core/infrastructure/loader/__init__.py` - Module exports
 - `examples/loader_usage_examples.py` (550 lines) - 18 usage scenarios
 
 **Supported Formats**:
@@ -199,10 +199,10 @@ print(doc.metadata.file_size)
 **技術選型**: LangChain + In-Memory Vector Store (無持久化病歷)
 
 **Implemented Files**:
-- `infrastructure/rag/embeddings.py` (190 lines) - EmbeddingsManager with multilingual presets
-- `infrastructure/rag/regulation_store.py` (470 lines) - RegulationVectorStore + InMemoryDocumentProcessor
-- `infrastructure/rag/retriever.py` (350 lines) - RegulationRetriever with MMR
-- `infrastructure/rag/regulation_chain.py` (450 lines) - RegulationRAGChain with LLM
+- `core/infrastructure/rag/embeddings.py` (190 lines) - EmbeddingsManager with multilingual presets
+- `core/infrastructure/rag/regulation_store.py` (470 lines) - RegulationVectorStore + InMemoryDocumentProcessor
+- `core/infrastructure/rag/retriever.py` (350 lines) - RegulationRetriever with MMR
+- `core/infrastructure/rag/regulation_chain.py` (450 lines) - RegulationRAGChain with LLM
 - `examples/rag_usage_examples.py` (450 lines) - 8 usage scenarios
 - `docs/RAG_USAGE_GUIDE.md` (600+ lines) - Comprehensive documentation
 

@@ -17,40 +17,24 @@ Modular engine implementation with clear separation of concerns:
 - core.py: 主引擎類別
 """
 
-from .config import (
-    ProcessingStatus,
-    EngineConfig
-)
-
-from .result import (
-    ProcessingResult
-)
-
-from .masking import (
-    MaskingProcessor
-)
-
-from .handlers import (
-    PipelineHandlers
-)
-
-from .core import (
-    DeidentificationEngine
-)
-
+from .config import EngineConfig, ProcessingStatus
+from .core import DeidentificationEngine
+from .handlers import PipelineHandlers
+from .masking import MaskingProcessor
+from .result import ProcessingResult
 
 __all__ = [
     # Config
     "ProcessingStatus",
     "EngineConfig",
-    
+
     # Result
     "ProcessingResult",
-    
+
     # Processing
     "MaskingProcessor",
     "PipelineHandlers",
-    
+
     # Main Engine
     "DeidentificationEngine",
 ]

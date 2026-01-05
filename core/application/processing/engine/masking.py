@@ -6,14 +6,12 @@ Provides utilities for applying masking strategies to PHI entities.
 提供將遮蔽策略應用於 PHI 實體的工具。
 """
 
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 from loguru import logger
 
 from ....domain import PHIEntity, PHIType, StrategyType
-from ..strategies import (
-    MaskingStrategy,
-    create_masking_strategy
-)
+from ..strategies import MaskingStrategy, create_masking_strategy
 
 
 class MaskingProcessor:
@@ -46,12 +44,12 @@ class MaskingProcessor:
         ...     phi_entities=[entity1, entity2]
         ... )
     """
-    
+
     def __init__(
         self,
         default_strategy: StrategyType = StrategyType.REDACTION,
-        phi_specific_strategies: Optional[Dict[PHIType, StrategyType]] = None,
-        strategy_config: Optional[Dict[str, Any]] = None
+        phi_specific_strategies: dict[PHIType, StrategyType] | None = None,
+        strategy_config: dict[str, Any] | None = None
     ):
         """
         Initialize masking processor
@@ -64,11 +62,11 @@ class MaskingProcessor:
         self.default_strategy = default_strategy
         self.phi_specific_strategies = phi_specific_strategies or {}
         self.strategy_config = strategy_config or {}
-    
+
     def apply_masking(
         self,
         text: str,
-        phi_entities: List[PHIEntity]
+        phi_entities: list[PHIEntity]
     ) -> str:
         """
         Apply masking to text
@@ -83,9 +81,9 @@ class MaskingProcessor:
         if not phi_entities:
             logger.debug("No PHI entities to mask")
             return text
-        
+
         logger.info(f"Applying masking to {len(phi_entities)} PHI entities")
-        
+
         # Sort entities by position (descending) to avoid offset issues
         # Process from end to start so positions remain valid
         sorted_entities = sorted(
@@ -93,9 +91,9 @@ class MaskingProcessor:
             key=lambda e: e.start_pos,
             reverse=True
         )
-        
+
         masked_text = text
-        
+
         for entity in sorted_entities:
             try:
                 # Get masking strategy for this PHI type
@@ -103,27 +101,27 @@ class MaskingProcessor:
                     entity.type,
                     self.default_strategy
                 )
-                
+
                 strategy = create_masking_strategy(
                     strategy_type,
                     self.strategy_config
                 )
-                
+
                 # Mask entity
                 masked_value = strategy.mask(entity)
-                
+
                 # Replace in text
                 masked_text = (
                     masked_text[:entity.start_pos] +
                     masked_value +
                     masked_text[entity.end_pos:]
                 )
-                
+
                 logger.debug(
                     f"Masked {entity.type.value}: "
                     f"'{entity.text}' -> '{masked_value}'"
                 )
-                
+
             except Exception as e:
                 logger.error(
                     f"Failed to mask entity {entity.type.value} "
@@ -131,10 +129,10 @@ class MaskingProcessor:
                 )
                 # Continue with other entities
                 continue
-        
+
         logger.success("Masking completed")
         return masked_text
-    
+
     def get_strategy_for_phi(self, phi_type: PHIType) -> MaskingStrategy:
         """
         Get masking strategy for specific PHI type
@@ -149,17 +147,17 @@ class MaskingProcessor:
             phi_type,
             self.default_strategy
         )
-        
+
         return create_masking_strategy(
             strategy_type,
             self.strategy_config
         )
-    
+
     def validate_masking(
         self,
         original_text: str,
         masked_text: str,
-        phi_entities: List[PHIEntity]
+        phi_entities: list[PHIEntity]
     ) -> bool:
         """
         Validate that PHI entities were properly masked
@@ -180,7 +178,7 @@ class MaskingProcessor:
                     f"({entity.type.value}) still present in masked text"
                 )
                 return False
-        
+
         return True
 
 

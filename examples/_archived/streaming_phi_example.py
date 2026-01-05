@@ -20,7 +20,6 @@ Usage:
 """
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
@@ -35,9 +34,9 @@ from core.infrastructure.rag.chains import (
     StreamingPHIConfig,
 )
 from core.infrastructure.tools import (
-    RegexPHITool,
     IDValidatorTool,
     PhoneTool,
+    RegexPHITool,
 )
 
 
@@ -54,12 +53,12 @@ def main():
     parser.add_argument("--output-dir", type=str, default="./data/output/streaming")
     parser.add_argument("--language", type=str, default="zh-TW", help="Language hint")
     args = parser.parse_args()
-    
+
     # Configure logging
     logger.info("=" * 60)
     logger.info("Streaming PHI Chain Example")
     logger.info("=" * 60)
-    
+
     # Create config
     config = StreamingPHIConfig(
         chunk_size=args.chunk_size,
@@ -70,52 +69,52 @@ def main():
         checkpoint_interval=1,
         output_dir=args.output_dir,
     )
-    
+
     logger.info(f"Config: chunk_size={config.chunk_size}, rag={config.enable_rag}, tools={config.enable_tools}")
-    
+
     # Create tools
     tools = [
         RegexPHITool(),
         IDValidatorTool(),
         PhoneTool(),
     ]
-    
+
     # Create LLM (using environment variable or default)
     llm = None
     try:
-        from core.infrastructure.llm.factory import create_llm
         from core.infrastructure.llm.config import LLMConfig
+        from core.infrastructure.llm.factory import create_llm
         llm_config = LLMConfig(provider="ollama", model_name="llama3.1:8b")
         llm = create_llm(llm_config)
         logger.info("LLM initialized: ollama/llama3.1:8b")
     except Exception as e:
         logger.warning(f"LLM not available: {e}")
         logger.info("Running in tool-only mode")
-    
+
     # Create chain
     chain = StreamingPHIChain(
         llm=llm,
         config=config,
         tools=tools,
     )
-    
+
     if args.file:
         # Reset checkpoint if requested
         if args.reset:
             chain.reset_checkpoint(args.file)
             logger.info("Checkpoint reset")
-        
+
         # Check progress
         progress = chain.get_progress(args.file)
         if progress:
             logger.info(f"Previous progress: {progress['progress_percent']:.1f}%")
-        
+
         # Process file
         logger.info(f"Processing file: {args.file}")
         total_entities = 0
-        
+
         for result in chain.process_file(
-            args.file, 
+            args.file,
             resume=args.resume,
             language=args.language,
         ):
@@ -128,24 +127,24 @@ def main():
                     f"{result.processing_time_ms:.0f}ms"
                 )
                 total_entities += len(result.entities)
-                
+
                 # Print entities for debugging
                 for entity in result.entities:
                     logger.debug(f"  - {entity.type.value}: {entity.text}")
             else:
                 logger.error(f"Chunk {result.chunk_id} failed: {result.error}")
-        
+
         logger.info(f"Total entities found: {total_entities}")
-        
+
         # Final progress
         final_progress = chain.get_progress(args.file)
         if final_progress:
             logger.info(f"Final: {final_progress['chunks_processed']}/{final_progress['total_chunks']} chunks")
-    
+
     elif args.text:
         # Process text string
         logger.info(f"Processing text: {args.text[:50]}...")
-        
+
         for result in chain.process_text(
             args.text,
             text_id="cli_input",
@@ -158,7 +157,7 @@ def main():
                     print(f"  {entity.type.value}: {entity.text}")
             else:
                 logger.error(f"Failed: {result.error}")
-    
+
     else:
         # Demo with sample text
         demo_text = """
@@ -180,15 +179,15 @@ def main():
         
         醫師：李醫師
         """
-        
+
         logger.info("Running demo with sample text...")
-        
+
         for result in chain.process_text(demo_text, "demo", language="zh-TW"):
             if result.success:
                 logger.info(f"Found {len(result.entities)} PHI entities:")
                 for entity in result.entities:
                     print(f"  [{entity.type.value}] {entity.text}")
-    
+
     logger.info("=" * 60)
     logger.info("Done!")
 

@@ -28,12 +28,11 @@ NEW in v1.1.0:
 - Configurable optimization targets from YAML
 """
 
-from typing import List, Optional, Tuple, Any
-from dataclasses import dataclass
-import json
 import time
-from pathlib import Path
+from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 try:
     import dspy
@@ -45,15 +44,15 @@ except ImportError:
 
 from loguru import logger
 
-from .phi_module import PHIIdentifier, PHIEntity, parse_phi_entities
-from .metrics import PHIEvaluator, extract_phi_from_tags, EvaluationResult
+from .metrics import PHIEvaluator, extract_phi_from_tags
+from .phi_module import PHIIdentifier, parse_phi_entities
 
 # Import prompt management
 try:
     from ..prompts import (
-        PromptManager, 
-        PromptConfig, 
         FewShotExample,
+        PromptConfig,
+        PromptManager,
         load_prompt_config,
     )
     PROMPT_MANAGER_AVAILABLE = True
@@ -72,20 +71,20 @@ class OptimizationResult:
     original_score: float
     optimized_score: float
     improvement: float
-    
+
     # Performance comparison
     original_time_ms: float
     optimized_time_ms: float
     time_improvement: float
-    
+
     # Prompt comparison
     original_prompt_length: int
     optimized_prompt_length: int
     prompt_reduction: float
-    
+
     # Best configuration found
     best_module: Any  # Optimized DSPy module
-    best_examples: List[Any]  # Few-shot examples used
+    best_examples: list[Any]  # Few-shot examples used
 
 
 class PHIPromptOptimizer:
@@ -121,10 +120,10 @@ class PHIPromptOptimizer:
         optimized_identifier = result.best_module
         entities = optimized_identifier(medical_text="...")
     """
-    
+
     def __init__(
         self,
-        evaluator: Optional[PHIEvaluator] = None,
+        evaluator: PHIEvaluator | None = None,
         optimize_for_speed: bool = True,
         optimize_for_conciseness: bool = True,
         target_f1: float = 0.8,
@@ -144,7 +143,7 @@ class PHIPromptOptimizer:
         """
         if not DSPY_AVAILABLE:
             raise ImportError("DSPy not installed. Install with: pip install dspy-ai")
-        
+
         self.evaluator = evaluator or PHIEvaluator(
             optimize_efficiency=optimize_for_speed or optimize_for_conciseness
         )
@@ -153,11 +152,11 @@ class PHIPromptOptimizer:
         self.target_f1 = target_f1
         self.max_time_ms = max_time_ms
         self.max_prompt_length = max_prompt_length
-    
+
     def create_trainset_from_tagged_data(
         self,
-        tagged_texts: List[str],
-    ) -> List[Any]:
+        tagged_texts: list[str],
+    ) -> list[Any]:
         """
         Create DSPy trainset from tagged text data
         從標記文本數據創建 DSPy 訓練集
@@ -169,27 +168,27 @@ class PHIPromptOptimizer:
             List of dspy.Example objects
         """
         trainset = []
-        
+
         for text in tagged_texts:
             # Extract ground truth PHI from tags
             ground_truth = extract_phi_from_tags(text)
-            
+
             # Remove tags to get clean text
             import re
             clean_text = re.sub(r'【PHI:\w+:[\w-]+】', '', text)
             clean_text = re.sub(r'【/PHI】', '', clean_text)
-            
+
             # Create DSPy example
             example = dspy.Example(
                 medical_text=clean_text.strip(),
                 ground_truth=ground_truth,
             ).with_inputs("medical_text")
-            
+
             trainset.append(example)
-        
+
         logger.info(f"Created trainset with {len(trainset)} examples")
         return trainset
-    
+
     def _metric_function(
         self,
         example: Any,
@@ -206,10 +205,10 @@ class PHIPromptOptimizer:
         - Prompt Length (efficiency) - 15% weight
         """
         start_time = time.time()
-        
+
         # Get ground truth
         ground_truth = example.ground_truth if hasattr(example, 'ground_truth') else []
-        
+
         # Parse predicted entities
         if hasattr(prediction, 'phi_entities'):
             predicted = parse_phi_entities(
@@ -220,49 +219,49 @@ class PHIPromptOptimizer:
             predicted = prediction
         else:
             return 0.0
-        
+
         # Calculate time
         detection_time_ms = (time.time() - start_time) * 1000
-        
+
         # Calculate prompt length (estimate from trace if available)
         prompt_length = 0
         if trace:
             for step in trace:
                 if hasattr(step, 'prompt'):
                     prompt_length += len(str(step.prompt))
-        
+
         # Get evaluation result
         result = self.evaluator.evaluate(predicted, ground_truth)
         result.detection_time_ms = detection_time_ms
         result.prompt_length = prompt_length
-        
+
         # Calculate final score
         f1_score = result.f1_score
-        
+
         # Time penalty (if enabled)
         time_factor = 1.0
         if self.optimize_for_speed and detection_time_ms > 0:
             time_factor = min(1.0, self.max_time_ms / max(detection_time_ms, 1.0))
-        
+
         # Prompt length penalty (if enabled)
         prompt_factor = 1.0
         if self.optimize_for_conciseness and prompt_length > 0:
             prompt_factor = min(1.0, self.max_prompt_length / max(prompt_length, 1.0))
-        
+
         # Combined score: 70% F1 + 15% time + 15% prompt
         final_score = 0.7 * f1_score + 0.15 * time_factor + 0.15 * prompt_factor
-        
+
         return final_score
-    
+
     def optimize(
         self,
-        trainset: List[Any],
-        valset: Optional[List[Any]] = None,
+        trainset: list[Any],
+        valset: list[Any] | None = None,
         method: str = "bootstrap",
         max_bootstrapped_demos: int = 3,
         max_labeled_demos: int = 3,
         max_iterations: int = 10,
-        save_path: Optional[str] = None,
+        save_path: str | None = None,
     ) -> OptimizationResult:
         """
         Optimize PHI identifier using DSPy
@@ -282,19 +281,19 @@ class PHIPromptOptimizer:
         """
         logger.info(f"Starting PHI prompt optimization with method: {method}")
         logger.info(f"Trainset size: {len(trainset)}")
-        
+
         # Create base module
         base_module = PHIIdentifier()
-        
+
         # Evaluate baseline
         logger.info("Evaluating baseline performance...")
         baseline_score, baseline_time = self._evaluate_module(base_module, trainset[:5])
-        
+
         # Split valset if not provided
         if valset is None and len(trainset) > 5:
             valset = trainset[-3:]
             trainset = trainset[:-3]
-        
+
         # Select optimizer
         if method == "bootstrap":
             optimizer = BootstrapFewShot(
@@ -310,27 +309,27 @@ class PHIPromptOptimizer:
             )
         else:
             raise ValueError(f"Unknown optimization method: {method}")
-        
+
         # Run optimization
         logger.info(f"Running {method} optimization...")
         start_time = time.time()
-        
+
         optimized_module = optimizer.compile(
             base_module,
             trainset=trainset,
         )
-        
+
         optimization_time = time.time() - start_time
         logger.info(f"Optimization completed in {optimization_time:.1f}s")
-        
+
         # Evaluate optimized module
         logger.info("Evaluating optimized performance...")
         optimized_score, optimized_time = self._evaluate_module(optimized_module, valset or trainset[:5])
-        
+
         # Get prompt length comparison
         baseline_prompt_len = self._estimate_prompt_length(base_module)
         optimized_prompt_len = self._estimate_prompt_length(optimized_module)
-        
+
         # Create result
         result = OptimizationResult(
             original_score=baseline_score,
@@ -345,22 +344,22 @@ class PHIPromptOptimizer:
             best_module=optimized_module,
             best_examples=self._extract_examples(optimized_module),
         )
-        
+
         # Save if requested
         if save_path:
             self._save_optimized_module(optimized_module, save_path)
             logger.info(f"Saved optimized module to {save_path}")
-        
+
         # Print summary
         self._print_optimization_summary(result)
-        
+
         return result
-    
+
     def _evaluate_module(
         self,
         module: Any,
-        examples: List[Any],
-    ) -> Tuple[float, float]:
+        examples: list[Any],
+    ) -> tuple[float, float]:
         """
         Evaluate a module on examples
         在樣本上評估模組
@@ -370,13 +369,13 @@ class PHIPromptOptimizer:
         """
         scores = []
         times = []
-        
+
         for example in examples:
             start = time.time()
             try:
                 prediction = module(medical_text=example.medical_text)
                 elapsed_ms = (time.time() - start) * 1000
-                
+
                 score = self._metric_function(example, prediction)
                 scores.append(score)
                 times.append(elapsed_ms)
@@ -384,12 +383,12 @@ class PHIPromptOptimizer:
                 logger.warning(f"Evaluation failed for example: {e}")
                 scores.append(0.0)
                 times.append(0.0)
-        
+
         avg_score = sum(scores) / len(scores) if scores else 0.0
         avg_time = sum(times) / len(times) if times else 0.0
-        
+
         return avg_score, avg_time
-    
+
     def _estimate_prompt_length(self, module: Any) -> int:
         """
         Estimate prompt length for a module
@@ -401,8 +400,8 @@ class PHIPromptOptimizer:
             if hasattr(sig, '__doc__'):
                 return len(sig.__doc__ or "")
         return 500  # Default estimate
-    
-    def _extract_examples(self, module: Any) -> List[Any]:
+
+    def _extract_examples(self, module: Any) -> list[Any]:
         """
         Extract few-shot examples from optimized module
         從優化模組中提取少量樣本示例
@@ -411,7 +410,7 @@ class PHIPromptOptimizer:
         if hasattr(module, 'identify') and hasattr(module.identify, 'demos'):
             examples = module.identify.demos or []
         return examples
-    
+
     def _save_optimized_module(self, module: Any, path: str) -> None:
         """
         Save optimized module to file
@@ -419,10 +418,10 @@ class PHIPromptOptimizer:
         """
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Save module state
         module.save(str(path))
-    
+
     def _print_optimization_summary(self, result: OptimizationResult) -> None:
         """
         Print optimization summary
@@ -431,32 +430,32 @@ class PHIPromptOptimizer:
         print("\n" + "=" * 60)
         print("PHI Prompt Optimization Summary")
         print("=" * 60)
-        
-        print(f"\n📊 Accuracy:")
+
+        print("\n📊 Accuracy:")
         print(f"  • Original Score:  {result.original_score:.2%}")
         print(f"  • Optimized Score: {result.optimized_score:.2%}")
         print(f"  • Improvement:     {result.improvement:+.2%}")
-        
-        print(f"\n⚡ Speed:")
+
+        print("\n⚡ Speed:")
         print(f"  • Original Time:  {result.original_time_ms:.1f} ms")
         print(f"  • Optimized Time: {result.optimized_time_ms:.1f} ms")
         print(f"  • Improvement:    {result.time_improvement:+.2%}")
-        
-        print(f"\n📝 Prompt Efficiency:")
+
+        print("\n📝 Prompt Efficiency:")
         print(f"  • Original Length:  {result.original_prompt_length} chars")
         print(f"  • Optimized Length: {result.optimized_prompt_length} chars")
         print(f"  • Reduction:        {result.prompt_reduction:+.2%}")
-        
+
         print(f"\n🎯 Few-shot Examples: {len(result.best_examples)}")
-        
+
         print("\n" + "=" * 60)
 
 
 def optimize_phi_identifier(
-    tagged_texts: List[str],
+    tagged_texts: list[str],
     model_name: str = "qwen2.5:1.5b",
     method: str = "bootstrap",
-    save_path: Optional[str] = None,
+    save_path: str | None = None,
 ) -> OptimizationResult:
     """
     Convenience function to optimize PHI identifier
@@ -472,16 +471,16 @@ def optimize_phi_identifier(
         OptimizationResult
     """
     from .phi_module import configure_dspy_ollama
-    
+
     # Configure DSPy
     configure_dspy_ollama(model_name=model_name)
-    
+
     # Create optimizer
     optimizer = PHIPromptOptimizer()
-    
+
     # Create trainset
     trainset = optimizer.create_trainset_from_tagged_data(tagged_texts)
-    
+
     # Optimize
     return optimizer.optimize(
         trainset=trainset,
@@ -496,12 +495,12 @@ def optimize_phi_identifier(
 # ============================================================
 
 def optimize_and_save_to_yaml(
-    tagged_texts: List[str],
+    tagged_texts: list[str],
     model_name: str = "granite4:1b",
     config_name: str = "phi_identification",
     method: str = "bootstrap",
     auto_version: bool = True,
-) -> Tuple[OptimizationResult, Path]:
+) -> tuple[OptimizationResult, Path]:
     """
     Optimize PHI identifier and save results to YAML
     優化 PHI 識別器並保存結果到 YAML
@@ -544,18 +543,18 @@ def optimize_and_save_to_yaml(
     """
     if not PROMPT_MANAGER_AVAILABLE:
         raise ImportError("Prompt manager not available. Check prompts module.")
-    
+
     from .phi_module import configure_dspy_ollama
-    
+
     # Configure DSPy
     configure_dspy_ollama(model_name=model_name)
-    
+
     # Load existing config
     manager = PromptManager()
     config = manager.load(config_name)
-    
+
     logger.info(f"Loaded config: {config.name} v{config.version}")
-    
+
     # Create optimizer with settings from YAML
     opt_settings = config.optimization
     optimizer = PHIPromptOptimizer(
@@ -563,10 +562,10 @@ def optimize_and_save_to_yaml(
         max_time_ms=opt_settings.targets.get("max_response_time_ms", 5000),
         max_prompt_length=opt_settings.targets.get("max_prompt_tokens", 1500),
     )
-    
+
     # Create trainset
     trainset = optimizer.create_trainset_from_tagged_data(tagged_texts)
-    
+
     # Get optimization method settings
     if method == "bootstrap":
         bootstrap_settings = opt_settings.bootstrap_fewshot
@@ -575,7 +574,7 @@ def optimize_and_save_to_yaml(
     else:
         max_bootstrapped = 3
         max_labeled = 3
-    
+
     # Run optimization
     result = optimizer.optimize(
         trainset=trainset,
@@ -583,7 +582,7 @@ def optimize_and_save_to_yaml(
         max_bootstrapped_demos=max_bootstrapped,
         max_labeled_demos=max_labeled,
     )
-    
+
     # Extract new few-shot examples from optimization
     new_examples = []
     for demo in result.best_examples:
@@ -593,12 +592,12 @@ def optimize_and_save_to_yaml(
                 output=demo.phi_entities,
                 note=f"[Auto-generated by {method} optimization]",
             ))
-    
+
     # If no new examples, keep original
     if not new_examples:
         new_examples = config.few_shot_examples
         logger.warning("No new examples generated, keeping original examples")
-    
+
     # Prepare benchmark results
     benchmark_results = {
         "model": model_name,
@@ -608,7 +607,7 @@ def optimize_and_save_to_yaml(
         "optimized_at": datetime.now().isoformat(),
         "improvement_from_baseline": result.improvement,
     }
-    
+
     # Save optimized config
     yaml_path = manager.save_optimized(
         config=config,
@@ -616,15 +615,15 @@ def optimize_and_save_to_yaml(
         benchmark_results=benchmark_results,
         new_examples=new_examples,
     )
-    
+
     logger.info(f"Saved optimized config to: {yaml_path}")
-    
+
     return result, yaml_path
 
 
 def load_optimized_identifier(
     config_name: str = "phi_identification",
-    version: Optional[str] = None,
+    version: str | None = None,
     model_name: str = "granite4:1b",
 ) -> Any:
     """
@@ -643,10 +642,10 @@ def load_optimized_identifier(
         configure_dspy_ollama,
         create_phi_identifier_from_yaml,
     )
-    
+
     # Configure DSPy
     configure_dspy_ollama(model_name=model_name)
-    
+
     # Load and return identifier
     return create_phi_identifier_from_yaml(
         config_name=config_name,

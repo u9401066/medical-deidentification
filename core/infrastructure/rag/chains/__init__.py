@@ -14,34 +14,30 @@ This package contains modularized components of PHI identification chain:
 
 from .map_reduce import (
     build_map_chain,
-    merge_phi_results,
     identify_phi_with_map_reduce,
+    merge_phi_results,
 )
-
 from .processors import (
+    build_phi_identification_chain,
     identify_phi,
     identify_phi_structured,  # Backward compatible alias
     identify_phi_with_parser,
-    build_phi_identification_chain,
 )
-
-from .utils import (
-    get_minimal_context,
-    deduplicate_entities,
-    validate_entity,
+from .streaming_phi_chain import (
+    PHIChunkResult,
+    StreamingPHIChain,
+    StreamingPHIConfig,
 )
-
 from .streaming_processor import (
-    StreamingChunkProcessor,
     ChunkInfo,
     ChunkResult,
     ProcessingCheckpoint,
+    StreamingChunkProcessor,
 )
-
-from .streaming_phi_chain import (
-    StreamingPHIChain,
-    StreamingPHIConfig,
-    PHIChunkResult,
+from .utils import (
+    deduplicate_entities,
+    get_minimal_context,
+    validate_entity,
 )
 
 __all__ = [

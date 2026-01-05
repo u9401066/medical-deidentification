@@ -5,17 +5,15 @@ Shared fixtures and configuration for all tests.
 所有測試的共享 fixtures 與配置。
 """
 
+
 import pytest
-from typing import Generator
 
 from core.domain import (
-    MedicalDocument,
     DocumentMetadata,
+    MedicalDocument,
     PHIEntity,
     PHIType,
     SupportedLanguage,
-    ValidationResult,
-    RegulationContext,
 )
 
 

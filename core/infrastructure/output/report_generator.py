@@ -24,9 +24,9 @@ Features:
 """
 
 import json
-from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
@@ -49,8 +49,8 @@ class ReportGenerator:
         >>> report = generator.generate_batch_report(batch_result)
         >>> generator.save_report(report, "batch_report")
     """
-    
-    def __init__(self, output_manager: Optional[OutputManager] = None):
+
+    def __init__(self, output_manager: OutputManager | None = None):
         """
         Initialize ReportGenerator | 初始化報告生成器
         
@@ -58,12 +58,12 @@ class ReportGenerator:
             output_manager: OutputManager instance (uses default if None)
         """
         self.output_manager = output_manager or get_default_output_manager()
-    
+
     def generate_batch_report(
         self,
         result: "BatchProcessingResult",
         include_details: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate comprehensive report for batch processing result
         為批次處理結果生成完整報告
@@ -80,17 +80,17 @@ class ReportGenerator:
             "report_type": "batch_processing",
             "generated_at": datetime.now().isoformat(),
             "file_name": result.file_name,
-            
+
             # Processing summary
             "summary": {
                 "total_rows": result.total_rows,
                 "processed_rows": result.processed_rows,
                 "failed_rows": result.total_rows - result.processed_rows,
-                "success_rate": (result.processed_rows / result.total_rows * 100) 
+                "success_rate": (result.processed_rows / result.total_rows * 100)
                                 if result.total_rows > 0 else 0,
                 "total_phi_entities": result.total_entities,
             },
-            
+
             # Timing statistics
             "timing": {
                 "started_at": result.started_at.isoformat(),
@@ -99,7 +99,7 @@ class ReportGenerator:
                 "total_time_minutes": result.total_time / 60,
                 "average_time_per_row": result.average_time_per_row,
             },
-            
+
             # PHI statistics
             "phi_statistics": {
                 "type_distribution": result.get_phi_type_distribution(),
@@ -108,21 +108,21 @@ class ReportGenerator:
                                            if result.processed_rows > 0 else 0,
             },
         }
-        
+
         # Add row-level details if requested
         if include_details:
             report["row_details"] = [
                 self._row_to_dict(row_result)
                 for row_result in result.row_results
             ]
-        
+
         return report
-    
+
     def generate_engine_report(
         self,
         result: Any,  # ProcessingResult from engine
         include_stage_details: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate report for engine processing result
         為引擎處理結果生成報告
@@ -138,7 +138,7 @@ class ReportGenerator:
             "report_type": "engine_processing",
             "generated_at": datetime.now().isoformat(),
             "job_id": result.job_id,
-            
+
             # Processing summary
             "summary": {
                 "status": result.status.value if hasattr(result.status, 'value') else str(result.status),
@@ -148,7 +148,7 @@ class ReportGenerator:
                 "success_rate": result.get_success_rate() if hasattr(result, 'get_success_rate') else 0,
                 "total_phi_entities": result.total_phi_entities,
             },
-            
+
             # Timing statistics
             "timing": {
                 "started_at": result.started_at.isoformat() if result.started_at else None,
@@ -156,7 +156,7 @@ class ReportGenerator:
                 "duration_seconds": result.duration_seconds,
                 "duration_minutes": result.duration_seconds / 60 if result.duration_seconds else 0,
             },
-            
+
             # Error summary
             "errors": {
                 "has_errors": result.has_errors() if hasattr(result, 'has_errors') else False,
@@ -164,18 +164,18 @@ class ReportGenerator:
                 "errors": result.errors[:10] if hasattr(result, 'errors') else [],  # First 10 errors
             },
         }
-        
+
         # Add stage details if requested
         if include_stage_details and hasattr(result, 'stage_results'):
             report["stage_results"] = result.stage_results
-        
+
         return report
-    
+
     def generate_summary_report(
         self,
-        results: List[Any],
+        results: list[Any],
         report_title: str = "Processing Summary"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate summary report for multiple processing results
         為多個處理結果生成摘要報告
@@ -193,12 +193,12 @@ class ReportGenerator:
             getattr(r, 'total_entities', 0) or getattr(r, 'total_phi_entities', 0)
             for r in results
         )
-        
+
         report = {
             "report_type": "summary",
             "title": report_title,
             "generated_at": datetime.now().isoformat(),
-            
+
             "summary": {
                 "total_jobs": len(results),
                 "total_rows": total_rows,
@@ -206,7 +206,7 @@ class ReportGenerator:
                 "success_rate": (processed_rows / total_rows * 100) if total_rows > 0 else 0,
                 "total_phi_entities": total_entities,
             },
-            
+
             "individual_results": [
                 {
                     "job_id": getattr(r, 'job_id', getattr(r, 'file_name', f"job_{i}")),
@@ -216,12 +216,12 @@ class ReportGenerator:
                 for i, r in enumerate(results)
             ],
         }
-        
+
         return report
-    
+
     def save_report(
         self,
-        report: Dict[str, Any],
+        report: dict[str, Any],
         filename_prefix: str,
         format: str = "json"
     ) -> Path:
@@ -238,20 +238,20 @@ class ReportGenerator:
         """
         if format == "json":
             report_path = self.output_manager.get_report_path(filename_prefix, "json")
-            
+
             with open(report_path, 'w', encoding='utf-8') as f:
                 json.dump(report, f, indent=2, ensure_ascii=False)
-            
+
             logger.success(f"Report saved: {report_path}")
             return report_path
-        
+
         else:
             raise ValueError(f"Unsupported report format: {format}")
-    
+
     def save_batch_report(
         self,
         result: "BatchProcessingResult",
-        filename_prefix: Optional[str] = None,
+        filename_prefix: str | None = None,
         include_details: bool = True
     ) -> Path:
         """
@@ -268,19 +268,19 @@ class ReportGenerator:
         """
         # Generate report
         report = self.generate_batch_report(result, include_details=include_details)
-        
+
         # Auto-generate filename if not provided
         if filename_prefix is None:
             file_stem = Path(result.file_name).stem
             filename_prefix = f"report_{file_stem}"
-        
+
         # Save report
         return self.save_report(report, filename_prefix)
-    
+
     def save_engine_report(
         self,
         result: Any,  # ProcessingResult
-        filename_prefix: Optional[str] = None,
+        filename_prefix: str | None = None,
         include_stage_details: bool = True
     ) -> Path:
         """
@@ -297,16 +297,16 @@ class ReportGenerator:
         """
         # Generate report
         report = self.generate_engine_report(result, include_stage_details=include_stage_details)
-        
+
         # Auto-generate filename if not provided
         if filename_prefix is None:
             job_id = getattr(result, 'job_id', 'unknown')
             filename_prefix = f"report_engine_{job_id}"
-        
+
         # Save report
         return self.save_report(report, filename_prefix)
-    
-    def _row_to_dict(self, row_result: "RowProcessingResult") -> Dict[str, Any]:
+
+    def _row_to_dict(self, row_result: "RowProcessingResult") -> dict[str, Any]:
         """Convert RowProcessingResult to dictionary"""
         return {
             "row_number": row_result.row_number,
@@ -331,7 +331,7 @@ class ReportGenerator:
 
 
 # Convenience functions
-def generate_batch_report(result: "BatchProcessingResult") -> Dict[str, Any]:
+def generate_batch_report(result: "BatchProcessingResult") -> dict[str, Any]:
     """Convenience function to generate batch report"""
     generator = ReportGenerator()
     return generator.generate_batch_report(result)
@@ -339,7 +339,7 @@ def generate_batch_report(result: "BatchProcessingResult") -> Dict[str, Any]:
 
 def save_batch_report(
     result: "BatchProcessingResult",
-    filename_prefix: Optional[str] = None
+    filename_prefix: str | None = None
 ) -> Path:
     """Convenience function to save batch report"""
     generator = ReportGenerator()

@@ -19,14 +19,13 @@ Usage:
     python scripts/compare_phi_models.py --optimize  # With DSPy optimization
 """
 
+import argparse
+import json
+import re
 import sys
 import time
-import json
-import argparse
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import List, Tuple, Dict, Any
-from dataclasses import dataclass, asdict
-import re
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -59,7 +58,7 @@ class ModelResult:
     grade: str
 
 
-def load_test_data(file_path: str) -> List[Tuple[str, List[Tuple[str, str]]]]:
+def load_test_data(file_path: str) -> list[tuple[str, list[tuple[str, str]]]]:
     """
     Load test data from Excel file with PHI tags
     從帶有 PHI 標籤的 Excel 文件加載測試數據
@@ -69,10 +68,10 @@ def load_test_data(file_path: str) -> List[Tuple[str, List[Tuple[str, str]]]]:
     """
     df = pd.read_excel(file_path)
     test_cases = []
-    
+
     # PHI tag pattern: 【PHI:TYPE:ID】content【/PHI】
     tag_pattern = r'【PHI:(\w+):[\w-]+】([^【]+)【/PHI】'
-    
+
     # Find text columns (contain "PHI" or have tagged content)
     text_columns = []
     for col in df.columns:
@@ -82,32 +81,32 @@ def load_test_data(file_path: str) -> List[Tuple[str, List[Tuple[str, str]]]]:
                 if '【PHI:' in str(val):
                     text_columns.append(col)
                     break
-    
+
     logger.info(f"Found text columns: {text_columns}")
-    
+
     for _, row in df.iterrows():
         for col in text_columns:
             if col in row and pd.notna(row[col]):
                 text = str(row[col])
-                
+
                 # Extract ground truth PHI
                 matches = re.findall(tag_pattern, text)
                 ground_truth = [(content.strip(), phi_type) for phi_type, content in matches]
-                
+
                 if ground_truth:  # Only include if has PHI
                     # Remove tags to get clean text
                     clean_text = re.sub(r'【PHI:\w+:[\w-]+】', '', text)
                     clean_text = re.sub(r'【/PHI】', '', clean_text)
-                    
+
                     test_cases.append((clean_text.strip(), ground_truth))
-    
+
     logger.info(f"Loaded {len(test_cases)} test cases from {file_path}")
     return test_cases
 
 
 def evaluate_with_ollama(
     model_name: str,
-    test_cases: List[Tuple[str, List[Tuple[str, str]]]],
+    test_cases: list[tuple[str, list[tuple[str, str]]]],
     max_cases: int = 10,
 ) -> ModelResult:
     """
@@ -115,18 +114,18 @@ def evaluate_with_ollama(
     使用 Ollama 直接評估模型
     """
     from langchain_ollama import ChatOllama
-    
+
     logger.info(f"\n{'='*60}")
     logger.info(f"Evaluating model: {model_name}")
     logger.info(f"{'='*60}")
-    
+
     # Initialize model
     llm = ChatOllama(
         model=model_name,
         temperature=0.1,
         num_predict=1024,
     )
-    
+
     # Simple prompt for PHI detection
     prompt_template = """Identify all Protected Health Information (PHI) in this medical text.
 
@@ -147,38 +146,38 @@ Return ONLY a JSON array of found PHI:
 [{{"text": "...", "phi_type": "NAME|DATE|AGE|PHONE|EMAIL|ID|LOCATION|FACILITY"}}]
 
 If no PHI found, return: []"""
-    
+
     prompt_length = len(prompt_template)
-    
+
     # Evaluate
     all_predictions = []
     all_ground_truth = []
     total_time_ms = 0
-    
+
     for i, (text, ground_truth) in enumerate(test_cases[:max_cases]):
         logger.info(f"  Case {i+1}/{min(len(test_cases), max_cases)}...")
-        
+
         prompt = prompt_template.format(text=text[:1000])  # Limit text length
-        
+
         start_time = time.time()
         try:
             response = llm.invoke(prompt)
             elapsed_ms = (time.time() - start_time) * 1000
             total_time_ms += elapsed_ms
-            
+
             # Parse response
             content = response.content
             predictions = parse_phi_response(content, text)
-            
+
             all_predictions.extend(predictions)
             all_ground_truth.extend(ground_truth)
-            
+
             logger.info(f"    Found {len(predictions)} PHI, expected {len(ground_truth)}, time: {elapsed_ms:.0f}ms")
-            
+
         except Exception as e:
             logger.error(f"    Error: {e}")
             all_ground_truth.extend(ground_truth)
-    
+
     # Calculate metrics
     result = calculate_metrics(
         model_name=model_name,
@@ -187,27 +186,27 @@ If no PHI found, return: []"""
         avg_time_ms=total_time_ms / max_cases if max_cases > 0 else 0,
         prompt_length=prompt_length,
     )
-    
+
     return result
 
 
-def parse_phi_response(response: str, original_text: str) -> List[Tuple[str, str]]:
+def parse_phi_response(response: str, original_text: str) -> list[tuple[str, str]]:
     """
     Parse LLM response to extract PHI predictions
     解析 LLM 響應以提取 PHI 預測
     """
     predictions = []
-    
+
     # Try to find JSON array
     json_match = re.search(r'\[.*?\]', response, re.DOTALL)
     if not json_match:
         return predictions
-    
+
     try:
         items = json.loads(json_match.group())
         if not isinstance(items, list):
             items = [items]
-        
+
         for item in items:
             if isinstance(item, dict):
                 text = item.get('text', item.get('entity_text', ''))
@@ -216,14 +215,14 @@ def parse_phi_response(response: str, original_text: str) -> List[Tuple[str, str
                     predictions.append((text, phi_type))
     except json.JSONDecodeError:
         pass
-    
+
     return predictions
 
 
 def calculate_metrics(
     model_name: str,
-    predictions: List[Tuple[str, str]],
-    ground_truth: List[Tuple[str, str]],
+    predictions: list[tuple[str, str]],
+    ground_truth: list[tuple[str, str]],
     avg_time_ms: float,
     prompt_length: int,
 ) -> ModelResult:
@@ -234,11 +233,11 @@ def calculate_metrics(
     # Normalize for comparison
     pred_texts = {text.lower().strip() for text, _ in predictions}
     gt_texts = {text.lower().strip() for text, _ in ground_truth}
-    
+
     # Calculate TP, FP, FN with fuzzy matching
     true_positives = 0
     matched_gt = set()
-    
+
     for pred in pred_texts:
         for gt in gt_texts:
             if gt not in matched_gt:
@@ -247,20 +246,20 @@ def calculate_metrics(
                     true_positives += 1
                     matched_gt.add(gt)
                     break
-    
+
     false_positives = len(pred_texts) - true_positives
     false_negatives = len(gt_texts) - true_positives
-    
+
     # Metrics
     precision = true_positives / len(pred_texts) if pred_texts else (1.0 if not gt_texts else 0.0)
     recall = true_positives / len(gt_texts) if gt_texts else 1.0
     f1_score = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
-    
+
     # Efficiency score
     time_factor = min(1.0, 1000.0 / max(avg_time_ms, 1.0))
     prompt_factor = min(1.0, 500.0 / max(prompt_length, 1.0))
     efficiency_score = f1_score * (0.7 + 0.15 * time_factor + 0.15 * prompt_factor)
-    
+
     # Grade
     if f1_score >= 0.9:
         grade = "A (Excellent)"
@@ -272,7 +271,7 @@ def calculate_metrics(
         grade = "D (Poor)"
     else:
         grade = "F (Fail)"
-    
+
     return ModelResult(
         model_name=model_name,
         total_phi=len(gt_texts),
@@ -290,7 +289,7 @@ def calculate_metrics(
     )
 
 
-def print_comparison_table(results: List[ModelResult]) -> None:
+def print_comparison_table(results: list[ModelResult]) -> None:
     """
     Print comparison table
     打印比較表格
@@ -298,16 +297,16 @@ def print_comparison_table(results: List[ModelResult]) -> None:
     print("\n" + "=" * 100)
     print("PHI Detection Model Comparison")
     print("=" * 100)
-    
+
     # Header
     print(f"\n{'Model':<25} {'F1':>8} {'Prec':>8} {'Recall':>8} {'Time(ms)':>10} {'Prompt':>8} {'Eff':>8} {'Grade':<15}")
     print("-" * 100)
-    
+
     for r in results:
         print(f"{r.model_name:<25} {r.f1_score:>7.1%} {r.precision:>7.1%} {r.recall:>7.1%} {r.avg_time_ms:>9.0f} {r.prompt_length:>7} {r.efficiency_score:>7.1%} {r.grade:<15}")
-    
+
     print("-" * 100)
-    
+
     # Details
     print("\n📊 Detailed Results:")
     for r in results:
@@ -317,20 +316,20 @@ def print_comparison_table(results: List[ModelResult]) -> None:
         print(f"    • True Positives:   {r.true_positives}")
         print(f"    • False Positives:  {r.false_positives} (over-detection)")
         print(f"    • False Negatives:  {r.false_negatives} (missed)")
-    
+
     # Recommendation
     print("\n" + "=" * 100)
     print("📌 Recommendation:")
-    
+
     best = max(results, key=lambda r: r.efficiency_score)
     print(f"   Best overall: {best.model_name} (Efficiency: {best.efficiency_score:.1%})")
-    
+
     fastest = min(results, key=lambda r: r.avg_time_ms if r.avg_time_ms > 0 else float('inf'))
     print(f"   Fastest:      {fastest.model_name} ({fastest.avg_time_ms:.0f}ms)")
-    
+
     most_accurate = max(results, key=lambda r: r.f1_score)
     print(f"   Most accurate: {most_accurate.model_name} (F1: {most_accurate.f1_score:.1%})")
-    
+
     print("=" * 100)
 
 
@@ -366,24 +365,24 @@ def main():
         default="data/output/reports/model_comparison.json",
         help="Output report path"
     )
-    
+
     args = parser.parse_args()
-    
+
     # Load test data
     test_file = project_root / args.test_file
     if not test_file.exists():
         logger.error(f"Test file not found: {test_file}")
         sys.exit(1)
-    
+
     test_cases = load_test_data(str(test_file))
-    
+
     if not test_cases:
         logger.error("No test cases loaded")
         sys.exit(1)
-    
+
     # Evaluate each model
     results = []
-    
+
     for model_name in args.models:
         try:
             result = evaluate_with_ollama(
@@ -394,30 +393,30 @@ def main():
             results.append(result)
         except Exception as e:
             logger.error(f"Failed to evaluate {model_name}: {e}")
-    
+
     # DSPy optimization (if requested)
     if args.optimize:
         try:
             logger.info("\n" + "=" * 60)
             logger.info("Running DSPy Optimization...")
             logger.info("=" * 60)
-            
+
             # This would require DSPy to be installed and configured
             # For now, we'll skip this in the comparison
             logger.warning("DSPy optimization requires 'pip install dspy-ai'")
             logger.warning("Skipping DSPy optimization in this run")
-            
+
         except Exception as e:
             logger.error(f"DSPy optimization failed: {e}")
-    
+
     # Print comparison
     if results:
         print_comparison_table(results)
-        
+
         # Save results
         output_path = project_root / args.output
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(
                 {
@@ -430,7 +429,7 @@ def main():
                 indent=2,
                 ensure_ascii=False,
             )
-        
+
         logger.info(f"\nResults saved to: {output_path}")
     else:
         logger.error("No results to compare")

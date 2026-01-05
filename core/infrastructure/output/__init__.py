@@ -20,14 +20,13 @@ This module handles all output-related concerns:
 """
 
 from .output_manager import (
-    OutputManager,
     OutputConfig,
+    OutputManager,
     get_default_output_manager,
-    set_default_output_manager,
-    get_result_path,
     get_report_path,
+    get_result_path,
+    set_default_output_manager,
 )
-
 from .report_generator import (
     ReportGenerator,
     generate_batch_report,

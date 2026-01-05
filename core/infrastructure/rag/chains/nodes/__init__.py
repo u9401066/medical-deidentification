@@ -31,17 +31,17 @@ Chain Composition:
     (* = can repeat, ? = optional)
 """
 
-from .base_node import BaseNode, NodeConfig, NodeResult
-from .rag_node import RAGNode
 from .analyze_node import AnalyzeNode
-from .tool_node import ToolNode
+from .base_node import BaseNode, NodeConfig, NodeResult
 from .output_node import OutputNode
 from .phi_chain import PHIChain, PHIChainConfig
+from .rag_node import RAGNode
+from .tool_node import ToolNode
 
 __all__ = [
     # Base
     "BaseNode",
-    "NodeConfig", 
+    "NodeConfig",
     "NodeResult",
     # Nodes
     "RAGNode",

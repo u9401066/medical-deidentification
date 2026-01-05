@@ -6,11 +6,10 @@ Centralized logging configuration for the entire package.
 """
 
 import sys
-from pathlib import Path
 from datetime import datetime
-from typing import Optional
-from loguru import logger
+from pathlib import Path
 
+from loguru import logger
 
 # Default log settings
 DEFAULT_LOG_LEVEL = "INFO"
@@ -21,16 +20,16 @@ DEFAULT_COMPRESSION = "zip"
 
 
 def configure_logging(
-    log_dir: Optional[Path] = None,
+    log_dir: Path | None = None,
     console_level: str = "INFO",
     file_level: str = "DEBUG",
     rotation: str = DEFAULT_ROTATION,
     retention: str = DEFAULT_RETENTION,
-    compression: Optional[str] = DEFAULT_COMPRESSION,
-    log_format: Optional[str] = None,
+    compression: str | None = DEFAULT_COMPRESSION,
+    log_format: str | None = None,
     enable_console: bool = True,
     enable_file: bool = True,
-) -> Optional[Path]:
+) -> Path | None:
     """
     Configure logging for the application
     配置應用程式的日誌記錄
@@ -69,7 +68,7 @@ def configure_logging(
     """
     # Remove default handler
     logger.remove()
-    
+
     # Default format
     if log_format is None:
         log_format = (
@@ -78,7 +77,7 @@ def configure_logging(
             "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
             "<level>{message}</level>"
         )
-    
+
     # Console handler
     if enable_console:
         logger.add(
@@ -87,7 +86,7 @@ def configure_logging(
             format=log_format,
             colorize=True
         )
-    
+
     # File handler
     log_file = None
     if enable_file:
@@ -95,11 +94,11 @@ def configure_logging(
         if log_dir is None:
             log_dir = DEFAULT_LOG_DIR
         log_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Generate log filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         log_file = log_dir / f"core_{timestamp}.log"
-        
+
         logger.add(
             str(log_file),
             level=file_level,
@@ -109,9 +108,9 @@ def configure_logging(
             compression=compression,
             encoding="utf-8"
         )
-        
+
         logger.info(f"Log file configured: {log_file}")
-    
+
     return log_file
 
 

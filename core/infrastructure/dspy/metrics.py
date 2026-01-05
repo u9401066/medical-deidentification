@@ -13,9 +13,8 @@ Defines evaluation metrics for automatic prompt optimization:
 - F1 分數: 精確率和召回率的平衡
 """
 
-from typing import List, Set, Tuple, Optional
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 from loguru import logger
 
@@ -35,17 +34,17 @@ class EvaluationResult:
     precision: float
     recall: float
     f1_score: float
-    
+
     # Details (required)
-    matched_entities: List[Tuple[str, str]]  # (predicted, ground_truth)
-    over_detected: List[str]  # False positives
-    missed: List[str]  # False negatives
-    
+    matched_entities: list[tuple[str, str]]  # (predicted, ground_truth)
+    over_detected: list[str]  # False positives
+    missed: list[str]  # False negatives
+
     # Performance metrics (optional, with defaults)
     detection_time_ms: float = 0.0  # Detection time in milliseconds (越短越好)
     prompt_length: int = 0  # Prompt character length (越短越好)
     tokens_per_second: float = 0.0  # Processing speed
-    
+
     @property
     def efficiency_score(self) -> float:
         """
@@ -58,10 +57,10 @@ class EvaluationResult:
         """
         # Time factor: penalize if > 1000ms
         time_factor = min(1.0, 1000.0 / max(self.detection_time_ms, 1.0))
-        
+
         # Prompt factor: penalize if > 500 chars
         prompt_factor = min(1.0, 500.0 / max(self.prompt_length, 1.0))
-        
+
         return self.f1_score * (0.7 + 0.15 * time_factor + 0.15 * prompt_factor)
 
 
@@ -76,7 +75,7 @@ def normalize_text(text: str) -> str:
     return text.lower()
 
 
-def extract_phi_from_tags(text: str) -> List[Tuple[str, str]]:
+def extract_phi_from_tags(text: str) -> list[tuple[str, str]]:
     """
     Extract PHI from tagged text format: 【PHI:TYPE:ID】content【/PHI】
     從標記文本格式中提取 PHI
@@ -93,8 +92,8 @@ def extract_phi_from_tags(text: str) -> List[Tuple[str, str]]:
 
 
 def phi_precision(
-    predicted: List[PHIEntity],
-    ground_truth: List[Tuple[str, str]],
+    predicted: list[PHIEntity],
+    ground_truth: list[tuple[str, str]],
     fuzzy_match: bool = True,
 ) -> float:
     """
@@ -117,15 +116,15 @@ def phi_precision(
     """
     if not predicted:
         return 1.0 if not ground_truth else 0.0
-    
+
     # Create set of ground truth texts
     gt_texts = {normalize_text(text) for text, _ in ground_truth}
-    
+
     # Count true positives
     tp = 0
     for entity in predicted:
         pred_text = normalize_text(entity.text)
-        
+
         if fuzzy_match:
             # Check if predicted text is contained in any ground truth
             matched = any(
@@ -134,16 +133,16 @@ def phi_precision(
             )
         else:
             matched = pred_text in gt_texts
-        
+
         if matched:
             tp += 1
-    
+
     return tp / len(predicted)
 
 
 def phi_recall(
-    predicted: List[PHIEntity],
-    ground_truth: List[Tuple[str, str]],
+    predicted: list[PHIEntity],
+    ground_truth: list[tuple[str, str]],
     fuzzy_match: bool = True,
 ) -> float:
     """
@@ -166,15 +165,15 @@ def phi_recall(
     """
     if not ground_truth:
         return 1.0
-    
+
     # Create set of predicted texts
     pred_texts = {normalize_text(e.text) for e in predicted}
-    
+
     # Count true positives (from ground truth perspective)
     tp = 0
     for text, _ in ground_truth:
         gt_text = normalize_text(text)
-        
+
         if fuzzy_match:
             # Check if any predicted text matches this ground truth
             matched = any(
@@ -183,16 +182,16 @@ def phi_recall(
             )
         else:
             matched = gt_text in pred_texts
-        
+
         if matched:
             tp += 1
-    
+
     return tp / len(ground_truth)
 
 
 def phi_f1_score(
-    predicted: List[PHIEntity],
-    ground_truth: List[Tuple[str, str]],
+    predicted: list[PHIEntity],
+    ground_truth: list[tuple[str, str]],
     fuzzy_match: bool = True,
 ) -> float:
     """
@@ -215,10 +214,10 @@ def phi_f1_score(
     """
     p = phi_precision(predicted, ground_truth, fuzzy_match)
     r = phi_recall(predicted, ground_truth, fuzzy_match)
-    
+
     if p + r == 0:
         return 0.0
-    
+
     return 2 * (p * r) / (p + r)
 
 
@@ -246,7 +245,7 @@ class PHIEvaluator:
         result = evaluator.evaluate(predicted, ground_truth)
         print(f"F1: {result.f1_score:.2%}")
     """
-    
+
     def __init__(
         self,
         fuzzy_match: bool = True,
@@ -273,11 +272,11 @@ class PHIEvaluator:
         self.optimize_efficiency = optimize_efficiency
         self.max_time_ms = max_time_ms
         self.max_prompt_length = max_prompt_length
-    
+
     def evaluate(
         self,
-        predicted: List[PHIEntity],
-        ground_truth: List[Tuple[str, str]],
+        predicted: list[PHIEntity],
+        ground_truth: list[tuple[str, str]],
     ) -> EvaluationResult:
         """
         Comprehensive evaluation with detailed results
@@ -293,12 +292,12 @@ class PHIEvaluator:
         # Normalize texts
         pred_texts = {normalize_text(e.text): e for e in predicted}
         gt_texts = {normalize_text(text): phi_type for text, phi_type in ground_truth}
-        
+
         # Calculate matches
         matched = []
         over_detected = []
         missed = []
-        
+
         # Check predicted against ground truth
         matched_gt = set()
         for pred_norm, entity in pred_texts.items():
@@ -308,33 +307,33 @@ class PHIEvaluator:
                     is_match = pred_norm in gt_norm or gt_norm in pred_norm
                 else:
                     is_match = pred_norm == gt_norm
-                
+
                 if is_match and gt_norm not in matched_gt:
                     matched.append((entity.text, next(
-                        text for text, _ in ground_truth 
+                        text for text, _ in ground_truth
                         if normalize_text(text) == gt_norm
                     )))
                     matched_gt.add(gt_norm)
                     found_match = True
                     break
-            
+
             if not found_match:
                 over_detected.append(entity.text)
-        
+
         # Find missed ground truth
         for text, phi_type in ground_truth:
             if normalize_text(text) not in matched_gt:
                 missed.append(text)
-        
+
         # Calculate metrics
         tp = len(matched)
         fp = len(over_detected)
         fn = len(missed)
-        
+
         precision = tp / (tp + fp) if (tp + fp) > 0 else (1.0 if fn == 0 else 0.0)
         recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
         f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
-        
+
         return EvaluationResult(
             true_positives=tp,
             false_positives=fp,
@@ -346,7 +345,7 @@ class PHIEvaluator:
             over_detected=over_detected,
             missed=missed,
         )
-    
+
     def dspy_metric(
         self,
         example,
@@ -385,7 +384,7 @@ class PHIEvaluator:
         else:
             logger.warning("No ground truth in example")
             return 0.0
-        
+
         # Extract predicted entities
         if isinstance(prediction, list):
             predicted = prediction
@@ -400,14 +399,14 @@ class PHIEvaluator:
             logger.warning(f"Cannot extract predicted entities from: {type(prediction)}")
             return 0.0
             return 0.0
-        
+
         # Calculate weighted F1
         result = self.evaluate(predicted, ground_truth)
-        
+
         # Extract timing and prompt info from trace if available
         detection_time_ms = 0.0
         prompt_length = 0
-        
+
         if trace:
             # DSPy trace contains call information
             for step in trace:
@@ -415,28 +414,28 @@ class PHIEvaluator:
                     detection_time_ms += step.elapsed_time * 1000
                 if hasattr(step, 'prompt'):
                     prompt_length += len(str(step.prompt))
-        
+
         # Update result with timing info
         result.detection_time_ms = detection_time_ms
         result.prompt_length = prompt_length
-        
+
         # Calculate final score with efficiency factors
         if self.optimize_efficiency:
             return result.efficiency_score
-        
+
         # Weighted combination (default: standard F1)
         if self.weight_precision == self.weight_recall:
             return result.f1_score
-        
+
         # Custom weighted score
         total_weight = self.weight_precision + self.weight_recall
         weighted_score = (
-            self.weight_precision * result.precision + 
+            self.weight_precision * result.precision +
             self.weight_recall * result.recall
         ) / total_weight
-        
+
         return weighted_score
-    
+
     def print_report(self, result: EvaluationResult) -> None:
         """
         Print detailed evaluation report
@@ -445,13 +444,13 @@ class PHIEvaluator:
         print("\n" + "=" * 60)
         print("PHI Detection Evaluation Report")
         print("=" * 60)
-        
-        print(f"\n📊 Accuracy Metrics:")
+
+        print("\n📊 Accuracy Metrics:")
         print(f"  • Precision: {result.precision:.2%} (over-detection control)")
         print(f"  • Recall:    {result.recall:.2%} (detection coverage)")
         print(f"  • F1 Score:  {result.f1_score:.2%} (overall accuracy)")
-        
-        print(f"\n⚡ Performance Metrics:")
+
+        print("\n⚡ Performance Metrics:")
         print(f"  • Detection Time: {result.detection_time_ms:.1f} ms", end="")
         if result.detection_time_ms > 0:
             if result.detection_time_ms < 1000:
@@ -462,7 +461,7 @@ class PHIEvaluator:
                 print(" ❌ Slow")
         else:
             print()
-        
+
         print(f"  • Prompt Length:  {result.prompt_length} chars", end="")
         if result.prompt_length > 0:
             if result.prompt_length < 500:
@@ -473,30 +472,30 @@ class PHIEvaluator:
                 print(" ❌ Too Long")
         else:
             print()
-        
+
         if result.tokens_per_second > 0:
             print(f"  • Speed:          {result.tokens_per_second:.1f} tokens/sec")
-        
+
         print(f"\n🎯 Efficiency Score: {result.efficiency_score:.2%}")
-        print(f"   (Combines F1 + Time + Prompt Length)")
-        
-        print(f"\n📈 Counts:")
+        print("   (Combines F1 + Time + Prompt Length)")
+
+        print("\n📈 Counts:")
         print(f"  • True Positives:  {result.true_positives}")
         print(f"  • False Positives: {result.false_positives} (over-detected)")
         print(f"  • False Negatives: {result.false_negatives} (missed)")
-        
+
         if result.over_detected:
-            print(f"\n⚠️  Over-detected (False Positives):")
+            print("\n⚠️  Over-detected (False Positives):")
             for text in result.over_detected[:10]:
                 print(f"    - '{text}'")
             if len(result.over_detected) > 10:
                 print(f"    ... and {len(result.over_detected) - 10} more")
-        
+
         if result.missed:
-            print(f"\n❌ Missed (False Negatives):")
+            print("\n❌ Missed (False Negatives):")
             for text in result.missed[:10]:
                 print(f"    - '{text}'")
             if len(result.missed) > 10:
                 print(f"    ... and {len(result.missed) - 10} more")
-        
+
         print("\n" + "=" * 60)

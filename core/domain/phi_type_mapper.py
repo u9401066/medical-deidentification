@@ -9,10 +9,9 @@ for custom types discovered from regulations or user requirements.
 此模組集中管理所有 PHI 類型映射，並提供從法規或用戶需求發現的自定義類型的擴展性。
 """
 
-from typing import Dict, Optional, List
 from loguru import logger
 
-from .phi_types import PHIType, CustomPHIType
+from .phi_types import CustomPHIType, PHIType
 
 
 class PHITypeMapper:
@@ -41,19 +40,19 @@ class PHITypeMapper:
         >>> assert phi_type == PHIType.CUSTOM
         >>> assert custom_name == "職業資訊"
     """
-    
+
     def __init__(self):
         """Initialize with default mappings"""
         # Core mappings (built-in, not modifiable at runtime)
-        self._core_mappings: Dict[str, PHIType] = self._build_core_mappings()
-        
+        self._core_mappings: dict[str, PHIType] = self._build_core_mappings()
+
         # Extended mappings (can be added dynamically)
-        self._extended_mappings: Dict[str, PHIType] = {}
-        
+        self._extended_mappings: dict[str, PHIType] = {}
+
         # Custom type definitions (for CUSTOM types with specific meanings)
-        self._custom_type_definitions: Dict[str, CustomPHIType] = {}
-    
-    def _build_core_mappings(self) -> Dict[str, PHIType]:
+        self._custom_type_definitions: dict[str, CustomPHIType] = {}
+
+    def _build_core_mappings(self) -> dict[str, PHIType]:
         """
         Build core Chinese-to-English PHI type mappings
         構建核心中英文 PHI 類型映射
@@ -69,19 +68,19 @@ class PHITypeMapper:
             '病人姓名': PHIType.NAME,
             '醫師姓名': PHIType.NAME,
             '醫生姓名': PHIType.NAME,
-            
+
             # Dates / 日期
             '日期': PHIType.DATE,
             '出生日期': PHIType.DATE,
             '就診日期': PHIType.DATE,
             '住院日期': PHIType.DATE,
-            
+
             # Age / 年齡
             '年齡': PHIType.AGE_OVER_89,
             '歲數': PHIType.AGE_OVER_89,
             '年齡超過89歲': PHIType.AGE_OVER_89,
             '年齡超過90歲': PHIType.AGE_OVER_90,
-            
+
             # Location / 地理位置
             '地址': PHIType.LOCATION,
             '地點': PHIType.LOCATION,
@@ -90,7 +89,7 @@ class PHITypeMapper:
             '小型地理區域': PHIType.LOCATION,
             '地理區域': PHIType.LOCATION,
             '地理位置': PHIType.LOCATION,
-            
+
             # Contact / 聯絡方式
             '電話': PHIType.PHONE,
             '電話號碼': PHIType.PHONE,
@@ -102,7 +101,7 @@ class PHITypeMapper:
             '郵件': PHIType.EMAIL,
             'Email': PHIType.EMAIL,
             '聯絡資訊': PHIType.CONTACT,
-            
+
             # IDs / 識別碼
             '身份證號碼': PHIType.ID,
             '身分證字號': PHIType.ID,
@@ -113,14 +112,14 @@ class PHITypeMapper:
             '醫療記錄號': PHIType.MEDICAL_RECORD_NUMBER,
             '帳號': PHIType.ACCOUNT_NUMBER,
             '帳戶號碼': PHIType.ACCOUNT_NUMBER,
-            
+
             # Insurance / 保險
             '保險號碼': PHIType.INSURANCE_NUMBER,
             '醫療保險號碼': PHIType.INSURANCE_NUMBER,
             '醫療保險ID': PHIType.INSURANCE_NUMBER,
             '醫療保險 ID': PHIType.INSURANCE_NUMBER,
             '健保卡號': PHIType.INSURANCE_NUMBER,
-            
+
             # Facility / 醫療機構
             '醫院': PHIType.HOSPITAL_NAME,
             '醫院名稱': PHIType.HOSPITAL_NAME,
@@ -132,39 +131,39 @@ class PHITypeMapper:
             '科室名稱': PHIType.DEPARTMENT_NAME,
             '病房號': PHIType.WARD_NUMBER,
             '床號': PHIType.BED_NUMBER,
-            
+
             # Medical / 醫療資訊
             '罕見疾病': PHIType.RARE_DISEASE,
             '診斷': PHIType.RARE_DISEASE,  # Diagnoses can be rare diseases
             '基因資訊': PHIType.GENETIC_INFO,
             '遺傳資訊': PHIType.GENETIC_INFO,
-            
+
             # Biometric / 生物特徵
             '照片': PHIType.PHOTO,
             '生物特徵': PHIType.BIOMETRIC,
             '指紋': PHIType.BIOMETRIC,
-            
+
             # Device / 設備
             '設備識別碼': PHIType.DEVICE_ID,
             '裝置識別碼': PHIType.DEVICE_ID,
-            
+
             # Certificate / 證書
             '證書': PHIType.CERTIFICATE,
             '證書號碼': PHIType.CERTIFICATE,
             '執照號碼': PHIType.CERTIFICATE,
-            
+
             # Network / 網路
             '網址': PHIType.URL,
             'URL': PHIType.URL,
             'IP位址': PHIType.IP_ADDRESS,
             'IP地址': PHIType.IP_ADDRESS,
-            
+
             # SSN / 社會安全號碼
             '社會安全號碼': PHIType.SSN,
             '社安號': PHIType.SSN,
         }
-    
-    def map(self, phi_type_name: str) -> Optional[PHIType]:
+
+    def map(self, phi_type_name: str) -> PHIType | None:
         """
         Map PHI type name to PHIType enum
         映射 PHI 類型名稱到 PHIType 枚舉
@@ -177,29 +176,29 @@ class PHITypeMapper:
         """
         if not phi_type_name or not phi_type_name.strip():
             return None
-        
+
         name = phi_type_name.strip()
-        
+
         # Check extended mappings first (user-defined, higher priority)
         if name in self._extended_mappings:
             return self._extended_mappings[name]
-        
+
         # Check core mappings
         if name in self._core_mappings:
             return self._core_mappings[name]
-        
+
         # Try direct enum match (e.g., "NAME" -> PHIType.NAME)
         try:
             return PHIType(name.upper())
         except ValueError:
             pass
-        
+
         return None
-    
+
     def map_with_custom(
-        self, 
+        self,
         phi_type_name: str
-    ) -> tuple[PHIType, Optional[str]]:
+    ) -> tuple[PHIType, str | None]:
         """
         Map PHI type name, returning CUSTOM with name if not found
         映射 PHI 類型名稱，如果未找到則返回 CUSTOM 及名稱
@@ -214,19 +213,19 @@ class PHITypeMapper:
             - If empty: (PHIType.CUSTOM, "Unknown PHI Type")
         """
         mapped_type = self.map(phi_type_name)
-        
+
         if mapped_type:
             return mapped_type, None
-        
+
         # Not found, return CUSTOM with original name
         custom_name = phi_type_name.strip() if phi_type_name and phi_type_name.strip() else "Unknown PHI Type"
         logger.debug(f"Unknown PHI type '{phi_type_name}', mapping to CUSTOM: {custom_name}")
-        
+
         return PHIType.CUSTOM, custom_name
-    
+
     def register_custom_mapping(
-        self, 
-        phi_type_name: str, 
+        self,
+        phi_type_name: str,
         target_type: PHIType
     ) -> None:
         """
@@ -243,12 +242,12 @@ class PHITypeMapper:
         """
         if not phi_type_name or not phi_type_name.strip():
             raise ValueError("PHI type name cannot be empty")
-        
+
         self._extended_mappings[phi_type_name.strip()] = target_type
         logger.info(f"Registered custom mapping: '{phi_type_name}' -> {target_type.value}")
-    
+
     def register_custom_type_definition(
-        self, 
+        self,
         phi_type_name: str,
         custom_type: CustomPHIType
     ) -> None:
@@ -264,11 +263,11 @@ class PHITypeMapper:
         # Also register mapping to CUSTOM type
         self.register_custom_mapping(phi_type_name, PHIType.CUSTOM)
         logger.info(f"Registered custom type definition: '{phi_type_name}' -> {custom_type.name}")
-    
+
     def get_custom_type_definition(
-        self, 
+        self,
         phi_type_name: str
-    ) -> Optional[CustomPHIType]:
+    ) -> CustomPHIType | None:
         """
         Get custom PHI type definition if exists
         獲取自定義 PHI 類型定義（如果存在）
@@ -280,8 +279,8 @@ class PHITypeMapper:
             CustomPHIType or None
         """
         return self._custom_type_definitions.get(phi_type_name)
-    
-    def list_all_mappings(self) -> Dict[str, str]:
+
+    def list_all_mappings(self) -> dict[str, str]:
         """
         List all registered mappings for debugging
         列出所有已註冊的映射供除錯使用
@@ -290,18 +289,18 @@ class PHITypeMapper:
             Dictionary of {source_name: target_PHIType_value}
         """
         all_mappings = {}
-        
+
         # Core mappings
         for name, phi_type in self._core_mappings.items():
             all_mappings[name] = phi_type.value
-        
+
         # Extended mappings (may override core)
         for name, phi_type in self._extended_mappings.items():
             all_mappings[name] = phi_type.value
-        
+
         return all_mappings
-    
-    def get_mapping_stats(self) -> Dict[str, int]:
+
+    def get_mapping_stats(self) -> dict[str, int]:
         """
         Get mapping statistics
         獲取映射統計資訊
@@ -318,7 +317,7 @@ class PHITypeMapper:
 
 
 # Global singleton instance
-_default_mapper: Optional[PHITypeMapper] = None
+_default_mapper: PHITypeMapper | None = None
 
 
 def get_default_mapper() -> PHITypeMapper:
@@ -335,7 +334,7 @@ def get_default_mapper() -> PHITypeMapper:
     return _default_mapper
 
 
-def register_custom_mappings_from_config(config_dict: Dict[str, str]) -> None:
+def register_custom_mappings_from_config(config_dict: dict[str, str]) -> None:
     """
     Register custom mappings from configuration
     從配置註冊自定義映射
@@ -351,7 +350,7 @@ def register_custom_mappings_from_config(config_dict: Dict[str, str]) -> None:
         ... })
     """
     mapper = get_default_mapper()
-    
+
     for source_name, target_name in config_dict.items():
         try:
             target_type = PHIType(target_name.upper())

@@ -33,37 +33,34 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     # Type hints only (not imported at runtime)
     from .embeddings import (
-        EmbeddingsManager,
         EmbeddingsConfig,
+        EmbeddingsManager,
         PretrainedModels,
-        create_embeddings_manager
+        create_embeddings_manager,
     )
-    from .regulation_store import (
-        RegulationVectorStore,
-        RegulationStoreConfig,
-        InMemoryDocumentProcessor
+    from .medical_retriever import (
+        MedicalRetrieverConfig,
+        MedicalTextRetriever,
+        create_medical_retriever,
+    )
+    from .phi_agent import PHIIdentificationAgent
+    from .phi_identification_chain import PHIIdentificationChain
+    from .regulation_retrieval_chain import (
+        RegulationRetrievalChain,
+        RegulationRetrievalConfig,
+        create_regulation_retrieval_chain,
     )
     from .regulation_retriever import (
         RegulationRetriever,
         RegulationRetrieverConfig,
-        create_regulation_retriever
+        create_regulation_retriever,
     )
-    from .text_splitter import (
-        MedicalTextSplitter,
-        create_medical_splitter
+    from .regulation_store import (
+        InMemoryDocumentProcessor,
+        RegulationStoreConfig,
+        RegulationVectorStore,
     )
-    from .medical_retriever import (
-        MedicalTextRetriever,
-        MedicalRetrieverConfig,
-        create_medical_retriever
-    )
-    from .regulation_retrieval_chain import (
-        RegulationRetrievalChain,
-        RegulationRetrievalConfig,
-        create_regulation_retrieval_chain
-    )
-    from .phi_identification_chain import PHIIdentificationChain
-    from .phi_agent import PHIIdentificationAgent
+    from .text_splitter import MedicalTextSplitter, create_medical_splitter
 
 
 def __getattr__(name: str):
@@ -75,48 +72,48 @@ def __getattr__(name: str):
     if name in ("EmbeddingsManager", "EmbeddingsConfig", "PretrainedModels", "create_embeddings_manager"):
         from . import embeddings
         return getattr(embeddings, name)
-    
+
     # Regulation Store
     if name in ("RegulationVectorStore", "RegulationStoreConfig", "InMemoryDocumentProcessor"):
         from . import regulation_store
         return getattr(regulation_store, name)
-    
+
     # Regulation Retriever
     if name in ("RegulationRetriever", "RegulationRetrieverConfig", "create_regulation_retriever"):
         from . import regulation_retriever
         return getattr(regulation_retriever, name)
-    
+
     # Text Splitter
     if name in ("MedicalTextSplitter", "create_medical_splitter"):
         from . import text_splitter
         return getattr(text_splitter, name)
-    
+
     # Medical Retriever
     if name in ("MedicalTextRetriever", "MedicalRetrieverConfig", "create_medical_retriever"):
         from . import medical_retriever
         return getattr(medical_retriever, name)
-    
+
     # Regulation Retrieval Chain
     if name in ("RegulationRetrievalChain", "RegulationRetrievalConfig", "create_regulation_retrieval_chain"):
         from . import regulation_retrieval_chain
         return getattr(regulation_retrieval_chain, name)
-    
+
     # PHI Identification Chain
     if name == "PHIIdentificationChain":
         from .phi_identification_chain import PHIIdentificationChain
         return PHIIdentificationChain
-    
+
     # PHI Agent
     if name == "PHIIdentificationAgent":
         from .phi_agent import PHIIdentificationAgent
         return PHIIdentificationAgent
-    
+
     # Domain models (safe to import directly - no torch dependency)
     if name in ("PHIIdentificationConfig", "PHIIdentificationResult", "PHIDetectionResponse"):
         from ...domain.phi_identification_models import (
+            PHIDetectionResponse,
             PHIIdentificationConfig,
             PHIIdentificationResult,
-            PHIDetectionResponse,
         )
         mapping = {
             "PHIIdentificationConfig": PHIIdentificationConfig,
@@ -124,7 +121,7 @@ def __getattr__(name: str):
             "PHIDetectionResponse": PHIDetectionResponse,
         }
         return mapping[name]
-    
+
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -134,26 +131,26 @@ __all__ = [
     "EmbeddingsConfig",
     "PretrainedModels",
     "create_embeddings_manager",
-    
+
     # Vector Store
     "RegulationVectorStore",
     "RegulationStoreConfig",
     "InMemoryDocumentProcessor",
-    
+
     # Regulation Retriever (persistent)
     "RegulationRetriever",
     "RegulationRetrieverConfig",
     "create_regulation_retriever",
-    
+
     # Text Splitting
     "MedicalTextSplitter",
     "create_medical_splitter",
-    
+
     # Medical Retriever (ephemeral, for future RAG use)
     "MedicalTextRetriever",
     "MedicalRetrieverConfig",
     "create_medical_retriever",
-    
+
     # New Modular Chains (recommended)
     "RegulationRetrievalChain",
     "RegulationRetrievalConfig",

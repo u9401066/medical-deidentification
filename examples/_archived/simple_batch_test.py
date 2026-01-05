@@ -8,6 +8,7 @@ Test PHI identification on multilingual medical records
 
 import sys
 from pathlib import Path
+
 from loguru import logger
 
 # 配置日誌
@@ -20,30 +21,24 @@ logger.info("簡單批次處理測試 - Simple Batch Processing Test")
 logger.info("="*80)
 
 # 導入必要模組
-from core.infrastructure.rag import (
-    PHIIdentificationConfig,
-    PHIIdentificationChain
-)
-from core.application.processing import (
-    BatchPHIProcessor,
-    BatchProcessingConfig,
-    save_batch_results
-)
+from core.application.processing import BatchPHIProcessor, BatchProcessingConfig, save_batch_results
+from core.infrastructure.rag import PHIIdentificationChain, PHIIdentificationConfig
+
 
 def main():
     """主函數"""
-    
+
     # ============= 配置 =============
-    
+
     # 測試文件（使用之前成功的測試檔案）
     test_file = Path("data/test/test_complex_phi_cases.xlsx")
-    
+
     if not test_file.exists():
         logger.error(f"❌ 測試文件不存在: {test_file}")
         return 1
-    
+
     logger.info(f"✓ 測試文件: {test_file}")
-    
+
     # PHI 識別配置（使用 Ollama）
     phi_config = PHIIdentificationConfig(
         retrieve_regulation_context=False,  # 不使用 RAG（避免載入 embeddings）
@@ -55,7 +50,7 @@ def main():
             "timeout": 180,  # 增加超時到 180 秒
         }
     )
-    
+
     # 批次處理配置（處理前 3 行測試）
     batch_config = BatchProcessingConfig(
         max_rows=3,  # 處理前 3 行
@@ -64,9 +59,9 @@ def main():
         combine_columns=True,
         log_progress_interval=1
     )
-    
+
     # ============= 初始化 =============
-    
+
     logger.info("\n初始化 PHI Identification Chain...")
     try:
         phi_chain = PHIIdentificationChain(
@@ -78,7 +73,7 @@ def main():
         logger.error(f"❌ 創建 PHI Chain 失敗: {e}")
         logger.exception("詳細錯誤:")
         return 1
-    
+
     logger.info("\n初始化 Batch Processor...")
     try:
         processor = BatchPHIProcessor(
@@ -90,48 +85,48 @@ def main():
         logger.error(f"❌ 創建 Batch Processor 失敗: {e}")
         logger.exception("詳細錯誤:")
         return 1
-    
+
     # ============= 處理 =============
-    
+
     logger.info("\n" + "="*80)
     logger.info(f"開始處理（前 {batch_config.max_rows} 行測試）...")
     logger.info("="*80)
-    
+
     try:
         result = processor.process_excel_file(
             str(test_file),
             case_id_column="case_id"  # test_complex_phi_cases.xlsx 的 ID 欄位
         )
-        
+
         # ============= 顯示結果 =============
-        
+
         logger.success("\n" + "="*80)
         logger.success("✅ 處理完成！")
         logger.success("="*80)
-        
+
         # 處理統計
-        logger.info(f"\n處理統計:")
+        logger.info("\n處理統計:")
         logger.info(f"  總行數: {result.total_rows}")
         logger.info(f"  成功處理: {result.processed_rows}")
         logger.info(f"  總 PHI 實體: {result.total_entities}")
         logger.info(f"  處理時間: {result.total_time:.2f} 秒")
         logger.info(f"  平均每行: {result.average_time_per_row:.2f} 秒")
-        
+
         # PHI 類型分布
-        logger.info(f"\nPHI 類型分布:")
+        logger.info("\nPHI 類型分布:")
         phi_distribution = result.get_phi_type_distribution()
         for phi_type, count in sorted(phi_distribution.items(), key=lambda x: -x[1]):
             logger.info(f"  {phi_type:30s}: {count:3d}")
-        
+
         # 信心度統計
-        logger.info(f"\n信心度統計:")
+        logger.info("\n信心度統計:")
         confidence_stats = result.get_confidence_statistics()
         logger.info(f"  平均: {confidence_stats['mean']:.1%}")
         logger.info(f"  最小: {confidence_stats['min']:.1%}")
         logger.info(f"  最大: {confidence_stats['max']:.1%}")
-        
+
         # 顯示前 3 行的結果詳情
-        logger.info(f"\n前 3 行詳細結果:")
+        logger.info("\n前 3 行詳細結果:")
         for row_result in result.row_results[:3]:
             if row_result.success:
                 logger.info(
@@ -148,23 +143,23 @@ def main():
                     )
             else:
                 logger.error(f"  Row {row_result.row_number}: ❌ {row_result.error_message}")
-        
+
         # 保存結果（使用 OutputManager 自動管理路徑和報告）
         if result.processed_rows > 0:
             saved_paths = save_batch_results([result], generate_report=True)
-            logger.info(f"\n✓ 結果已保存:")
+            logger.info("\n✓ 結果已保存:")
             logger.info(f"  Excel: {saved_paths.get('result')}")
             if 'report' in saved_paths:
                 logger.info(f"  Report: {saved_paths.get('report')}")
-        
+
         return 0
-        
+
     except Exception as e:
         logger.error("\n" + "="*80)
         logger.error("❌ 處理失敗！")
         logger.error("="*80)
         logger.error(f"錯誤類型: {type(e).__name__}")
-        logger.error(f"錯誤訊息: {str(e)}")
+        logger.error(f"錯誤訊息: {e!s}")
         logger.exception("詳細錯誤堆疊:")
         return 1
 

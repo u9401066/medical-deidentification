@@ -6,15 +6,14 @@ Central registry for all prompt templates with versioning support.
 """
 
 from enum import Enum
-from typing import Dict
 
 from .phi_prompts import (
-    PHI_IDENTIFICATION_PROMPT_V1,
-    PHI_IDENTIFICATION_STRUCTURED_PROMPT_V1,
-    PHI_IDENTIFICATION_PROMPT_ZH_TW,
-    PHI_VALIDATION_PROMPT_V1,
     MASKING_STRATEGY_PROMPT_V1,
+    PHI_IDENTIFICATION_PROMPT_V1,
+    PHI_IDENTIFICATION_PROMPT_ZH_TW,
+    PHI_IDENTIFICATION_STRUCTURED_PROMPT_V1,
     PHI_MAP_REDUCE_PROMPT_V1,
+    PHI_VALIDATION_PROMPT_V1,
 )
 from .system_messages import (
     SYSTEM_MESSAGE_PHI_EXPERT,
@@ -22,7 +21,6 @@ from .system_messages import (
     SYSTEM_MESSAGE_REGULATION_ANALYST,
     SYSTEM_MESSAGE_REGULATION_ANALYST_ZH_TW,
 )
-
 
 # ============================================================================
 # Enums
@@ -48,7 +46,7 @@ class PromptLanguage(str, Enum):
 # Prompt Registry
 # ============================================================================
 
-PROMPT_REGISTRY: Dict[str, Dict[str, str]] = {
+PROMPT_REGISTRY: dict[str, dict[str, str]] = {
     # PHI Identification
     "phi_identification_v1": {
         "en": PHI_IDENTIFICATION_PROMPT_V1,
@@ -57,22 +55,22 @@ PROMPT_REGISTRY: Dict[str, Dict[str, str]] = {
     "phi_identification_structured_v1": {
         "en": PHI_IDENTIFICATION_STRUCTURED_PROMPT_V1,
     },
-    
+
     # PHI MapReduce
     "phi_map_reduce_v1": {
         "en": PHI_MAP_REDUCE_PROMPT_V1,
     },
-    
+
     # PHI Validation
     "phi_validation_v1": {
         "en": PHI_VALIDATION_PROMPT_V1,
     },
-    
+
     # Masking Strategy
     "masking_strategy_v1": {
         "en": MASKING_STRATEGY_PROMPT_V1,
     },
-    
+
     # System Messages
     "system_phi_expert": {
         "en": SYSTEM_MESSAGE_PHI_EXPERT,

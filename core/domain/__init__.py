@@ -29,22 +29,38 @@ This module provides a unified export interface for all domain models.
 """
 
 # Type Definitions | 類型定義
-from .phi_types import PHIType, CustomPHIType
-from .masking_types import StrategyType
+# Aggregates | 聚合
+from .aggregates import MedicalDocument
+
+# Configuration Models | 配置模型
+from .configs import (
+    EmbeddingsConfig,
+    MedicalRetrieverConfig,
+    RegulationRetrievalConfig,
+    RegulationRetrieverConfig,
+    RegulationStoreConfig,
+)
 
 # Entities | 實體
 from .entities import PHIEntity
 
-# Value Objects | 值物件
-from .value_objects import (
-    SupportedLanguage,
-    RegulationContext,
-    DocumentMetadata,
-    ValidationResult,
+# Document Loader Models | 文檔載入模型
+from .loader_models import (
+    DocumentFormat,
+    LoadedDocument,
+    LoaderConfig,
 )
+from .loader_models import (
+    DocumentMetadata as LoaderDocumentMetadata,
+)
+from .masking_types import StrategyType
 
-# Aggregates | 聚合
-from .aggregates import MedicalDocument
+# PHI Identification DTOs | PHI 識別 DTO
+from .phi_identification_models import (
+    PHIDetectionResponse,
+    PHIIdentificationConfig,
+    PHIIdentificationResult,
+)
 
 # PHI Type Mapper | PHI 類型映射器
 from .phi_type_mapper import (
@@ -52,29 +68,14 @@ from .phi_type_mapper import (
     get_default_mapper,
     register_custom_mappings_from_config,
 )
+from .phi_types import CustomPHIType, PHIType
 
-# PHI Identification DTOs | PHI 識別 DTO
-from .phi_identification_models import (
-    PHIIdentificationResult,
-    PHIDetectionResponse,
-    PHIIdentificationConfig,
-)
-
-# Configuration Models | 配置模型
-from .configs import (
-    EmbeddingsConfig,
-    RegulationStoreConfig,
-    RegulationRetrieverConfig,
-    RegulationRetrievalConfig,
-    MedicalRetrieverConfig,
-)
-
-# Document Loader Models | 文檔載入模型
-from .loader_models import (
-    DocumentFormat,
-    DocumentMetadata as LoaderDocumentMetadata,
-    LoadedDocument,
-    LoaderConfig,
+# Value Objects | 值物件
+from .value_objects import (
+    DocumentMetadata,
+    RegulationContext,
+    SupportedLanguage,
+    ValidationResult,
 )
 
 __all__ = [

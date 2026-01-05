@@ -12,12 +12,7 @@ __author__ = "u9401066"
 __license__ = "Apache-2.0"
 
 # Core domain models (no dependencies)
-from core.domain import (
-    MedicalDocument,
-    PHIEntity,
-    PHIType,
-    SupportedLanguage
-)
+from core.domain import MedicalDocument, PHIEntity, PHIType, SupportedLanguage
 
 # Application components (require dependencies)
 try:
@@ -32,10 +27,10 @@ except ImportError:
     DeidentificationPipeline = None
 
 __all__ = [
+    "DeidentificationEngine",
+    "DeidentificationPipeline",
     "MedicalDocument",
     "PHIEntity",
     "PHIType",
     "SupportedLanguage",
-    "DeidentificationEngine",
-    "DeidentificationPipeline",
 ]

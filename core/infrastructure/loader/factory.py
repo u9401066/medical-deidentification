@@ -7,20 +7,20 @@ Provides factory methods and utilities for creating and using document loaders.
 """
 
 from pathlib import Path
-from typing import Union, List, Optional, Dict, Type
+
 from loguru import logger
 
-from .base import DocumentLoader, LoadedDocument, DocumentFormat, LoaderConfig
+from .base import DocumentFormat, DocumentLoader, LoadedDocument, LoaderConfig
 from .loaders import (
-    TextLoader,
     CSVLoader,
     ExcelLoader,
-    WordLoader,
+    FHIRLoader,
+    HTMLLoader,
     JSONLoader,
     PDFLoader,
-    HTMLLoader,
+    TextLoader,
+    WordLoader,
     XMLLoader,
-    FHIRLoader
 )
 
 
@@ -40,9 +40,9 @@ class DocumentLoaderFactory:
         >>> # Or use convenience method
         >>> doc = factory.load("patient.xlsx")
     """
-    
+
     # Mapping of formats to loader classes
-    _LOADER_REGISTRY: Dict[DocumentFormat, Type[DocumentLoader]] = {
+    _LOADER_REGISTRY: dict[DocumentFormat, type[DocumentLoader]] = {
         DocumentFormat.TXT: TextLoader,
         DocumentFormat.CSV: CSVLoader,
         DocumentFormat.XLSX: ExcelLoader,
@@ -54,8 +54,8 @@ class DocumentLoaderFactory:
         DocumentFormat.XML: XMLLoader,
         DocumentFormat.FHIR: FHIRLoader,
     }
-    
-    def __init__(self, default_config: Optional[LoaderConfig] = None):
+
+    def __init__(self, default_config: LoaderConfig | None = None):
         """
         Initialize factory
         
@@ -63,12 +63,12 @@ class DocumentLoaderFactory:
             default_config: Default configuration for all loaders
         """
         self.default_config = default_config or LoaderConfig()
-    
+
     def create_loader(
         self,
-        file_path: Union[str, Path],
-        format: Optional[DocumentFormat] = None,
-        config: Optional[LoaderConfig] = None
+        file_path: str | Path,
+        format: DocumentFormat | None = None,
+        config: LoaderConfig | None = None
     ) -> DocumentLoader:
         """
         Create appropriate loader for file
@@ -85,37 +85,37 @@ class DocumentLoaderFactory:
             ValueError: If format is unsupported
         """
         file_path = Path(file_path)
-        
+
         # Determine format
         if format is None:
             format = DocumentFormat.from_extension(file_path.suffix)
-        
+
         # Special case: detect FHIR from JSON
         if format == DocumentFormat.JSON and self._is_fhir_file(file_path):
             format = DocumentFormat.FHIR
-        
+
         # Get loader class
         if format not in self._LOADER_REGISTRY:
             raise ValueError(
                 f"Unsupported format: {format}. "
                 f"Supported: {list(self._LOADER_REGISTRY.keys())}"
             )
-        
+
         loader_class = self._LOADER_REGISTRY[format]
-        
+
         # Create loader with config
         loader_config = config or self.default_config
         loader = loader_class(loader_config)
-        
+
         logger.debug(f"Created {loader_class.__name__} for {file_path}")
-        
+
         return loader
-    
+
     def load(
         self,
-        file_path: Union[str, Path],
-        format: Optional[DocumentFormat] = None,
-        config: Optional[LoaderConfig] = None
+        file_path: str | Path,
+        format: DocumentFormat | None = None,
+        config: LoaderConfig | None = None
     ) -> LoadedDocument:
         """
         Convenience method: create loader and load document
@@ -130,12 +130,12 @@ class DocumentLoaderFactory:
         """
         loader = self.create_loader(file_path, format, config)
         return loader.load(file_path)
-    
+
     def load_multiple(
         self,
-        file_paths: List[Union[str, Path]],
-        config: Optional[LoaderConfig] = None
-    ) -> List[LoadedDocument]:
+        file_paths: list[str | Path],
+        config: LoaderConfig | None = None
+    ) -> list[LoadedDocument]:
         """
         Load multiple documents
         
@@ -147,24 +147,24 @@ class DocumentLoaderFactory:
             List of LoadedDocument objects
         """
         documents = []
-        
+
         for file_path in file_paths:
             try:
                 doc = self.load(file_path, config=config)
                 documents.append(doc)
             except Exception as e:
                 logger.error(f"Failed to load {file_path}: {e}")
-        
+
         logger.info(f"Loaded {len(documents)}/{len(file_paths)} documents")
         return documents
-    
+
     def load_directory(
         self,
-        directory: Union[str, Path],
+        directory: str | Path,
         pattern: str = "*",
         recursive: bool = False,
-        config: Optional[LoaderConfig] = None
-    ) -> List[LoadedDocument]:
+        config: LoaderConfig | None = None
+    ) -> list[LoadedDocument]:
         """
         Load all documents from directory
         
@@ -178,23 +178,23 @@ class DocumentLoaderFactory:
             List of LoadedDocument objects
         """
         directory = Path(directory)
-        
+
         if not directory.is_dir():
             raise ValueError(f"Not a directory: {directory}")
-        
+
         # Find files
         if recursive:
             file_paths = list(directory.rglob(pattern))
         else:
             file_paths = list(directory.glob(pattern))
-        
+
         # Filter out directories
         file_paths = [p for p in file_paths if p.is_file()]
-        
+
         logger.info(f"Found {len(file_paths)} files in {directory}")
-        
+
         return self.load_multiple(file_paths, config=config)
-    
+
     def _is_fhir_file(self, file_path: Path) -> bool:
         """
         Check if JSON file is FHIR resource
@@ -207,17 +207,17 @@ class DocumentLoaderFactory:
         """
         try:
             import json
-            with open(file_path, 'r') as f:
+            with open(file_path) as f:
                 data = json.load(f)
                 return "resourceType" in data
         except Exception:
             return False
-    
+
     @classmethod
     def register_loader(
         cls,
         format: DocumentFormat,
-        loader_class: Type[DocumentLoader]
+        loader_class: type[DocumentLoader]
     ) -> None:
         """
         Register custom loader for format
@@ -231,19 +231,19 @@ class DocumentLoaderFactory:
                 f"Loader class must inherit from DocumentLoader, "
                 f"got {loader_class}"
             )
-        
+
         cls._LOADER_REGISTRY[format] = loader_class
         logger.info(f"Registered {loader_class.__name__} for {format}")
-    
+
     @classmethod
-    def get_supported_formats(cls) -> List[DocumentFormat]:
+    def get_supported_formats(cls) -> list[DocumentFormat]:
         """Get list of supported formats"""
         return list(cls._LOADER_REGISTRY.keys())
-    
+
     @classmethod
-    def get_supported_extensions(cls) -> List[str]:
+    def get_supported_extensions(cls) -> list[str]:
         """Get list of supported file extensions"""
-        return [fmt.value for fmt in cls._LOADER_REGISTRY.keys() 
+        return [fmt.value for fmt in cls._LOADER_REGISTRY.keys()
                 if fmt != DocumentFormat.UNKNOWN]
 
 
@@ -251,9 +251,9 @@ class DocumentLoaderFactory:
 # 便利函數
 
 def create_loader(
-    file_path: Union[str, Path],
-    format: Optional[DocumentFormat] = None,
-    config: Optional[LoaderConfig] = None
+    file_path: str | Path,
+    format: DocumentFormat | None = None,
+    config: LoaderConfig | None = None
 ) -> DocumentLoader:
     """
     Create document loader for file
@@ -275,9 +275,9 @@ def create_loader(
 
 
 def load_document(
-    file_path: Union[str, Path],
-    format: Optional[DocumentFormat] = None,
-    config: Optional[LoaderConfig] = None
+    file_path: str | Path,
+    format: DocumentFormat | None = None,
+    config: LoaderConfig | None = None
 ) -> LoadedDocument:
     """
     Load single document
@@ -300,11 +300,11 @@ def load_document(
 
 
 def load_documents_from_directory(
-    directory: Union[str, Path],
+    directory: str | Path,
     pattern: str = "*",
     recursive: bool = False,
-    config: Optional[LoaderConfig] = None
-) -> List[LoadedDocument]:
+    config: LoaderConfig | None = None
+) -> list[LoadedDocument]:
     """
     Load all documents from directory
     
@@ -328,7 +328,7 @@ def load_documents_from_directory(
     return factory.load_directory(directory, pattern, recursive)
 
 
-def get_supported_formats() -> List[str]:
+def get_supported_formats() -> list[str]:
     """
     Get list of supported file formats
     

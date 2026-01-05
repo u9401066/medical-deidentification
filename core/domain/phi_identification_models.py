@@ -21,13 +21,14 @@ Design Principles:
 - 與 PHITypeMapper 的類型映射整合
 """
 
-from typing import List, Optional, Any
-from pydantic import BaseModel, Field, field_validator, model_validator
-from loguru import logger
+from typing import Any
 
-from .phi_types import PHIType, CustomPHIType
+from loguru import logger
+from pydantic import BaseModel, Field, field_validator, model_validator
+
 from .entities import PHIEntity
 from .phi_type_mapper import get_default_mapper
+from .phi_types import CustomPHIType, PHIType
 
 
 class PHIIdentificationResult(BaseModel):
@@ -52,47 +53,47 @@ class PHIIdentificationResult(BaseModel):
         masking_action: Recommended masking strategy
         is_custom_from_regulation: Whether discovered from regulations
     """
-    
+
     entity_text: str = Field(
         description="The exact text from the document that was identified as PHI"
     )
-    phi_type: Optional[PHIType] = Field(
+    phi_type: PHIType | None = Field(
         default=PHIType.NAME,
         description="PHI type enum (e.g., PHIType.NAME, PHIType.AGE_OVER_89)"
     )
-    custom_type_name: Optional[str] = Field(
+    custom_type_name: str | None = Field(
         default=None,
         description="Custom PHI type name if phi_type is CUSTOM"
     )
-    custom_type_description: Optional[str] = Field(
+    custom_type_description: str | None = Field(
         default=None,
         description="Description of custom PHI type"
     )
-    start_position: Optional[int] = Field(
+    start_position: int | None = Field(
         default=0,
         ge=0,
         description="Character position where entity starts (0-indexed)"
     )
-    end_position: Optional[int] = Field(
+    end_position: int | None = Field(
         default=0,
         ge=0,
         description="Character position where entity ends (exclusive)"
     )
-    confidence: Optional[float] = Field(
+    confidence: float | None = Field(
         default=1.0,
         ge=0.0,
         le=1.0,
         description="Confidence level (0.0-1.0)"
     )
-    reason: Optional[str] = Field(
+    reason: str | None = Field(
         default="Identified as PHI",
         description="Explanation of why this is PHI according to regulations"
     )
-    regulation_source: Optional[str] = Field(
+    regulation_source: str | None = Field(
         default=None,
         description="Source regulation"
     )
-    masking_action: Optional[str] = Field(
+    masking_action: str | None = Field(
         default=None,
         description="Recommended masking action"
     )
@@ -100,10 +101,10 @@ class PHIIdentificationResult(BaseModel):
         default=False,
         description="Whether this PHI type was discovered from regulations"
     )
-    
+
     @field_validator('end_position')
     @classmethod
-    def validate_position_range(cls, v: Optional[int], info) -> Optional[int]:
+    def validate_position_range(cls, v: int | None, info) -> int | None:
         """
         Ensure end_position >= start_position
         確保結束位置 >= 起始位置
@@ -114,10 +115,10 @@ class PHIIdentificationResult(BaseModel):
             if v < info.data['start_position']:
                 return info.data['start_position']  # Auto-fix instead of raising error
         return v
-    
+
     @field_validator('custom_type_name')
     @classmethod
-    def validate_custom_type(cls, v: Optional[str], info) -> Optional[str]:
+    def validate_custom_type(cls, v: str | None, info) -> str | None:
         """
         Ensure CUSTOM type has custom_type_name
         確保 CUSTOM 類型有 custom_type_name
@@ -126,12 +127,12 @@ class PHIIdentificationResult(BaseModel):
             if not v or not v.strip():
                 # Provide default fallback instead of raising error
                 fallback_name = "Unknown PHI Type"
-                if 'entity_text' in info.data and info.data['entity_text']:
+                if info.data.get('entity_text'):
                     fallback_name = f"Custom PHI: {info.data['entity_text'][:50]}"
                 logger.warning(f"CUSTOM type missing custom_type_name, using fallback: {fallback_name}")
                 return fallback_name
         return v
-    
+
     @field_validator('phi_type', mode='before')
     @classmethod
     def normalize_phi_type(cls, v, info) -> PHIType:
@@ -144,12 +145,12 @@ class PHIIdentificationResult(BaseModel):
         """
         if isinstance(v, PHIType):
             return v
-        
+
         if isinstance(v, str):
             # Use domain-layer PHITypeMapper for all mappings
             mapper = get_default_mapper()
             mapped_type, custom_name = mapper.map_with_custom(v)
-            
+
             # CRITICAL FIX: If mapped to CUSTOM, ALWAYS store the custom_type_name
             # This prevents "custom_type must be provided" error in PHIEntity
             if mapped_type == PHIType.CUSTOM:
@@ -162,11 +163,11 @@ class PHIIdentificationResult(BaseModel):
                     logger.warning(f"PHI type '{v}' mapped to CUSTOM but no custom_name provided, using original string")
                     if hasattr(info, 'data'):
                         info.data['custom_type_name'] = v
-            
+
             return mapped_type
-        
+
         raise ValueError(f"Invalid phi_type: {v}")
-    
+
     def to_phi_entity(self) -> PHIEntity:
         """
         Convert to PHIEntity domain model
@@ -184,11 +185,10 @@ class PHIIdentificationResult(BaseModel):
         end_pos = self.end_position or 0
         confidence = self.confidence if self.confidence is not None else 1.0
         reason = self.reason or "Identified as PHI"
-        
+
         custom_type = None
         if phi_type == PHIType.CUSTOM and self.custom_type_name:
             # CustomPHIType is a dataclass with all fields
-            from dataclasses import replace
             custom_type = CustomPHIType(
                 name=self.custom_type_name,
                 description=self.custom_type_description or reason,
@@ -199,7 +199,7 @@ class PHIIdentificationResult(BaseModel):
                 masking_strategy=self.masking_action,
                 aliases=[],
             )
-        
+
         return PHIEntity(
             type=phi_type,
             text=self.entity_text,
@@ -227,12 +227,12 @@ class PHIDetectionResponse(BaseModel):
         total_entities: Total count (validated against list length)
         has_phi: Whether any PHI was detected
     """
-    
-    entities: List[PHIIdentificationResult] = Field(
+
+    entities: list[PHIIdentificationResult] = Field(
         default_factory=list,
         description="List of detected PHI entities"
     )
-    total_entities: Optional[int] = Field(
+    total_entities: int | None = Field(
         default=None,
         ge=0,
         description="Total number of entities detected (optional, will be auto-calculated)"
@@ -240,7 +240,7 @@ class PHIDetectionResponse(BaseModel):
     has_phi: bool = Field(
         description="Whether any PHI was detected"
     )
-    
+
     @model_validator(mode='after')
     def validate_and_fix_total(self) -> 'PHIDetectionResponse':
         """
@@ -255,13 +255,13 @@ class PHIDetectionResponse(BaseModel):
             if key not in seen:
                 seen.add(key)
                 unique_entities.append(entity)
-        
+
         self.entities = unique_entities
         # Auto-calculate total_entities from actual list length
         self.total_entities = len(self.entities)
         # Update has_phi based on actual entities
         self.has_phi = len(self.entities) > 0
-        
+
         return self
 
 
@@ -279,7 +279,7 @@ class PHIIdentificationConfig(BaseModel):
         retrieve_regulation_context: Retrieve regulations from vector store
         regulation_context_k: Number of regulation docs to retrieve
     """
-    
+
     # Use Any to avoid circular dependency with infrastructure layer
     # The actual LLMConfig will be validated at runtime
     llm_config: Any = Field(

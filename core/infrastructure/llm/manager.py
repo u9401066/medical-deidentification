@@ -5,10 +5,11 @@ High-level interface for LLM operations with caching and retry logic.
 LLM 操作的高階介面，支援快取和重試邏輯。
 """
 
-from typing import Optional, Dict, Any, List
+from typing import Any
+
 from loguru import logger
 
-from .config import LLMConfig, LLMPresets
+from .config import LLMConfig
 from .factory import create_llm, create_structured_output_llm
 
 
@@ -46,10 +47,10 @@ class LLMManager:
         >>> response = manager.invoke_structured("What is PHI?", schema=Answer)
         >>> print(response.text)
     """
-    
+
     def __init__(
         self,
-        config: Optional[LLMConfig] = None,
+        config: LLMConfig | None = None,
         auto_init: bool = False
     ):
         """
@@ -66,23 +67,23 @@ class LLMManager:
             "total_tokens": 0,
             "errors": 0,
         }
-        
+
         if auto_init:
             self._initialize_llm()
-    
+
     def _initialize_llm(self):
         """Initialize LLM instance (lazy loading)"""
         if self._llm is None:
             logger.info("Initializing LLM...")
             self._llm = create_llm(self.config)
             logger.success(f"LLM initialized: {self.config.provider}/{self.config.model_name}")
-    
+
     @property
     def llm(self):
         """Get LLM instance (lazy initialization)"""
         self._initialize_llm()
         return self._llm
-    
+
     def invoke(self, prompt: str, **kwargs) -> str:
         """
         Invoke LLM with a prompt
@@ -98,25 +99,25 @@ class LLMManager:
             >>> response = manager.invoke("What is HIPAA?")
         """
         self._stats["total_calls"] += 1
-        
+
         try:
             logger.debug(f"Invoking LLM with prompt length: {len(prompt)}")
             response = self.llm.invoke(prompt, **kwargs)
-            
+
             # Extract content based on response type
             if hasattr(response, 'content'):
                 content = response.content
             else:
                 content = str(response)
-            
+
             logger.debug(f"LLM response length: {len(content)}")
             return content
-            
+
         except Exception as e:
             self._stats["errors"] += 1
             logger.error(f"LLM invocation failed: {e}")
             raise
-    
+
     def invoke_structured(
         self,
         prompt: str,
@@ -146,30 +147,30 @@ class LLMManager:
             ... )
         """
         self._stats["total_calls"] += 1
-        
+
         try:
             # Create LLM with structured output
             structured_llm = create_structured_output_llm(
                 config=self.config,
                 schema=schema
             )
-            
+
             logger.debug(f"Invoking LLM with structured output: {schema.__name__}")
             response = structured_llm.invoke(prompt, **kwargs)
-            
+
             logger.debug(f"Structured response: {type(response).__name__}")
             return response
-            
+
         except Exception as e:
             self._stats["errors"] += 1
             logger.error(f"Structured LLM invocation failed: {e}")
             raise
-    
+
     def batch_invoke(
         self,
-        prompts: List[str],
+        prompts: list[str],
         **kwargs
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Batch invoke LLM with multiple prompts
         
@@ -185,16 +186,16 @@ class LLMManager:
             >>> responses = manager.batch_invoke(prompts)
         """
         logger.info(f"Batch invoking LLM with {len(prompts)} prompts")
-        
+
         responses = []
         for i, prompt in enumerate(prompts):
             logger.debug(f"Processing prompt {i+1}/{len(prompts)}")
             response = self.invoke(prompt, **kwargs)
             responses.append(response)
-        
+
         logger.success(f"Batch invocation complete: {len(responses)} responses")
         return responses
-    
+
     def update_config(self, **kwargs):
         """
         Update LLM configuration
@@ -209,12 +210,12 @@ class LLMManager:
         config_dict = self.config.model_dump()
         config_dict.update(kwargs)
         self.config = LLMConfig(**config_dict)
-        
+
         # Reset LLM to force re-initialization with new config
         self._llm = None
         logger.info(f"LLM config updated: {kwargs}")
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         """
         Get LLM usage statistics
         
@@ -230,7 +231,7 @@ class LLMManager:
             "config": self.config.model_dump(),
             "is_initialized": self._llm is not None,
         }
-    
+
     def reset_stats(self):
         """Reset statistics"""
         self._stats = {
@@ -239,7 +240,7 @@ class LLMManager:
             "errors": 0,
         }
         logger.info("LLM statistics reset")
-    
+
     def __repr__(self) -> str:
         status = "initialized" if self._llm is not None else "not initialized"
         return (
@@ -252,11 +253,11 @@ class LLMManager:
 
 
 # Global LLM manager instance (singleton pattern)
-_global_manager: Optional[LLMManager] = None
+_global_manager: LLMManager | None = None
 
 
 def get_llm_manager(
-    config: Optional[LLMConfig] = None,
+    config: LLMConfig | None = None,
     reset: bool = False
 ) -> LLMManager:
     """
@@ -282,12 +283,12 @@ def get_llm_manager(
         >>> manager = get_llm_manager(reset=True)
     """
     global _global_manager
-    
+
     if _global_manager is None or reset:
         if reset and _global_manager is not None:
             logger.info("Resetting global LLM manager")
-        
+
         _global_manager = LLMManager(config)
         logger.info("Global LLM manager created")
-    
+
     return _global_manager

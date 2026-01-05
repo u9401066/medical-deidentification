@@ -19,10 +19,9 @@ NEW in v1.1.0:
 - Optimization result persistence
 """
 
-from typing import List, Optional
-from dataclasses import dataclass
 import json
 import re
+from dataclasses import dataclass
 
 try:
     import dspy
@@ -35,7 +34,7 @@ from loguru import logger
 
 # Import prompt management
 try:
-    from ..prompts import load_prompt_config, PromptConfig
+    from ..prompts import PromptConfig, load_prompt_config
     PROMPT_MANAGER_AVAILABLE = True
 except ImportError:
     PROMPT_MANAGER_AVAILABLE = False
@@ -55,7 +54,7 @@ class PHIEntity:
     end_pos: int = -1
     confidence: float = 0.9
     reason: str = ""
-    
+
     def to_dict(self) -> dict:
         return {
             "text": self.text,
@@ -65,7 +64,7 @@ class PHIEntity:
             "confidence": self.confidence,
             "reason": self.reason,
         }
-    
+
     @classmethod
     def from_dict(cls, d: dict) -> "PHIEntity":
         return cls(
@@ -80,7 +79,7 @@ class PHIEntity:
 
 # DSPy Signature for PHI Identification
 if DSPY_AVAILABLE:
-    
+
     class PHIIdentificationSignature(dspy.Signature):
         """
         識別醫療文本中的所有個人健康資訊 (PHI) - 必須找出每一個！
@@ -115,8 +114,8 @@ if DSPY_AVAILABLE:
         phi_entities: str = dspy.OutputField(
             desc='Complete JSON array of ALL PHI entities found. Format: [{"text": "exact text from input", "phi_type": "NAME|DATE|AGE|PHONE|EMAIL|ID|LOCATION|FACILITY", "reason": "brief explanation"}]. Include EVERY PHI instance, do not skip any!'
         )
-    
-    
+
+
     class PHIIdentifier(dspy.Module):
         """
         DSPy Module for PHI Identification
@@ -136,7 +135,7 @@ if DSPY_AVAILABLE:
             use_cot: Use ChainOfThought for better reasoning (slower)
                      使用 ChainOfThought 進行更好的推理（較慢）
         """
-        
+
         def __init__(self, use_cot: bool = False):
             super().__init__()
             # Use Predict for speed, ChainOfThought for quality
@@ -145,8 +144,8 @@ if DSPY_AVAILABLE:
                 self.identify = dspy.ChainOfThought(PHIIdentificationSignature)
             else:
                 self.identify = dspy.Predict(PHIIdentificationSignature)
-        
-        def forward(self, medical_text: str) -> List[PHIEntity]:
+
+        def forward(self, medical_text: str) -> list[PHIEntity]:
             """
             Identify PHI entities in medical text
             識別醫療文本中的 PHI 實體
@@ -160,25 +159,25 @@ if DSPY_AVAILABLE:
             try:
                 # Call DSPy predictor
                 result = self.identify(medical_text=medical_text)
-                
+
                 # Parse JSON output
                 entities = parse_phi_entities(result.phi_entities, medical_text)
-                
+
                 return entities
-                
+
             except Exception as e:
                 logger.error(f"PHI identification failed: {e}")
                 return []
-        
-        def __call__(self, medical_text: str) -> List[PHIEntity]:
+
+        def __call__(self, medical_text: str) -> list[PHIEntity]:
             """Convenience method - use module() instead of module.forward()"""
             return self.forward(medical_text)
 
 
 def parse_phi_entities(
-    output: str, 
+    output: str,
     original_text: str
-) -> List[PHIEntity]:
+) -> list[PHIEntity]:
     """
     Parse LLM output to PHI entities (standalone function)
     解析 LLM 輸出為 PHI 實體（獨立函數）
@@ -196,7 +195,7 @@ def parse_phi_entities(
         List of PHIEntity objects
     """
     entities = []
-    
+
     # Step 1: Handle nested structure {"phi_entities": [...]}
     try:
         parsed = json.loads(output)
@@ -207,7 +206,7 @@ def parse_phi_entities(
             return _convert_to_entities(parsed, original_text)
     except json.JSONDecodeError:
         pass  # Continue to try other methods
-    
+
     # Step 2: Try to extract JSON array from output
     json_match = re.search(r'\[[\s\S]*?\](?=\s*$|\s*\})', output, re.DOTALL)
     if json_match:
@@ -216,7 +215,7 @@ def parse_phi_entities(
             return _convert_to_entities(parsed, original_text)
         except json.JSONDecodeError:
             pass
-    
+
     # Step 3: Try to find individual JSON objects and combine
     object_pattern = r'\{\s*"text"\s*:\s*"[^"]+"\s*,\s*"phi_type"\s*:\s*"[^"]+"\s*(?:,\s*"reason"\s*:\s*"[^"]*")?\s*\}'
     matches = re.findall(object_pattern, output)
@@ -227,11 +226,11 @@ def parse_phi_entities(
             return _convert_to_entities(parsed, original_text)
         except json.JSONDecodeError:
             pass
-    
+
     # Step 4: Last resort - extract any text/phi_type pairs
     text_matches = re.findall(r'"text"\s*:\s*"([^"]+)"', output)
     type_matches = re.findall(r'"phi_type"\s*:\s*"([^"]+)"', output)
-    
+
     if text_matches and type_matches:
         for text, phi_type in zip(text_matches, type_matches):
             entity = PHIEntity(text=text, phi_type=phi_type)
@@ -242,12 +241,12 @@ def parse_phi_entities(
             entities.append(entity)
         logger.info(f"Recovered {len(entities)} entities from malformed JSON")
         return entities
-    
+
     logger.warning(f"Could not parse JSON from output: {output[:300]}")
     return []
 
 
-def _convert_to_entities(items: list, original_text: str) -> List[PHIEntity]:
+def _convert_to_entities(items: list, original_text: str) -> list[PHIEntity]:
     """Convert list of dicts to PHIEntity objects"""
     entities = []
     for item in items:
@@ -266,14 +265,14 @@ def _convert_to_entities(items: list, original_text: str) -> List[PHIEntity]:
 
 # Keep old function for backward compatibility
 def _parse_phi_entities_legacy(
-    output: str, 
+    output: str,
     original_text: str
-) -> List[PHIEntity]:
+) -> list[PHIEntity]:
     """
     Legacy parser (kept for reference)
     """
     entities = []
-    
+
     # Try to extract JSON from output
     json_match = re.search(r'\[.*\]', output, re.DOTALL)
     if not json_match:
@@ -286,31 +285,31 @@ def _parse_phi_entities_legacy(
             return []
     else:
         output = json_match.group()
-    
+
     try:
         parsed = json.loads(output)
         if not isinstance(parsed, list):
             parsed = [parsed]
-            
+
         for item in parsed:
             if not isinstance(item, dict):
                 continue
-                
+
             entity = PHIEntity.from_dict(item)
-            
+
             # Find position in original text
             if entity.text and entity.start_pos == -1:
                 pos = original_text.find(entity.text)
                 if pos != -1:
                     entity.start_pos = pos
                     entity.end_pos = pos + len(entity.text)
-            
+
             if entity.text:
                 entities.append(entity)
-                
+
     except json.JSONDecodeError as e:
         logger.warning(f"JSON parse error: {e}, output: {output[:200]}")
-    
+
     return entities
 
 
@@ -318,12 +317,12 @@ if not DSPY_AVAILABLE:
     # Fallback when DSPy is not installed
     class PHIIdentificationSignature:
         pass
-    
+
     class PHIIdentifier:
         def __init__(self):
             logger.warning("DSPy not installed. Install with: pip install dspy-ai")
-        
-        def forward(self, medical_text: str) -> List[PHIEntity]:
+
+        def forward(self, medical_text: str) -> list[PHIEntity]:
             logger.error("DSPy not available")
             return []
 
@@ -332,7 +331,7 @@ if not DSPY_AVAILABLE:
 # Benchmarked on 2024-12-30 with PHI extraction task
 LIGHTWEIGHT_MODELS = {
     "granite4:1b": {
-        "size": "3.3GB", 
+        "size": "3.3GB",
         "json_capable": True,
         "f1_score": 0.894,
         "avg_time": 15.77,
@@ -400,12 +399,12 @@ def configure_dspy_ollama(
     """
     if not DSPY_AVAILABLE:
         raise ImportError("DSPy not installed. Install with: pip install dspy-ai")
-    
+
     # Log model info if it's a known lightweight model
     if model_name in LIGHTWEIGHT_MODELS:
         info = LIGHTWEIGHT_MODELS[model_name]
         logger.info(f"Using lightweight model: {model_name} ({info['size']}) - {info['description']}")
-    
+
     # DSPy supports Ollama via OpenAI-compatible API
     # JSON mode significantly speeds up response (3-4x faster)
     lm_kwargs = {
@@ -414,20 +413,20 @@ def configure_dspy_ollama(
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
-    
+
     if use_json_mode:
         lm_kwargs["format"] = "json"
         logger.info("JSON mode enabled (3-4x faster)")
-    
+
     lm = dspy.LM(**lm_kwargs)
-    
+
     dspy.configure(lm=lm)
     logger.info(f"DSPy configured with Ollama model: {model_name}")
 
 
 def configure_dspy_openai(
     model_name: str = "gpt-4o-mini",
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
     temperature: float = 0.1,
     max_tokens: int = 1024,
 ) -> None:
@@ -443,17 +442,17 @@ def configure_dspy_openai(
     """
     if not DSPY_AVAILABLE:
         raise ImportError("DSPy not installed. Install with: pip install dspy-ai")
-    
+
     import os
     api_key = api_key or os.environ.get("OPENAI_API_KEY")
-    
+
     lm = dspy.LM(
         model=f"openai/{model_name}",
         api_key=api_key,
         temperature=temperature,
         max_tokens=max_tokens,
     )
-    
+
     dspy.configure(lm=lm)
     logger.info(f"DSPy configured with OpenAI model: {model_name}")
 
@@ -466,7 +465,7 @@ def configure_dspy_openai(
 def create_phi_identifier_from_yaml(
     config_name: str = "phi_identification",
     model_name: str = "granite4:1b",
-    config_version: Optional[str] = None,
+    config_version: str | None = None,
 ) -> "PHIIdentifierWithConfig":
     """
     Create PHI identifier with YAML configuration
@@ -493,13 +492,13 @@ def create_phi_identifier_from_yaml(
     """
     if not PROMPT_MANAGER_AVAILABLE:
         raise ImportError("Prompt manager not available. Check prompts module.")
-    
+
     config = load_prompt_config(config_name, config_version)
     return PHIIdentifierWithConfig(config, model_name)
 
 
 if DSPY_AVAILABLE:
-    
+
     class ConfigurablePHISignature(dspy.Signature):
         """
         Configurable PHI Identification Signature
@@ -514,8 +513,8 @@ if DSPY_AVAILABLE:
         phi_entities: str = dspy.OutputField(
             desc='JSON array of PHI entities with text, phi_type, and reason'
         )
-    
-    
+
+
     class PHIIdentifierWithConfig(dspy.Module):
         """
         DSPy PHI Identifier with YAML Configuration Support
@@ -545,9 +544,9 @@ if DSPY_AVAILABLE:
             >>> # Identify PHI
             >>> entities = identifier("病患王大明，身分證A123456789...")
         """
-        
+
         def __init__(
-            self, 
+            self,
             config: "PromptConfig",
             model_name: str = "granite4:1b",
         ):
@@ -561,40 +560,40 @@ if DSPY_AVAILABLE:
             super().__init__()
             self.config = config
             self.model_name = model_name
-            
+
             # Get model-specific configuration
             self.model_config = config.get_model_config(model_name)
-            
+
             # Create signature with configured prompt
             self._setup_signature()
-            
+
             # Use ChainOfThought if configured, else Predict
             if self.model_config.use_cot:
                 self.identify = dspy.ChainOfThought(self._signature_class)
             else:
                 self.identify = dspy.Predict(self._signature_class)
-            
+
             logger.info(
                 f"PHIIdentifierWithConfig initialized: "
                 f"config={config.name} v{config.version}, "
                 f"model={model_name}, "
                 f"prompt_style={self.model_config.prompt_style}"
             )
-        
+
         def _setup_signature(self):
             """Setup DSPy signature from config"""
             # Get PHI types from config
             phi_types_str = ", ".join(self.config.get_phi_type_list())
-            
+
             # Create dynamic signature class with configured docstring
             prompt_template = self.config.get_prompt(
                 name=self.model_config.prompt_style,
                 medical_text="{medical_text}",  # Placeholder
             )
-            
+
             # Use the first line of template as description
             description = prompt_template.split("\n")[0][:200]
-            
+
             class DynamicPHISignature(dspy.Signature):
                 __doc__ = f"""
                 {description}
@@ -609,10 +608,10 @@ if DSPY_AVAILABLE:
                 phi_entities: str = dspy.OutputField(
                     desc=f'JSON array: [{{"text": "...", "phi_type": "{phi_types_str.split(",")[0]}|...", "reason": "..."}}]'
                 )
-            
+
             self._signature_class = DynamicPHISignature
-        
-        def forward(self, medical_text: str) -> List[PHIEntity]:
+
+        def forward(self, medical_text: str) -> list[PHIEntity]:
             """
             Identify PHI entities in medical text
             識別醫療文本中的 PHI 實體
@@ -626,27 +625,27 @@ if DSPY_AVAILABLE:
             try:
                 # Call DSPy predictor
                 result = self.identify(medical_text=medical_text)
-                
+
                 # Parse JSON output
                 entities = parse_phi_entities(result.phi_entities, medical_text)
-                
+
                 return entities
-                
+
             except Exception as e:
                 logger.error(f"PHI identification failed: {e}")
                 return []
-        
-        def __call__(self, medical_text: str) -> List[PHIEntity]:
+
+        def __call__(self, medical_text: str) -> list[PHIEntity]:
             """Convenience method to call forward"""
             return self.forward(medical_text)
-        
-        def get_few_shot_examples(self) -> List[dict]:
+
+        def get_few_shot_examples(self) -> list[dict]:
             """Get few-shot examples from config"""
             return [
                 {"input": ex.input, "output": ex.output, "note": ex.note}
                 for ex in self.config.get_few_shot_examples()
             ]
-        
+
         def get_optimization_settings(self) -> dict:
             """Get optimization settings from config"""
             opt = self.config.optimization
@@ -659,19 +658,19 @@ if DSPY_AVAILABLE:
 
 # Fallback when DSPy not available
 if not DSPY_AVAILABLE:
-    
+
     class PHIIdentifierWithConfig:
         """Fallback when DSPy not available"""
-        
+
         def __init__(self, config, model_name: str = "granite4:1b"):
             logger.warning("DSPy not installed. Install with: pip install dspy-ai")
             self.config = config
             self.model_name = model_name
-        
-        def forward(self, medical_text: str) -> List[PHIEntity]:
+
+        def forward(self, medical_text: str) -> list[PHIEntity]:
             logger.error("DSPy not available")
             return []
-        
-        def __call__(self, medical_text: str) -> List[PHIEntity]:
+
+        def __call__(self, medical_text: str) -> list[PHIEntity]:
             return self.forward(medical_text)
 

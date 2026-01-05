@@ -17,13 +17,14 @@ NOT responsible for:
 - Processing medical documents (use MedicalTextRetriever)
 """
 
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 from langchain_core.documents import Document
 from loguru import logger
 
-from ...domain import PHIType, RegulationRetrievalConfig, RegulationRetrieverConfig
-from .regulation_store import RegulationVectorStore
+from ...domain import RegulationRetrievalConfig, RegulationRetrieverConfig
 from .regulation_retriever import RegulationRetriever
+from .regulation_store import RegulationVectorStore
 
 
 class RegulationRetrievalChain:
@@ -55,11 +56,11 @@ class RegulationRetrievalChain:
         ...     "patient over 90 years old with rare disease"
         ... )
     """
-    
+
     def __init__(
         self,
         vector_store: RegulationVectorStore,
-        config: Optional[RegulationRetrievalConfig] = None
+        config: RegulationRetrievalConfig | None = None
     ):
         """
         Initialize regulation retrieval chain
@@ -70,20 +71,20 @@ class RegulationRetrievalChain:
         """
         self.vector_store = vector_store
         self.config = config or RegulationRetrievalConfig()
-        
+
         # Initialize retriever
         self.retriever = RegulationRetriever(
             vector_store=vector_store,
             config=self.config.retriever_config
         )
-        
+
         logger.info(f"RegulationRetrievalChain initialized with {self.vector_store.get_stats().get('total_vectors', 0)} regulation vectors")
-    
+
     def get_phi_definitions(
         self,
-        phi_types: List[str],
+        phi_types: list[str],
         combine_strategy: str = "union"
-    ) -> List[Document]:
+    ) -> list[Document]:
         """
         Retrieve PHI definitions for multiple types
         
@@ -95,20 +96,20 @@ class RegulationRetrievalChain:
             Relevant regulation documents defining these PHI types
         """
         logger.info(f"Retrieving PHI definitions for {len(phi_types)} types")
-        
+
         docs = self.retriever.retrieve_multi_phi(
             phi_types=phi_types,
             combine_strategy=combine_strategy
         )
-        
+
         logger.debug(f"Retrieved {len(docs)} regulation documents")
         return docs
-    
+
     def get_masking_strategies(
         self,
         phi_type: str,
-        k: Optional[int] = None
-    ) -> List[Document]:
+        k: int | None = None
+    ) -> list[Document]:
         """
         Retrieve masking strategies for specific PHI type
         
@@ -120,10 +121,10 @@ class RegulationRetrievalChain:
             Regulation documents with masking strategies
         """
         logger.info(f"Retrieving masking strategies for {phi_type}")
-        
+
         # Build query
         query = f"masking strategy for {phi_type.replace('_', ' ').lower()}"
-        
+
         # Temporarily update retriever config if k is specified
         if k is not None:
             original_k = self.retriever.config.k
@@ -132,16 +133,16 @@ class RegulationRetrievalChain:
             self.retriever.update_config(k=original_k)
         else:
             docs = self.retriever.retrieve(query)
-        
+
         logger.debug(f"Retrieved {len(docs)} masking strategy documents")
         return docs
-    
+
     def retrieve_by_context(
         self,
         medical_context: str,
-        k: Optional[int] = None,
-        filter_by_source: Optional[str] = None
-    ) -> List[Document]:
+        k: int | None = None,
+        filter_by_source: str | None = None
+    ) -> list[Document]:
         """
         Retrieve regulations based on medical context keywords
         
@@ -154,7 +155,7 @@ class RegulationRetrievalChain:
             Relevant regulation documents
         """
         logger.info(f"Retrieving regulations by context: '{medical_context[:50]}...'")
-        
+
         # Update k if specified
         if k is not None:
             original_k = self.retriever.config.k
@@ -163,7 +164,7 @@ class RegulationRetrievalChain:
             self.retriever.update_config(k=original_k)
         else:
             docs = self.retriever.retrieve(medical_context)
-        
+
         # Filter by source if specified
         if filter_by_source:
             docs = [
@@ -171,13 +172,13 @@ class RegulationRetrievalChain:
                 if filter_by_source.upper() in doc.metadata.get("source", "").upper()
             ]
             logger.debug(f"Filtered to {len(docs)} documents from {filter_by_source}")
-        
+
         return docs
-    
+
     def get_phi_type_details(
         self,
         phi_type: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get comprehensive details for a specific PHI type
         
@@ -191,20 +192,20 @@ class RegulationRetrievalChain:
             - examples: Example texts from regulations
         """
         logger.info(f"Getting comprehensive details for {phi_type}")
-        
+
         # Get definitions
         definition_docs = self.get_phi_definitions([phi_type])
-        
+
         # Get masking strategies
         masking_docs = self.get_masking_strategies(phi_type)
-        
+
         # Extract examples from documents
         examples = []
         for doc in definition_docs:
             # Look for example patterns in content
             if "example" in doc.page_content.lower():
                 examples.append(doc.page_content)
-        
+
         return {
             "phi_type": phi_type,
             "definition_docs": definition_docs,
@@ -212,12 +213,12 @@ class RegulationRetrievalChain:
             "examples": examples,
             "total_regulations": len(set(definition_docs + masking_docs))
         }
-    
+
     def search_regulation_by_keyword(
         self,
         keyword: str,
         exact_match: bool = False
-    ) -> List[Document]:
+    ) -> list[Document]:
         """
         Search regulations by specific keyword
         
@@ -229,9 +230,9 @@ class RegulationRetrievalChain:
             Matching regulation documents
         """
         logger.info(f"Searching regulations for keyword: '{keyword}'")
-        
+
         docs = self.retriever.retrieve(keyword)
-        
+
         if exact_match:
             # Filter for exact matches
             docs = [
@@ -239,17 +240,17 @@ class RegulationRetrievalChain:
                 if keyword.lower() in doc.page_content.lower()
             ]
             logger.debug(f"Exact match filtered to {len(docs)} documents")
-        
+
         return docs
-    
-    def get_chain_stats(self) -> Dict[str, Any]:
+
+    def get_chain_stats(self) -> dict[str, Any]:
         """Get chain statistics"""
         return {
             "vector_store_stats": self.vector_store.get_stats(),
             "retriever_config": self.config.retriever_config.model_dump(),
             "top_k": self.config.top_k
         }
-    
+
     def __repr__(self) -> str:
         return (
             f"RegulationRetrievalChain("
@@ -288,12 +289,12 @@ def create_regulation_retrieval_chain(
         search_type=search_type,
         k=top_k
     )
-    
+
     # Create chain config
     config = RegulationRetrievalConfig(
         retriever_config=retriever_config,
         top_k=top_k,
         **kwargs
     )
-    
+
     return RegulationRetrievalChain(vector_store, config)

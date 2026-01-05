@@ -16,13 +16,12 @@ Usage:
 """
 
 import json
-import time
 import re
 import subprocess
-from dataclasses import dataclass, field
-from typing import Optional
-from pathlib import Path
 import sys
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -39,10 +38,10 @@ class BenchmarkResult:
     phi_correct: int
     phi_expected: int
     raw_output: str
-    error: Optional[str] = None
+    error: str | None = None
 
 
-@dataclass 
+@dataclass
 class ModelSummary:
     """Summary for one model"""
     model: str
@@ -122,7 +121,7 @@ If no PHI found, return: []
 JSON:"""
 
 
-def call_ollama(model: str, prompt: str, timeout: int = 60) -> tuple[str, float, Optional[str]]:
+def call_ollama(model: str, prompt: str, timeout: int = 60) -> tuple[str, float, str | None]:
     """
     Call Ollama model and return response with timing
     
@@ -132,17 +131,17 @@ def call_ollama(model: str, prompt: str, timeout: int = 60) -> tuple[str, float,
     try:
         result = subprocess.run(
             ["ollama", "run", model, prompt],
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
             timeout=timeout,
         )
         elapsed = time.time() - start
-        
+
         if result.returncode != 0:
             return "", elapsed, f"Exit code {result.returncode}: {result.stderr}"
-        
+
         return result.stdout.strip(), elapsed, None
-        
+
     except subprocess.TimeoutExpired:
         elapsed = time.time() - start
         return "", elapsed, f"Timeout after {timeout}s"
@@ -165,7 +164,7 @@ def parse_json_output(output: str) -> tuple[list, bool]:
         return [parsed], True
     except json.JSONDecodeError:
         pass
-    
+
     # Try to extract JSON array
     match = re.search(r'\[.*?\]', output, re.DOTALL)
     if match:
@@ -174,7 +173,7 @@ def parse_json_output(output: str) -> tuple[list, bool]:
             return parsed, True
         except json.JSONDecodeError:
             pass
-    
+
     # Try to extract JSON objects
     objects = []
     for match in re.finditer(r'\{[^{}]+\}', output):
@@ -183,10 +182,10 @@ def parse_json_output(output: str) -> tuple[list, bool]:
             objects.append(obj)
         except json.JSONDecodeError:
             continue
-    
+
     if objects:
         return objects, True  # Partial success
-    
+
     return [], False
 
 
@@ -194,7 +193,7 @@ def normalize_type(phi_type: str) -> str:
     """Normalize PHI type for comparison"""
     mapping = {
         "PERSON": "NAME",
-        "PATIENT": "NAME", 
+        "PATIENT": "NAME",
         "DOCTOR": "NAME",
         "PERSON_NAME": "NAME",
         "PATIENT_NAME": "NAME",
@@ -213,7 +212,7 @@ def normalize_type(phi_type: str) -> str:
 
 
 def evaluate_extraction(
-    extracted: list, 
+    extracted: list,
     expected: list,
     source_text: str
 ) -> tuple[int, int, int]:
@@ -224,12 +223,12 @@ def evaluate_extraction(
     """
     correct = 0
     extracted_texts = set()
-    
+
     for item in extracted:
         text = item.get("text", "")
         if text:
             extracted_texts.add(text.lower())
-    
+
     for exp in expected:
         exp_text = exp["text"].lower()
         # Check if extracted (fuzzy match)
@@ -237,7 +236,7 @@ def evaluate_extraction(
             if exp_text in ext_text or ext_text in exp_text:
                 correct += 1
                 break
-    
+
     return correct, len(extracted), len(expected)
 
 
@@ -247,25 +246,25 @@ def run_benchmark(
     runs_per_case: int = 3,
 ) -> dict[str, ModelSummary]:
     """Run benchmark for all models"""
-    
+
     summaries = {}
-    
+
     for model in models:
         print(f"\n{'='*60}")
         print(f"Testing model: {model}")
         print(f"{'='*60}")
-        
+
         results = []
-        
+
         for test in test_cases:
             print(f"\n  Test: {test['id']}")
-            
+
             for run in range(runs_per_case):
                 prompt = PROMPT_TEMPLATE.format(text=test["text"])
-                
+
                 # Call model
                 output, elapsed, error = call_ollama(model, prompt)
-                
+
                 if error:
                     print(f"    Run {run+1}: ERROR - {error}")
                     results.append(BenchmarkResult(
@@ -280,19 +279,19 @@ def run_benchmark(
                         error=error,
                     ))
                     continue
-                
+
                 # Parse JSON
                 parsed, json_valid = parse_json_output(output)
-                
+
                 # Evaluate
                 correct, extracted, expected = evaluate_extraction(
-                    parsed, 
+                    parsed,
                     test["expected_phi"],
                     test["text"]
                 )
-                
+
                 print(f"    Run {run+1}: {elapsed:.2f}s | JSON: {'✓' if json_valid else '✗'} | PHI: {correct}/{expected}")
-                
+
                 results.append(BenchmarkResult(
                     model=model,
                     test_case=test["id"],
@@ -303,18 +302,18 @@ def run_benchmark(
                     phi_expected=expected,
                     raw_output=output[:500],
                 ))
-        
+
         # Calculate summary
         valid_results = [r for r in results if r.error is None]
-        
+
         if valid_results:
             avg_time = sum(r.response_time for r in valid_results) / len(valid_results)
             json_rate = sum(1 for r in valid_results if r.json_valid) / len(valid_results)
-            
+
             total_correct = sum(r.phi_correct for r in valid_results)
             total_extracted = sum(r.phi_count for r in valid_results)
             total_expected = sum(r.phi_expected for r in valid_results)
-            
+
             precision = total_correct / total_extracted if total_extracted > 0 else 0
             recall = total_correct / total_expected if total_expected > 0 else 0
             f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
@@ -322,7 +321,7 @@ def run_benchmark(
             avg_time = 0
             json_rate = 0
             precision = recall = f1 = 0
-        
+
         summaries[model] = ModelSummary(
             model=model,
             avg_response_time=avg_time,
@@ -333,7 +332,7 @@ def run_benchmark(
             total_runs=len(results),
             results=results,
         )
-    
+
     return summaries
 
 
@@ -345,27 +344,27 @@ def print_summary(summaries: dict[str, ModelSummary]) -> None:
     print("=" * 90)
     print(f"{'Model':<20} {'Avg Time':>10} {'JSON %':>10} {'Precision':>10} {'Recall':>10} {'F1':>10}")
     print("-" * 90)
-    
+
     # Sort by F1 score
     sorted_models = sorted(
         summaries.values(),
         key=lambda x: x.f1_score,
         reverse=True
     )
-    
+
     for s in sorted_models:
         print(f"{s.model:<20} {s.avg_response_time:>9.2f}s {s.json_success_rate*100:>9.1f}% {s.phi_precision*100:>9.1f}% {s.phi_recall*100:>9.1f}% {s.f1_score*100:>9.1f}%")
-    
+
     print("-" * 90)
-    
+
     # Winner
     if sorted_models:
         winner = sorted_models[0]
         fastest = min(summaries.values(), key=lambda x: x.avg_response_time if x.avg_response_time > 0 else float('inf'))
-        
+
         print(f"\n🏆 Best Quality: {winner.model} (F1: {winner.f1_score*100:.1f}%)")
         print(f"⚡ Fastest: {fastest.model} ({fastest.avg_response_time:.2f}s avg)")
-        
+
         # Recommendation
         print("\n📋 Recommendation:")
         for s in sorted_models:
@@ -399,26 +398,26 @@ def save_results(summaries: dict[str, ModelSummary], output_path: str) -> None:
                 for r in summary.results
             ]
         }
-    
+
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-    
+
     print(f"\n📄 Detailed results saved to: {output_path}")
 
 
 def main():
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Benchmark lightweight LLMs for PHI extraction")
     parser.add_argument(
-        "--models", 
+        "--models",
         nargs="+",
         default=["qwen2.5:1.5b", "granite4:1b", "llama3.2:1b", "smollm2:360m"],
         help="Models to test"
     )
     parser.add_argument(
-        "--runs", 
-        type=int, 
+        "--runs",
+        type=int,
         default=2,
         help="Runs per test case"
     )
@@ -427,24 +426,24 @@ def main():
         default="data/output/benchmark_llm_results.json",
         help="Output file for detailed results"
     )
-    
+
     args = parser.parse_args()
-    
+
     print("🔬 Lightweight LLM Benchmark for PHI Extraction")
     print(f"   Models: {', '.join(args.models)}")
     print(f"   Test cases: {len(TEST_CASES)}")
     print(f"   Runs per case: {args.runs}")
-    
+
     # Run benchmark
     summaries = run_benchmark(
         models=args.models,
         test_cases=TEST_CASES,
         runs_per_case=args.runs,
     )
-    
+
     # Print summary
     print_summary(summaries)
-    
+
     # Save results
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)

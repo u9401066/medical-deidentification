@@ -13,15 +13,15 @@ Modules:
 """
 
 from .output import (
-    OutputManager,
     OutputConfig,
+    OutputManager,
     ReportGenerator,
-    get_default_output_manager,
-    set_default_output_manager,
-    get_result_path,
-    get_report_path,
     generate_batch_report,
+    get_default_output_manager,
+    get_report_path,
+    get_result_path,
     save_batch_report,
+    set_default_output_manager,
 )
 
 __all__ = [

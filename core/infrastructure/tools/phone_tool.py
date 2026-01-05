@@ -11,7 +11,6 @@ Supported formats:
 """
 
 import re
-from typing import List, Optional
 from dataclasses import dataclass
 
 from core.domain.phi_types import PHIType
@@ -42,10 +41,10 @@ class PhoneTool(BasePHITool):
         tool = PhoneTool()
         results = tool.scan("聯絡電話: 02-1234-5678")
     """
-    
+
     def __init__(self):
         """Initialize phone detection patterns"""
-        self._patterns: List[PhonePattern] = [
+        self._patterns: list[PhonePattern] = [
             # Taiwan mobile: 09XX-XXX-XXX or 09XXXXXXXX
             PhonePattern(
                 pattern=re.compile(r'\b09\d{2}[-\s]?\d{3}[-\s]?\d{3}\b'),
@@ -94,28 +93,28 @@ class PhoneTool(BasePHITool):
                 confidence=0.85,
             ),
         ]
-        
+
         # Context keywords that increase confidence
         self._phone_keywords = re.compile(
             r'(?:電話|手機|聯絡|連絡|phone|tel|mobile|cell|contact|fax|傳真)[\s:：]*',
             re.IGNORECASE
         )
-        
+
         # Patterns to exclude (date-like patterns, ID-like patterns)
         self._exclusion_patterns = [
             re.compile(r'\d{4}[-/]\d{2}[-/]\d{2}'),  # Date YYYY-MM-DD
             re.compile(r'[A-Z][12]\d{8}'),  # Taiwan ID
         ]
-    
+
     @property
     def name(self) -> str:
         return "phone_tool"
-    
+
     @property
-    def supported_types(self) -> List[PHIType]:
+    def supported_types(self) -> list[PHIType]:
         return [PHIType.PHONE, PHIType.FAX, PHIType.CONTACT]
-    
-    def scan(self, text: str) -> List[ToolResult]:
+
+    def scan(self, text: str) -> list[ToolResult]:
         """
         Scan text for phone numbers
         掃描文本中的電話號碼
@@ -128,27 +127,27 @@ class PhoneTool(BasePHITool):
         """
         results = []
         found_positions = set()  # Track found positions to avoid duplicates
-        
+
         for phone_pattern in self._patterns:
             for match in phone_pattern.pattern.finditer(text):
                 # Skip if this position was already found by a higher-confidence pattern
                 if match.start() in found_positions:
                     continue
-                
+
                 phone_number = match.group(0)
-                
+
                 # Skip if matches exclusion pattern
                 if self._should_exclude(phone_number):
                     continue
-                
+
                 # Calculate confidence based on context
                 confidence = self._calculate_confidence(
                     text, match.start(), phone_pattern.confidence
                 )
-                
+
                 # Determine if it's a fax number based on context
                 phi_type = self._determine_phi_type(text, match.start())
-                
+
                 results.append(ToolResult(
                     text=phone_number,
                     phi_type=phi_type,
@@ -162,20 +161,20 @@ class PhoneTool(BasePHITool):
                         "normalized": self._normalize_phone(phone_number),
                     }
                 ))
-                
+
                 # Mark this position as found
                 for pos in range(match.start(), match.end()):
                     found_positions.add(pos)
-        
+
         return results
-    
+
     def _should_exclude(self, text: str) -> bool:
         """Check if text should be excluded (looks like date or ID)"""
         for pattern in self._exclusion_patterns:
             if pattern.search(text):
                 return True
         return False
-    
+
     def _calculate_confidence(self, text: str, start_pos: int, base_confidence: float) -> float:
         """
         Calculate confidence based on surrounding context
@@ -184,13 +183,13 @@ class PhoneTool(BasePHITool):
         # Look for phone keywords before the number
         context_start = max(0, start_pos - 20)
         context = text[context_start:start_pos]
-        
+
         if self._phone_keywords.search(context):
             # Boost confidence if phone keyword found nearby
             return min(0.99, base_confidence + 0.05)
-        
+
         return base_confidence
-    
+
     def _determine_phi_type(self, text: str, start_pos: int) -> PHIType:
         """
         Determine if this is a phone or fax based on context
@@ -198,12 +197,12 @@ class PhoneTool(BasePHITool):
         """
         context_start = max(0, start_pos - 15)
         context = text[context_start:start_pos].lower()
-        
+
         if 'fax' in context or '傳真' in context:
             return PHIType.FAX
-        
+
         return PHIType.PHONE
-    
+
     def _normalize_phone(self, phone: str) -> str:
         """
         Normalize phone number to digits only

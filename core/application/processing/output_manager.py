@@ -18,19 +18,19 @@ Example:
 
 # Re-export from infrastructure layer for backward compatibility
 from ...infrastructure.output.output_manager import (
-    OutputManager,
     OutputConfig,
+    OutputManager,
     get_default_output_manager,
-    set_default_output_manager,
-    get_result_path,
     get_report_path,
+    get_result_path,
+    set_default_output_manager,
 )
 
 __all__ = [
-    "OutputManager",
     "OutputConfig",
+    "OutputManager",
     "get_default_output_manager",
-    "set_default_output_manager",
-    "get_result_path",
     "get_report_path",
+    "get_result_path",
+    "set_default_output_manager",
 ]

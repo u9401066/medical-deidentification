@@ -11,7 +11,6 @@ Supported ID types:
 """
 
 import re
-from typing import List, Dict, Tuple, Optional
 
 from core.domain.phi_types import PHIType
 from core.infrastructure.tools.base_tool import BasePHITool, ToolResult
@@ -31,20 +30,20 @@ class IDValidatorTool(BasePHITool):
         tool = IDValidatorTool()
         results = tool.scan("Patient ID: A123456789")
     """
-    
+
     # Taiwan ID letter-to-number mapping (A=10, B=11, ..., Z=35)
     # 台灣身份證字母對應數字
-    TW_ID_LETTER_MAP: Dict[str, int] = {
+    TW_ID_LETTER_MAP: dict[str, int] = {
         'A': 10, 'B': 11, 'C': 12, 'D': 13, 'E': 14, 'F': 15, 'G': 16,
         'H': 17, 'I': 34, 'J': 18, 'K': 19, 'L': 20, 'M': 21, 'N': 22,
         'O': 35, 'P': 23, 'Q': 24, 'R': 25, 'S': 26, 'T': 27, 'U': 28,
         'V': 29, 'W': 32, 'X': 30, 'Y': 31, 'Z': 33
     }
-    
+
     # Weights for Taiwan ID checksum calculation
     # 台灣身份證校驗權重
-    TW_ID_WEIGHTS: List[int] = [1, 9, 8, 7, 6, 5, 4, 3, 2, 1, 1]
-    
+    TW_ID_WEIGHTS: list[int] = [1, 9, 8, 7, 6, 5, 4, 3, 2, 1, 1]
+
     def __init__(self, validate_checksum: bool = True):
         """
         Initialize ID validator tool
@@ -55,21 +54,21 @@ class IDValidatorTool(BasePHITool):
                               If False, pattern match is sufficient
         """
         self._validate_checksum = validate_checksum
-        
+
         # Pre-compile regex patterns
         self._tw_id_pattern = re.compile(r'\b[A-Z][12]\d{8}\b')
         self._tw_arc_pattern = re.compile(r'\b[A-Z]{2}\d{8}\b')
         self._tw_ubn_pattern = re.compile(r'\b\d{8}\b')  # 統一編號
-    
+
     @property
     def name(self) -> str:
         return "id_validator_tool"
-    
+
     @property
-    def supported_types(self) -> List[PHIType]:
+    def supported_types(self) -> list[PHIType]:
         return [PHIType.ID, PHIType.ACCOUNT_NUMBER]
-    
-    def scan(self, text: str) -> List[ToolResult]:
+
+    def scan(self, text: str) -> list[ToolResult]:
         """
         Scan text for national IDs
         掃描文本中的身份證號碼
@@ -81,30 +80,30 @@ class IDValidatorTool(BasePHITool):
             List of detected IDs with validation results
         """
         results = []
-        
+
         # Scan for Taiwan National IDs
         results.extend(self._scan_taiwan_id(text))
-        
+
         # Scan for Taiwan ARC (居留證)
         results.extend(self._scan_taiwan_arc(text))
-        
+
         return results
-    
-    def _scan_taiwan_id(self, text: str) -> List[ToolResult]:
+
+    def _scan_taiwan_id(self, text: str) -> list[ToolResult]:
         """Scan for Taiwan National ID (身份證字號)"""
         results = []
-        
+
         for match in self._tw_id_pattern.finditer(text):
             id_number = match.group(0)
             is_valid = self._validate_taiwan_id(id_number)
-            
+
             # Valid checksum = high confidence, invalid = lower confidence
             confidence = 0.99 if is_valid else 0.70
-            
+
             # If we require valid checksum and it's invalid, skip
             if self._validate_checksum and not is_valid:
                 confidence = 0.60  # Still report but with low confidence
-            
+
             results.append(ToolResult(
                 text=id_number,
                 phi_type=PHIType.ID,
@@ -117,19 +116,19 @@ class IDValidatorTool(BasePHITool):
                     "checksum_valid": is_valid,
                 }
             ))
-        
+
         return results
-    
-    def _scan_taiwan_arc(self, text: str) -> List[ToolResult]:
+
+    def _scan_taiwan_arc(self, text: str) -> list[ToolResult]:
         """Scan for Taiwan ARC (外僑居留證)"""
         results = []
-        
+
         for match in self._tw_arc_pattern.finditer(text):
             arc_number = match.group(0)
             is_valid = self._validate_taiwan_arc(arc_number)
-            
+
             confidence = 0.95 if is_valid else 0.65
-            
+
             results.append(ToolResult(
                 text=arc_number,
                 phi_type=PHIType.ID,
@@ -142,9 +141,9 @@ class IDValidatorTool(BasePHITool):
                     "checksum_valid": is_valid,
                 }
             ))
-        
+
         return results
-    
+
     def _validate_taiwan_id(self, id_number: str) -> bool:
         r"""
         Validate Taiwan National ID checksum
@@ -162,28 +161,28 @@ class IDValidatorTool(BasePHITool):
         """
         if not id_number or len(id_number) != 10:
             return False
-        
+
         try:
             letter = id_number[0].upper()
             if letter not in self.TW_ID_LETTER_MAP:
                 return False
-            
+
             # Convert letter to two-digit number
             letter_value = self.TW_ID_LETTER_MAP[letter]
             digit1 = letter_value // 10
             digit2 = letter_value % 10
-            
+
             # Build digit array: [letter_d1, letter_d2, d1, d2, ..., d8]
             digits = [digit1, digit2] + [int(d) for d in id_number[1:]]
-            
+
             # Calculate weighted sum
             total = sum(d * w for d, w in zip(digits, self.TW_ID_WEIGHTS))
-            
+
             return total % 10 == 0
-            
+
         except (ValueError, IndexError):
             return False
-    
+
     def _validate_taiwan_arc(self, arc_number: str) -> bool:
         """
         Validate Taiwan ARC (居留證) checksum
@@ -193,26 +192,26 @@ class IDValidatorTool(BasePHITool):
         """
         if not arc_number or len(arc_number) != 10:
             return False
-        
+
         try:
             # First two characters should be letters
             letter1 = arc_number[0].upper()
             letter2 = arc_number[1].upper()
-            
+
             if letter1 not in self.TW_ID_LETTER_MAP or letter2 not in self.TW_ID_LETTER_MAP:
                 return False
-            
+
             # ARC uses different validation rules depending on issue date
             # For simplicity, we do basic format validation
             # More complex validation would require knowing the issue date
-            
+
             # Basic validation: first letter is valid region code
             return letter1 in self.TW_ID_LETTER_MAP
-            
+
         except (ValueError, IndexError):
             return False
-    
-    def validate_id(self, id_number: str) -> Tuple[bool, str]:
+
+    def validate_id(self, id_number: str) -> tuple[bool, str]:
         """
         Validate a single ID number
         驗證單個 ID 號碼
@@ -224,15 +223,15 @@ class IDValidatorTool(BasePHITool):
             Tuple of (is_valid, id_type)
         """
         id_number = id_number.strip().upper()
-        
+
         # Check Taiwan National ID
         if self._tw_id_pattern.match(id_number):
             is_valid = self._validate_taiwan_id(id_number)
             return (is_valid, "TW_NATIONAL_ID")
-        
+
         # Check Taiwan ARC
         if self._tw_arc_pattern.match(id_number):
             is_valid = self._validate_taiwan_arc(id_number)
             return (is_valid, "TW_ARC")
-        
+
         return (False, "UNKNOWN")

@@ -6,33 +6,37 @@ Main orchestration engine that integrates all components.
 主要編排引擎，整合所有組件。
 """
 
-from typing import Dict, List, Optional, Union
-from pathlib import Path
 import uuid
+from pathlib import Path
+
 from loguru import logger
 
-from .config import EngineConfig, ProcessingStatus
-from .result import ProcessingResult
-from .handlers import PipelineHandlers
-from .masking import MaskingProcessor
-
-from ..context import ProcessingContext, DocumentContext
-from ..pipeline import DeidentificationPipeline, PipelineStage, StageResult, create_language_detection_handler, create_validation_handler
-from ..strategies import create_masking_strategy, get_default_strategy_for_phi_type, MaskingStrategy
-
 from ....domain import PHIType
+from ....domain.phi_identification_models import PHIIdentificationConfig
+from ....infrastructure.llm import LLMConfig
 from ....infrastructure.loader import DocumentLoaderFactory
-from ....infrastructure.output import OutputManager, OutputConfig, ReportGenerator
+from ....infrastructure.output import OutputConfig, OutputManager, ReportGenerator
 from ....infrastructure.rag import (
     EmbeddingsManager,
-    RegulationVectorStore,
-    RegulationRetrievalChain,
     PHIIdentificationChain,
+    RegulationRetrievalChain,
+    RegulationVectorStore,
     create_embeddings_manager,
-    create_regulation_retrieval_chain
+    create_regulation_retrieval_chain,
 )
-from ....infrastructure.llm import LLMConfig
-from ....domain.phi_identification_models import PHIIdentificationConfig
+from ..context import DocumentContext, ProcessingContext
+from ..pipeline import (
+    DeidentificationPipeline,
+    PipelineStage,
+    StageResult,
+    create_language_detection_handler,
+    create_validation_handler,
+)
+from ..strategies import MaskingStrategy, create_masking_strategy, get_default_strategy_for_phi_type
+from .config import EngineConfig, ProcessingStatus
+from .handlers import PipelineHandlers
+from .masking import MaskingProcessor
+from .result import ProcessingResult
 
 
 class DeidentificationEngine:
@@ -84,8 +88,8 @@ class DeidentificationEngine:
         ...     recursive=True
         ... )
     """
-    
-    def __init__(self, config: Optional[EngineConfig] = None):
+
+    def __init__(self, config: EngineConfig | None = None):
         """
         Initialize engine
         
@@ -93,46 +97,46 @@ class DeidentificationEngine:
             config: Engine configuration. Uses defaults if None.
         """
         self.config = config or EngineConfig()
-        
+
         # Initialize output manager and report generator
         output_config = OutputConfig(
-            base_dir=Path(self.config.output_base_dir) if hasattr(self.config, 'output_base_dir') 
+            base_dir=Path(self.config.output_base_dir) if hasattr(self.config, 'output_base_dir')
                      else Path("data/output")
         )
         self.output_manager = OutputManager(config=output_config)
         self.report_generator = ReportGenerator(output_manager=self.output_manager)
-        
+
         # Initialize document loader
         self.loader_factory = DocumentLoaderFactory(
             default_config=self.config.loader_config
         )
-        
+
         # Initialize RAG components (lazy loading)
-        self._embeddings_manager: Optional[EmbeddingsManager] = None
-        self._vector_store: Optional[RegulationVectorStore] = None
-        self._regulation_chain: Optional[RegulationRetrievalChain] = None
-        self._phi_chain: Optional[PHIIdentificationChain] = None
-        
+        self._embeddings_manager: EmbeddingsManager | None = None
+        self._vector_store: RegulationVectorStore | None = None
+        self._regulation_chain: RegulationRetrievalChain | None = None
+        self._phi_chain: PHIIdentificationChain | None = None
+
         # Initialize masking processor
         self._masking_processor = MaskingProcessor(
             default_strategy=self.config.default_strategy,
             phi_specific_strategies=self.config.phi_specific_strategies,
             strategy_config=self.config.strategy_config
         )
-        
+
         # Initialize pipeline handlers
-        self._pipeline_handlers: Optional[PipelineHandlers] = None
-        
+        self._pipeline_handlers: PipelineHandlers | None = None
+
         # Initialize pipeline
         self.pipeline = DeidentificationPipeline()
         self._setup_pipeline()
-        
+
         # Initialize strategies cache
-        self.strategies: Dict[PHIType, MaskingStrategy] = {}
+        self.strategies: dict[PHIType, MaskingStrategy] = {}
         self._setup_strategies()
-        
+
         logger.info(f"DeidentificationEngine initialized with output: {self.output_manager.base_dir}")
-    
+
     def _setup_pipeline(self) -> None:
         """Setup pipeline stages"""
         # Create pipeline handlers (will be fully initialized after RAG setup)
@@ -143,40 +147,40 @@ class DeidentificationEngine:
             use_rag=self.config.use_rag,
             output_manager=self.output_manager
         )
-        
+
         # Add stage handlers
         self.pipeline.add_stage_handler(
             PipelineStage.LANGUAGE_DETECTION,
             create_language_detection_handler()
         )
-        
+
         self.pipeline.add_stage_handler(
             PipelineStage.REGULATION_RETRIEVAL,
             self._pipeline_handlers.create_regulation_retrieval_handler()
         )
-        
+
         self.pipeline.add_stage_handler(
             PipelineStage.PHI_IDENTIFICATION,
             self._pipeline_handlers.create_phi_identification_handler()
         )
-        
+
         self.pipeline.add_stage_handler(
             PipelineStage.MASKING_APPLICATION,
             self._pipeline_handlers.create_masking_handler()
         )
-        
+
         self.pipeline.add_stage_handler(
             PipelineStage.VALIDATION,
             create_validation_handler()
         )
-        
+
         self.pipeline.add_stage_handler(
             PipelineStage.OUTPUT_GENERATION,
             self._pipeline_handlers.create_output_handler()
         )
-        
+
         logger.debug("Pipeline stages configured")
-    
+
     def _setup_strategies(self) -> None:
         """Setup masking strategies cache"""
         # Pre-create PHI-specific strategies
@@ -185,9 +189,9 @@ class DeidentificationEngine:
                 strategy_type,
                 self.config.strategy_config
             )
-        
+
         logger.info(f"Configured {len(self.strategies)} PHI-specific strategies")
-    
+
     def _get_strategy_for_phi(self, phi_type: PHIType) -> MaskingStrategy:
         """
         Get masking strategy for PHI type
@@ -201,25 +205,25 @@ class DeidentificationEngine:
         # Check if specific strategy exists in cache
         if phi_type in self.strategies:
             return self.strategies[phi_type]
-        
+
         # Get default strategy for PHI type
         strategy_type = get_default_strategy_for_phi_type(phi_type)
-        
+
         # Create and cache strategy
         strategy = create_masking_strategy(
             strategy_type,
             self.config.strategy_config
         )
         self.strategies[phi_type] = strategy
-        
+
         return strategy
-    
+
     def _initialize_rag(self) -> None:
         """Initialize RAG components (lazy loading)"""
         if self._phi_chain is not None:
             logger.debug("PHI chain already initialized")
             return  # Already initialized
-        
+
         if not self.config.use_rag:
             logger.info("RAG disabled, initializing PHI chain without regulation context")
             # 即使不使用 RAG，也需要初始化 PHI chain
@@ -238,23 +242,23 @@ class DeidentificationEngine:
                 chunk_size=500,
                 chunk_overlap=50
             )
-            
+
             # Update pipeline handlers
             if self._pipeline_handlers:
                 self._pipeline_handlers.phi_chain = self._phi_chain
-            
+
             logger.success("PHI chain initialized (without RAG)")
             return
-        
+
         if self._regulation_chain is not None:
             logger.debug("RAG already initialized")
             return
-        
+
         logger.info("Initializing RAG components...")
-        
+
         # Create embeddings manager
         self._embeddings_manager = create_embeddings_manager()
-        
+
         # Load vector store
         try:
             self._vector_store = RegulationVectorStore.load(
@@ -267,12 +271,12 @@ class DeidentificationEngine:
                 "RAG will not be available until regulations are loaded."
             )
             return
-        
+
         # Create regulation retrieval chain
         self._regulation_chain = create_regulation_retrieval_chain(
             vector_store=self._vector_store
         )
-        
+
         # Create PHI identification chain
         llm_config = LLMConfig(
             provider=self.config.llm_provider,
@@ -289,18 +293,18 @@ class DeidentificationEngine:
             chunk_size=500,
             chunk_overlap=50
         )
-        
+
         # Update pipeline handlers with initialized chains
         if self._pipeline_handlers:
             self._pipeline_handlers.regulation_chain = self._regulation_chain
             self._pipeline_handlers.phi_chain = self._phi_chain
-        
+
         logger.success("RAG components initialized")
-    
+
     def process_file(
         self,
-        file_path: Union[str, Path],
-        job_name: Optional[str] = None
+        file_path: str | Path,
+        job_name: str | None = None
     ) -> ProcessingResult:
         """
         Process single file
@@ -313,11 +317,11 @@ class DeidentificationEngine:
             ProcessingResult
         """
         return self.process_files([file_path], job_name)
-    
+
     def process_files(
         self,
-        file_paths: List[Union[str, Path]],
-        job_name: Optional[str] = None
+        file_paths: list[str | Path],
+        job_name: str | None = None
     ) -> ProcessingResult:
         """
         Process multiple files
@@ -336,11 +340,11 @@ class DeidentificationEngine:
             job_name=job_name or f"batch-{len(file_paths)}-files",
             config=self.config.model_dump()
         )
-        
+
         logger.info(
             f"Starting job {job_id}: processing {len(file_paths)} files"
         )
-        
+
         # Load documents
         for file_path in file_paths:
             try:
@@ -351,7 +355,7 @@ class DeidentificationEngine:
                 )
                 context.add_document(doc_context)
                 logger.info(f"Loaded document: {loaded_doc.metadata.filename}")
-            
+
             except Exception as e:
                 logger.error(f"Failed to load {file_path}: {e}")
                 context.add_error(
@@ -360,33 +364,33 @@ class DeidentificationEngine:
                     details={"file_path": str(file_path)}
                 )
                 context.mark_document_processed(success=False)
-        
+
         # Initialize RAG or PHI chain
         self._initialize_rag()
-        
+
         # Execute pipeline
         stage_results = self.pipeline.execute(context)
-        
+
         # Mark job as completed
         context.mark_completed()
-        
+
         # Build result
         result = self._build_result(context, stage_results)
-        
+
         logger.success(
             f"Job {job_id} completed: "
             f"{result.processed_documents}/{result.total_documents} "
             f"documents processed in {result.duration_seconds:.2f}s"
         )
-        
+
         return result
-    
+
     def process_directory(
         self,
-        directory: Union[str, Path],
+        directory: str | Path,
         pattern: str = "*",
         recursive: bool = False,
-        job_name: Optional[str] = None
+        job_name: str | None = None
     ) -> ProcessingResult:
         """
         Process all files in directory
@@ -401,28 +405,28 @@ class DeidentificationEngine:
             ProcessingResult
         """
         directory = Path(directory)
-        
+
         # Find files
         if recursive:
             file_paths = list(directory.rglob(pattern))
         else:
             file_paths = list(directory.glob(pattern))
-        
+
         logger.info(
             f"Found {len(file_paths)} files in {directory} "
             f"(pattern: {pattern}, recursive: {recursive})"
         )
-        
+
         # Process files
         return self.process_files(
             file_paths,
             job_name or f"directory-{directory.name}"
         )
-    
+
     def _build_result(
         self,
         context: ProcessingContext,
-        stage_results: List[StageResult]
+        stage_results: list[StageResult]
     ) -> ProcessingResult:
         """
         Build processing result from context and stage results
@@ -436,10 +440,10 @@ class DeidentificationEngine:
         """
         # Calculate statistics
         total_phi = sum(len(doc.phi_entities) for doc in context.documents)
-        
+
         # Collect all PHI entities for summary
         all_phi_entities = []
-        
+
         # Build document results
         doc_results = []
         for doc_context in context.documents:
@@ -457,10 +461,10 @@ class DeidentificationEngine:
                 for e in doc_context.phi_entities
             ]
             all_phi_entities.extend(phi_entities_serialized)
-            
+
             # Get output path from metadata if available
             output_path = doc_context.metadata.get("output_path", "")
-            
+
             doc_results.append({
                 "document_id": doc_context.document_id,
                 "filename": doc_context.document.metadata.filename,
@@ -476,7 +480,7 @@ class DeidentificationEngine:
                 "output_path": output_path,  # 新增：輸出路徑
                 "processing_time_seconds": doc_context.get_processing_time()
             })
-        
+
         # Build stage results summary
         stage_summary = [
             {
@@ -487,7 +491,7 @@ class DeidentificationEngine:
             }
             for r in stage_results
         ]
-        
+
         # Determine overall status
         if context.failed_documents == 0:
             status = ProcessingStatus.COMPLETED
@@ -495,7 +499,7 @@ class DeidentificationEngine:
             status = ProcessingStatus.COMPLETED  # Partial success
         else:
             status = ProcessingStatus.FAILED
-        
+
         # Build enhanced summary with PHI entities
         enhanced_summary = context.get_summary()
         enhanced_summary["phi_entities"] = all_phi_entities  # 新增：所有 PHI 實體列表
@@ -505,7 +509,7 @@ class DeidentificationEngine:
             if phi_type not in enhanced_summary["phi_by_type"]:
                 enhanced_summary["phi_by_type"][phi_type] = 0
             enhanced_summary["phi_by_type"][phi_type] += 1
-        
+
         # Create result
         result = ProcessingResult(
             job_id=context.job_id,
@@ -522,9 +526,9 @@ class DeidentificationEngine:
             errors=context.errors,
             summary=enhanced_summary
         )
-        
+
         return result
-    
+
     def __repr__(self) -> str:
         return (
             f"DeidentificationEngine("

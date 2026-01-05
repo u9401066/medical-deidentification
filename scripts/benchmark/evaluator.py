@@ -5,23 +5,24 @@ PHI Evaluator | PHI 識別評估器
 支援 Presidio Evaluator 風格的評估流程
 """
 
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import List, Dict, Optional, Callable, Any, Union
-from datetime import datetime
 import json
-import time
 import logging
+import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
+from .data_loader import (
+    BenchmarkSample,
+    load_benchmark_data,
+)
 from .metrics import (
     ConfusionMatrix,
     EvaluationMetrics,
     calculate_metrics,
     calculate_metrics_by_type,
-)
-from .data_loader import (
-    BenchmarkSample,
-    load_benchmark_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,17 +42,17 @@ class EvaluationResult:
         error: 錯誤訊息 (如有)
     """
     sample_id: str
-    ground_truth: List[tuple]
-    predictions: List[tuple]
+    ground_truth: list[tuple]
+    predictions: list[tuple]
     confusion_matrix: ConfusionMatrix
     inference_time: float = 0.0
-    error: Optional[str] = None
-    
+    error: str | None = None
+
     @property
     def is_success(self) -> bool:
         return self.error is None
-    
-    def to_dict(self) -> Dict:
+
+    def to_dict(self) -> dict:
         return {
             "sample_id": self.sample_id,
             "ground_truth": self.ground_truth,
@@ -74,17 +75,17 @@ class EvaluationReport:
         timestamp: 評估時間
     """
     metrics: EvaluationMetrics
-    results: List[EvaluationResult]
-    config: Dict[str, Any]
+    results: list[EvaluationResult]
+    config: dict[str, Any]
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-    
+
     @property
     def success_rate(self) -> float:
         if not self.results:
             return 0.0
         return sum(1 for r in self.results if r.is_success) / len(self.results)
-    
-    def to_dict(self) -> Dict:
+
+    def to_dict(self) -> dict:
         return {
             "timestamp": self.timestamp,
             "config": self.config,
@@ -93,14 +94,14 @@ class EvaluationReport:
             "total_samples": len(self.results),
             "results": [r.to_dict() for r in self.results],
         }
-    
-    def save(self, path: Union[str, Path]):
+
+    def save(self, path: str | Path):
         """儲存報告為 JSON"""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=2, ensure_ascii=False)
-    
+
     def print_summary(self):
         """印出摘要"""
         m = self.metrics
@@ -124,7 +125,7 @@ class EvaluationReport:
 
 
 # Type alias for PHI detector function
-PHIDetector = Callable[[str], List[tuple]]
+PHIDetector = Callable[[str], list[tuple]]
 
 
 class PHIEvaluator:
@@ -151,10 +152,10 @@ class PHIEvaluator:
     report.save("results/evaluation.json")
     ```
     """
-    
+
     def __init__(
         self,
-        detector: Optional[PHIDetector] = None,
+        detector: PHIDetector | None = None,
         match_type: str = "partial",
         verbose: bool = True,
     ):
@@ -169,17 +170,17 @@ class PHIEvaluator:
         self.detector = detector
         self.match_type = match_type
         self.verbose = verbose
-    
+
     def set_detector(self, detector: PHIDetector):
         """設定 PHI 識別器"""
         self.detector = detector
-    
+
     def evaluate(
         self,
-        data_path: Union[str, Path],
+        data_path: str | Path,
         format: str = "auto",
-        limit: Optional[int] = None,
-        save_path: Optional[Union[str, Path]] = None,
+        limit: int | None = None,
+        save_path: str | Path | None = None,
     ) -> EvaluationReport:
         """
         執行評估
@@ -195,31 +196,31 @@ class PHIEvaluator:
         """
         if self.detector is None:
             raise ValueError("No detector set. Use set_detector() first.")
-        
+
         # 載入資料
         samples = list(load_benchmark_data(data_path, format))
         if limit:
             samples = samples[:limit]
-        
+
         if self.verbose:
             print(f"📂 載入 {len(samples)} 個樣本")
-        
+
         # 評估
         results = []
         metrics = EvaluationMetrics()
         total_time = 0.0
-        
+
         for i, sample in enumerate(samples):
             if self.verbose and (i + 1) % 10 == 0:
                 print(f"⏳ 進度: {i + 1}/{len(samples)}")
-            
+
             result = self._evaluate_sample(sample)
             results.append(result)
-            
+
             if result.is_success:
                 metrics.overall = metrics.overall + result.confusion_matrix
                 total_time += result.inference_time
-                
+
                 # 按類型統計
                 type_metrics = calculate_metrics_by_type(
                     sample.ground_truth,
@@ -228,10 +229,10 @@ class PHIEvaluator:
                 )
                 for phi_type, cm in type_metrics.items():
                     metrics.add_type_result(phi_type, cm)
-        
+
         metrics.total_samples = len(samples)
         metrics.total_time = total_time
-        
+
         # 建立報告
         report = EvaluationReport(
             metrics=metrics,
@@ -243,30 +244,30 @@ class PHIEvaluator:
                 "limit": limit,
             },
         )
-        
+
         if save_path:
             report.save(save_path)
             if self.verbose:
                 print(f"💾 報告已儲存至 {save_path}")
-        
+
         if self.verbose:
             report.print_summary()
-        
+
         return report
-    
+
     def _evaluate_sample(self, sample: BenchmarkSample) -> EvaluationResult:
         """評估單個樣本"""
         try:
             start_time = time.time()
             predictions = self.detector(sample.text)
             inference_time = time.time() - start_time
-            
+
             cm = calculate_metrics(
                 sample.ground_truth,
                 predictions,
                 self.match_type,
             )
-            
+
             return EvaluationResult(
                 sample_id=sample.id,
                 ground_truth=sample.ground_truth,
@@ -274,7 +275,7 @@ class PHIEvaluator:
                 confusion_matrix=cm,
                 inference_time=inference_time,
             )
-        
+
         except Exception as e:
             logger.error(f"Error evaluating sample {sample.id}: {e}")
             return EvaluationResult(
@@ -284,11 +285,11 @@ class PHIEvaluator:
                 confusion_matrix=ConfusionMatrix(),
                 error=str(e),
             )
-    
+
     def evaluate_samples(
         self,
-        samples: List[BenchmarkSample],
-        save_path: Optional[Union[str, Path]] = None,
+        samples: list[BenchmarkSample],
+        save_path: str | Path | None = None,
     ) -> EvaluationReport:
         """
         評估已載入的樣本列表
@@ -302,31 +303,31 @@ class PHIEvaluator:
         """
         if self.detector is None:
             raise ValueError("No detector set. Use set_detector() first.")
-        
+
         results = []
         metrics = EvaluationMetrics()
         total_time = 0.0
-        
+
         for sample in samples:
             result = self._evaluate_sample(sample)
             results.append(result)
-            
+
             if result.is_success:
                 metrics.overall = metrics.overall + result.confusion_matrix
                 total_time += result.inference_time
-        
+
         metrics.total_samples = len(samples)
         metrics.total_time = total_time
-        
+
         report = EvaluationReport(
             metrics=metrics,
             results=results,
             config={"source": "samples", "match_type": self.match_type},
         )
-        
+
         if save_path:
             report.save(save_path)
-        
+
         return report
 
 
@@ -340,7 +341,7 @@ def create_detector_from_engine(engine) -> PHIDetector:
     Returns:
         PHIDetector 函數
     """
-    def detector(text: str) -> List[tuple]:
+    def detector(text: str) -> list[tuple]:
         result = engine.process(text)
         # 假設 engine.process 返回有 phi_entities 屬性的物件
         if hasattr(result, 'phi_entities'):
@@ -349,15 +350,15 @@ def create_detector_from_engine(engine) -> PHIDetector:
             return [(e.text, e.type) for e in result.entities]
         else:
             return []
-    
+
     return detector
 
 
 def quick_evaluate(
     detector: PHIDetector,
-    data_path: Union[str, Path],
+    data_path: str | Path,
     match_type: str = "partial",
-) -> Dict:
+) -> dict:
     """
     快速評估
     
@@ -366,7 +367,7 @@ def quick_evaluate(
     """
     evaluator = PHIEvaluator(detector=detector, match_type=match_type, verbose=False)
     report = evaluator.evaluate(data_path)
-    
+
     return {
         "precision": report.metrics.overall.precision,
         "recall": report.metrics.overall.recall,

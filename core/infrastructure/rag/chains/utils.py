@@ -8,8 +8,9 @@ Utility functions for PHI identification chain:
 - Entity validation
 """
 
-from typing import List, Dict, Any, Optional
 import json
+from typing import Any
+
 from loguru import logger
 
 from ....domain import PHIEntity
@@ -46,7 +47,7 @@ def get_minimal_context(retrieve_regulation_context: bool = False) -> str:
 - Any other unique identifying numbers/codes"""
 
 
-def deduplicate_entities(entities: List[PHIEntity]) -> List[PHIEntity]:
+def deduplicate_entities(entities: list[PHIEntity]) -> list[PHIEntity]:
     """
     Remove duplicate entities based on text and position overlap
     根據文本和位置重疊移除重複實體
@@ -59,17 +60,17 @@ def deduplicate_entities(entities: List[PHIEntity]) -> List[PHIEntity]:
     """
     if not entities:
         return []
-    
+
     # Sort by start position
     sorted_entities = sorted(entities, key=lambda e: e.start_pos)
-    
+
     unique = []
     for entity in sorted_entities:
         # Check if this entity overlaps with any existing unique entity
         is_duplicate = False
         for existing in unique:
             # Check for overlap
-            if (entity.start_pos < existing.end_pos and 
+            if (entity.start_pos < existing.end_pos and
                 entity.end_pos > existing.start_pos):
                 # Overlapping entities
                 if entity.text == existing.text:
@@ -81,10 +82,10 @@ def deduplicate_entities(entities: List[PHIEntity]) -> List[PHIEntity]:
                 if overlap_len / min_len > 0.8:
                     is_duplicate = True
                     break
-        
+
         if not is_duplicate:
             unique.append(entity)
-    
+
     return unique
 
 
@@ -94,7 +95,7 @@ def validate_entity(
     regulation_chain = None,
     llm = None,
     retrieve_evidence: bool = False
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Validate if an entity is actually PHI according to regulations using LangChain
     使用 LangChain 根據法規驗證實體是否確實為 PHI
@@ -114,9 +115,9 @@ def validate_entity(
     Returns:
         Validation result with should_mask, confidence, evidence
     """
-    from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.output_parsers import JsonOutputParser
-    
+    from langchain_core.prompts import ChatPromptTemplate
+
     result = {
         "entity_text": entity_text,
         "phi_type": phi_type,
@@ -124,12 +125,12 @@ def validate_entity(
         "confidence": 0.0,
         "evidence": []
     }
-    
+
     if retrieve_evidence and regulation_chain and llm:
         try:
             # Retrieve relevant regulations
             regulation_docs = regulation_chain.get_phi_definitions([phi_type])
-            
+
             result["evidence"] = [
                 {
                     "content": doc.page_content,
@@ -137,34 +138,34 @@ def validate_entity(
                 }
                 for doc in regulation_docs
             ]
-            
+
             # Build validation chain using LangChain
             validation_prompt_text = get_phi_validation_prompt()
-            
+
             # Create ChatPromptTemplate
             prompt = ChatPromptTemplate.from_template(validation_prompt_text)
-            
+
             # Build chain: prompt → LLM → JSON parser
             validation_chain = (
                 prompt
                 | llm
                 | JsonOutputParser()
             )
-            
+
             # Invoke chain with parameters
             validation = validation_chain.invoke({
                 "entity_text": entity_text,
                 "phi_type": phi_type,
                 "regulations": "\n".join([doc.page_content for doc in regulation_docs])
             })
-            
+
             result["should_mask"] = validation.get("should_mask", False)
             result["confidence"] = validation.get("confidence", 0.0)
             result["reason"] = validation.get("reason", "")
-            
+
         except json.JSONDecodeError:
             logger.warning("Failed to parse LLM validation response from chain")
         except Exception as e:
             logger.error(f"Entity validation with LangChain chain failed: {e}")
-    
+
     return result

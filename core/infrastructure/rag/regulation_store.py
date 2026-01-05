@@ -10,17 +10,11 @@ Privacy Design:
 - Medical documents are processed in-memory only (ephemeral)
 """
 
-import os
-from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import Any
+
 from langchain_community.vectorstores import FAISS
-from langchain_community.document_loaders import (
-    DirectoryLoader,
-    TextLoader,
-    UnstructuredMarkdownLoader
-)
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from loguru import logger
 
 from ...domain import RegulationStoreConfig
@@ -52,11 +46,11 @@ class RegulationVectorStore:
         >>> # Search for relevant regulations
         >>> results = store.similarity_search("age over 89 years old", k=3)
     """
-    
+
     def __init__(
         self,
         embeddings_manager: EmbeddingsManager,
-        config: Optional[RegulationStoreConfig] = None
+        config: RegulationStoreConfig | None = None
     ):
         """
         Initialize regulation vector store
@@ -67,12 +61,12 @@ class RegulationVectorStore:
         """
         self.embeddings_manager = embeddings_manager
         self.config = config or RegulationStoreConfig()
-        self._vectorstore: Optional[FAISS] = None
-        
+        self._vectorstore: FAISS | None = None
+
         # Ensure directories exist
         self.config.source_dir.mkdir(parents=True, exist_ok=True)
         self.config.vectorstore_dir.mkdir(parents=True, exist_ok=True)
-    
+
     @property
     def vectorstore(self) -> FAISS:
         """Get vector store (loads if not already loaded)"""
@@ -81,8 +75,8 @@ class RegulationVectorStore:
                 "Vector store not initialized. Call build_from_source() or load()."
             )
         return self._vectorstore
-    
-    def load_documents(self) -> List[Document]:
+
+    def load_documents(self) -> list[Document]:
         """
         Load regulation documents from source directory
         
@@ -90,14 +84,14 @@ class RegulationVectorStore:
             List of LangChain Document objects
         """
         logger.info(f"Loading documents from {self.config.source_dir}")
-        
+
         documents = []
-        
+
         # Load markdown files using TextLoader (simpler, no dependencies)
         md_files = list(self.config.source_dir.glob("**/*.md"))
         for md_file in md_files:
             try:
-                with open(md_file, 'r', encoding='utf-8') as f:
+                with open(md_file, encoding='utf-8') as f:
                     content = f.read()
                 doc = Document(
                     page_content=content,
@@ -106,12 +100,12 @@ class RegulationVectorStore:
                 documents.append(doc)
             except Exception as e:
                 logger.warning(f"Failed to load {md_file}: {e}")
-        
+
         # Load text files
         txt_files = list(self.config.source_dir.glob("**/*.txt"))
         for txt_file in txt_files:
             try:
-                with open(txt_file, 'r', encoding='utf-8') as f:
+                with open(txt_file, encoding='utf-8') as f:
                     content = f.read()
                 doc = Document(
                     page_content=content,
@@ -120,11 +114,11 @@ class RegulationVectorStore:
                 documents.append(doc)
             except Exception as e:
                 logger.warning(f"Failed to load {txt_file}: {e}")
-        
+
         logger.info(f"Loaded {len(documents)} documents")
         return documents
-    
-    def split_documents(self, documents: List[Document]) -> List[Document]:
+
+    def split_documents(self, documents: list[Document]) -> list[Document]:
         """
         Split documents into chunks for embedding
         
@@ -140,11 +134,11 @@ class RegulationVectorStore:
             length_function=len,
             separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
         )
-        
+
         chunks = text_splitter.split_documents(documents)
         logger.info(f"Split into {len(chunks)} chunks")
         return chunks
-    
+
     def build_from_source(self, force_rebuild: bool = False) -> "RegulationVectorStore":
         """
         Build vector store from source documents
@@ -156,14 +150,14 @@ class RegulationVectorStore:
             Self for chaining
         """
         vectorstore_path = self.config.vectorstore_dir / "index.faiss"
-        
+
         # Check if already exists
         if vectorstore_path.exists() and not force_rebuild:
             logger.info("Vector store already exists. Loading...")
             return self.load()
-        
+
         logger.info("Building vector store from source documents...")
-        
+
         # Load and split documents
         documents = self.load_documents()
         if not documents:
@@ -171,38 +165,38 @@ class RegulationVectorStore:
                 f"No documents found in {self.config.source_dir}. "
                 "Please add regulation documents before building store."
             )
-        
+
         chunks = self.split_documents(documents)
-        
+
         # Create vector store
         logger.info("Creating embeddings and building FAISS index...")
         self._vectorstore = FAISS.from_documents(
             documents=chunks,
             embedding=self.embeddings_manager.embeddings
         )
-        
+
         # Save to disk
         self.save()
-        
+
         logger.success(
             f"Vector store built successfully with {len(chunks)} chunks"
         )
         return self
-    
+
     def save(self) -> None:
         """Save vector store to disk"""
         if self._vectorstore is None:
             raise RuntimeError("No vector store to save")
-        
+
         logger.info(f"Saving vector store to {self.config.vectorstore_dir}")
         self._vectorstore.save_local(str(self.config.vectorstore_dir))
         logger.success("Vector store saved")
-    
+
     @classmethod
     def load(
         cls,
         embeddings_manager: EmbeddingsManager,
-        config: Optional[RegulationStoreConfig] = None
+        config: RegulationStoreConfig | None = None
     ) -> "RegulationVectorStore":
         """
         Load existing vector store from disk
@@ -215,14 +209,14 @@ class RegulationVectorStore:
             Loaded RegulationVectorStore instance
         """
         instance = cls(embeddings_manager, config)
-        
+
         vectorstore_path = instance.config.vectorstore_dir / "index.faiss"
         if not vectorstore_path.exists():
             raise FileNotFoundError(
                 f"Vector store not found at {instance.config.vectorstore_dir}. "
                 "Run build_from_source() first."
             )
-        
+
         logger.info(f"Loading vector store from {instance.config.vectorstore_dir}")
         instance._vectorstore = FAISS.load_local(
             str(instance.config.vectorstore_dir),
@@ -230,15 +224,15 @@ class RegulationVectorStore:
             allow_dangerous_deserialization=True  # Required for pickle loading
         )
         logger.success("Vector store loaded")
-        
+
         return instance
-    
+
     def similarity_search(
         self,
         query: str,
         k: int = 5,
-        filter: Optional[Dict[str, Any]] = None
-    ) -> List[Document]:
+        filter: dict[str, Any] | None = None
+    ) -> list[Document]:
         """
         Search for similar documents
         
@@ -251,13 +245,13 @@ class RegulationVectorStore:
             List of similar documents
         """
         return self.vectorstore.similarity_search(query, k=k, filter=filter)
-    
+
     def similarity_search_with_score(
         self,
         query: str,
         k: int = 5,
-        filter: Optional[Dict[str, Any]] = None
-    ) -> List[tuple[Document, float]]:
+        filter: dict[str, Any] | None = None
+    ) -> list[tuple[Document, float]]:
         """
         Search with relevance scores
         
@@ -272,8 +266,8 @@ class RegulationVectorStore:
         return self.vectorstore.similarity_search_with_score(
             query, k=k, filter=filter
         )
-    
-    def add_documents(self, documents: List[Document]) -> List[str]:
+
+    def add_documents(self, documents: list[Document]) -> list[str]:
         """
         Add new documents to existing store
         
@@ -287,8 +281,8 @@ class RegulationVectorStore:
         ids = self.vectorstore.add_documents(chunks)
         logger.info(f"Added {len(chunks)} new chunks to vector store")
         return ids
-    
-    def delete(self, ids: List[str]) -> bool:
+
+    def delete(self, ids: list[str]) -> bool:
         """
         Delete documents by ID
         
@@ -299,8 +293,8 @@ class RegulationVectorStore:
             True if successful
         """
         return self.vectorstore.delete(ids)
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         """
         Get vector store statistics
         
@@ -309,10 +303,10 @@ class RegulationVectorStore:
         """
         if self._vectorstore is None:
             return {"status": "not_initialized"}
-        
+
         # FAISS index info
         index = self._vectorstore.index
-        
+
         return {
             "status": "initialized",
             "total_vectors": index.ntotal,
@@ -320,7 +314,7 @@ class RegulationVectorStore:
             "source_dir": str(self.config.source_dir),
             "vectorstore_dir": str(self.config.vectorstore_dir),
         }
-    
+
     def __repr__(self) -> str:
         stats = self.get_stats()
         return (
@@ -342,7 +336,7 @@ class InMemoryDocumentProcessor:
     - Destroy vector store after use
     - Never persist to disk
     """
-    
+
     def __init__(
         self,
         embeddings_manager: EmbeddingsManager,
@@ -362,7 +356,7 @@ class InMemoryDocumentProcessor:
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap
         )
-    
+
     def create_temp_store(self, text: str) -> FAISS:
         """
         Create temporary in-memory vector store for a medical document
@@ -375,26 +369,26 @@ class InMemoryDocumentProcessor:
         """
         # Split text
         chunks = self.text_splitter.split_text(text)
-        
+
         # Create in-memory vector store
         vectorstore = FAISS.from_texts(
             texts=chunks,
             embedding=self.embeddings_manager.embeddings
         )
-        
+
         logger.debug(
             f"Created ephemeral vector store with {len(chunks)} chunks "
             "(will be destroyed after use)"
         )
-        
+
         return vectorstore
-    
+
     def process_and_destroy(
         self,
         text: str,
         query: str,
         k: int = 3
-    ) -> List[Document]:
+    ) -> list[Document]:
         """
         Process medical document and immediately destroy vector store
         
@@ -408,7 +402,7 @@ class InMemoryDocumentProcessor:
         """
         # Create temporary store
         temp_store = self.create_temp_store(text)
-        
+
         try:
             # Perform search
             results = temp_store.similarity_search(query, k=k)

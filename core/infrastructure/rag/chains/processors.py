@@ -16,17 +16,17 @@ Phase 1 Enhancement:
 - Tool results provide hints to LLM for more accurate identification
 """
 
-from typing import List, Tuple, Dict, Any, Optional
-from loguru import logger
+from typing import Any
 
+from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
-from langchain_core.output_parsers import PydanticOutputParser
+from loguru import logger
 
 from ....domain import PHIEntity
 from ....domain.phi_identification_models import (
-    PHIIdentificationResult,
     PHIDetectionResponse,
+    PHIIdentificationResult,
 )
 from ...prompts import get_phi_identification_prompt, get_system_message
 
@@ -34,7 +34,7 @@ from ...prompts import get_phi_identification_prompt, get_system_message
 from ...tools.base_tool import ToolResult
 
 
-def format_tool_hints(tool_results: List[ToolResult]) -> str:
+def format_tool_hints(tool_results: list[ToolResult]) -> str:
     """
     Format tool results as hints for LLM prompt
     將工具結果格式化為 LLM 提示的提示
@@ -47,40 +47,40 @@ def format_tool_hints(tool_results: List[ToolResult]) -> str:
     """
     if not tool_results:
         return ""
-    
+
     # Group results by PHI type
-    grouped: Dict[str, List[ToolResult]] = {}
+    grouped: dict[str, list[ToolResult]] = {}
     for result in tool_results:
         phi_type = result.phi_type.value if hasattr(result.phi_type, 'value') else str(result.phi_type)
         if phi_type not in grouped:
             grouped[phi_type] = []
         grouped[phi_type].append(result)
-    
+
     # Format as hints
     lines = ["[Pre-scan Tool Hints / 預掃描工具提示]"]
     lines.append("The following patterns were detected by fast scanning tools:")
     lines.append("以下模式由快速掃描工具檢測到：")
     lines.append("")
-    
+
     for phi_type, results in grouped.items():
         # Deduplicate by text
         unique_texts = list(set(r.text for r in results))
         max_conf = max(r.confidence for r in results)
-        
+
         lines.append(f"- {phi_type} (confidence {max_conf:.0%}): {', '.join(unique_texts[:5])}")
         if len(unique_texts) > 5:
             lines.append(f"  ... and {len(unique_texts) - 5} more")
-    
+
     lines.append("")
     lines.append("Please verify these detections and identify any additional PHI.")
     lines.append("請驗證這些檢測並識別任何額外的 PHI。")
-    
+
     return "\n".join(lines)
 
 
 def build_phi_identification_chain(
     llm,
-    language: Optional[str] = None,
+    language: str | None = None,
     use_structured_output: bool = True
 ) -> Runnable:
     """
@@ -101,19 +101,19 @@ def build_phi_identification_chain(
         and outputs PHIDetectionResponse
     """
     system_message = get_system_message("phi_expert", language=language or "en")
-    
+
     if use_structured_output:
         # Method 1: with_structured_output (preferred for Ollama/OpenAI)
         prompt_template_text = get_phi_identification_prompt(
             language=language or "en",
             structured=True
         )
-        
+
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_message),
             ("user", prompt_template_text)
         ])
-        
+
         # Use LangChain's with_structured_output
         # method="json_schema" uses Ollama's native structured output API (most reliable)
         # method="function_calling" uses tool calling (can hang on some models)
@@ -122,29 +122,29 @@ def build_phi_identification_chain(
             PHIDetectionResponse,
             method="json_schema"  # 使用 Ollama 原生 structured output API
         )
-        
+
     else:
         # Method 2: PydanticOutputParser (fallback)
         parser = PydanticOutputParser(pydantic_object=PHIDetectionResponse)
-        
+
         prompt_template_text = get_phi_identification_prompt(
             language=language or "en",
             structured=True
         )
-        
+
         # Add format instructions to prompt
         # Escape curly braces in format_instructions to avoid template variable errors
         format_instructions = parser.get_format_instructions()
         format_instructions_escaped = format_instructions.replace("{", "{{").replace("}", "}}")
-        
+
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_message),
             ("user", prompt_template_text + "\n\n" + format_instructions_escaped)
         ])
-        
+
         # Use LangChain's PydanticOutputParser
         chain = prompt | llm | parser
-    
+
     logger.debug(f"Built PHI identification chain (structured_output={use_structured_output}, language={language})")
     return chain
 
@@ -153,10 +153,10 @@ def identify_phi(
     text: str,
     context: str,
     llm,
-    language: Optional[str] = None,
-    tool_results: Optional[List[ToolResult]] = None,
+    language: str | None = None,
+    tool_results: list[ToolResult] | None = None,
     use_structured_output: bool = True,
-) -> Tuple[List[PHIEntity], List[PHIIdentificationResult]]:
+) -> tuple[list[PHIEntity], list[PHIIdentificationResult]]:
     """
     Identify PHI using LangChain chain
     使用 LangChain chain 識別 PHI
@@ -183,24 +183,24 @@ def identify_phi(
         tool_hints = format_tool_hints(tool_results)
         context = f"{context}\n\n{tool_hints}"
         logger.debug(f"Added {len(tool_results)} tool hints to context")
-    
+
     # Build and invoke chain
     chain = build_phi_identification_chain(
         llm=llm,
         language=language,
         use_structured_output=use_structured_output
     )
-    
+
     # Invoke chain - LangChain handles parsing
     # If it fails, let it raise (no manual JSON parsing!)
     detection_response: PHIDetectionResponse = chain.invoke({
         "context": context,
         "text": text
     })
-    
+
     # Convert to domain entities
     entities = [result.to_phi_entity() for result in detection_response.entities]
-    
+
     logger.debug(f"PHI identification complete: {len(entities)} entities found")
     return entities, detection_response.entities
 
@@ -210,9 +210,9 @@ def identify_phi_structured(
     text: str,
     context: str,
     llm,
-    language: Optional[str] = None,
-    tool_results: Optional[List[ToolResult]] = None
-) -> Tuple[List[PHIEntity], List[PHIIdentificationResult]]:
+    language: str | None = None,
+    tool_results: list[ToolResult] | None = None
+) -> tuple[list[PHIEntity], list[PHIIdentificationResult]]:
     """Backward compatible alias for identify_phi with structured output"""
     return identify_phi(
         text=text,
@@ -228,9 +228,9 @@ def identify_phi_with_parser(
     text: str,
     context: str,
     llm,
-    language: Optional[str] = None,
-    tool_results: Optional[List[ToolResult]] = None
-) -> Tuple[List[PHIEntity], List[PHIIdentificationResult]]:
+    language: str | None = None,
+    tool_results: list[ToolResult] | None = None
+) -> tuple[list[PHIEntity], list[PHIIdentificationResult]]:
     """Use PydanticOutputParser instead of with_structured_output"""
     return identify_phi(
         text=text,
@@ -244,15 +244,15 @@ def identify_phi_with_parser(
 
 def identify_phi_direct(
     text: str,
-    language: Optional[str],
+    language: str | None,
     regulation_chain,
     llm,
     config,
     get_minimal_context_func,
     return_source: bool = False,
     return_entities: bool = True,
-    tool_results: Optional[List[ToolResult]] = None
-) -> Dict[str, Any]:
+    tool_results: list[ToolResult] | None = None
+) -> dict[str, Any]:
     """
     Direct PHI identification for short texts using LangChain
     使用 LangChain 進行短文本的直接 PHI 識別
@@ -279,18 +279,18 @@ def identify_phi_direct(
     # Step 1: Retrieve regulation context
     regulation_docs = []
     context = ""
-    
+
     if config.retrieve_regulation_context and regulation_chain:
         # Use first 500 chars for context query
         query_context = text[:500]
         if language:
             query_context = f"[Language: {language}]\n\n{query_context}"
-        
+
         regulation_docs = regulation_chain.retrieve_by_context(
             medical_context=query_context,
             k=config.regulation_context_k
         )
-        
+
         # Build context string
         context = "\n\n".join([
             f"[{doc.metadata.get('source', 'Unknown')}]\n{doc.page_content}"
@@ -299,7 +299,7 @@ def identify_phi_direct(
     else:
         # Use minimal context to reduce prompt length
         context = get_minimal_context_func()
-    
+
     # Step 2: Identify PHI using LangChain chain
     entities, raw_results = identify_phi(
         text=text,
@@ -309,7 +309,7 @@ def identify_phi_direct(
         tool_results=tool_results,
         use_structured_output=config.use_structured_output
     )
-    
+
     # Step 3: Build response
     response = {
         "text": text,
@@ -317,11 +317,11 @@ def identify_phi_direct(
         "total_entities": len(entities),
         "has_phi": len(entities) > 0,
     }
-    
+
     if return_entities:
         response["entities"] = entities
         response["raw_results"] = [r.model_dump() for r in raw_results]
-    
+
     if return_source:
         response["source_documents"] = [
             {
@@ -330,7 +330,7 @@ def identify_phi_direct(
             }
             for doc in regulation_docs
         ]
-    
+
     logger.success(f"PHI identification complete: {len(entities)} entities found")
     return response
 
@@ -339,7 +339,7 @@ def identify_phi_direct(
 # DSPy Integration Point (Future)
 # =============================================================================
 # TODO: Add DSPy-based PHI identification when DSPy optimizer is ready
-# 
+#
 # def identify_phi_dspy(
 #     text: str,
 #     context: str,

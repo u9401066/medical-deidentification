@@ -6,14 +6,15 @@ Defines processing stages and orchestrates the de-identification workflow.
 定義處理階段並編排去識別化工作流程。
 """
 
-from enum import Enum
-from typing import Dict, List, Any, Optional, Callable
+from collections.abc import Callable
 from datetime import datetime
-from pydantic import BaseModel, Field
-from loguru import logger
+from enum import Enum
+from typing import Any
 
-from .context import ProcessingContext, DocumentContext
-from ...domain import PHIEntity
+from loguru import logger
+from pydantic import BaseModel, Field
+
+from .context import ProcessingContext
 
 
 class PipelineStage(str, Enum):
@@ -32,28 +33,28 @@ class StageResult(BaseModel):
     Result of a pipeline stage
     流水線階段結果
     """
-    
+
     stage: PipelineStage = Field(description="Stage name")
     success: bool = Field(description="Whether stage succeeded")
     started_at: datetime = Field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = Field(default=None)
-    duration_seconds: Optional[float] = Field(default=None)
-    
+    completed_at: datetime | None = Field(default=None)
+    duration_seconds: float | None = Field(default=None)
+
     # Stage output
-    output: Dict[str, Any] = Field(default_factory=dict)
-    
+    output: dict[str, Any] = Field(default_factory=dict)
+
     # Errors
-    error_message: Optional[str] = Field(default=None)
-    error_details: Optional[Dict[str, Any]] = Field(default=None)
-    
+    error_message: str | None = Field(default=None)
+    error_details: dict[str, Any] | None = Field(default=None)
+
     def mark_completed(self, success: bool = True) -> None:
         """Mark stage as completed"""
         self.completed_at = datetime.now()
         self.success = success
         delta = self.completed_at - self.started_at
         self.duration_seconds = delta.total_seconds()
-    
-    def set_error(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
+
+    def set_error(self, message: str, details: dict[str, Any] | None = None) -> None:
         """Set error information"""
         self.error_message = message
         self.error_details = details or {}
@@ -91,11 +92,11 @@ class DeidentificationPipeline:
         ... )
         >>> result = pipeline.execute(context)
     """
-    
+
     def __init__(self):
         """Initialize pipeline"""
-        self.stage_handlers: Dict[PipelineStage, Callable] = {}
-        self.stage_order: List[PipelineStage] = [
+        self.stage_handlers: dict[PipelineStage, Callable] = {}
+        self.stage_order: list[PipelineStage] = [
             PipelineStage.DOCUMENT_LOADING,
             PipelineStage.LANGUAGE_DETECTION,
             PipelineStage.REGULATION_RETRIEVAL,
@@ -104,7 +105,7 @@ class DeidentificationPipeline:
             PipelineStage.VALIDATION,
             PipelineStage.OUTPUT_GENERATION,
         ]
-    
+
     def add_stage_handler(
         self,
         stage: PipelineStage,
@@ -119,18 +120,18 @@ class DeidentificationPipeline:
         """
         self.stage_handlers[stage] = handler
         logger.info(f"Added handler for stage: {stage.value}")
-    
+
     def remove_stage(self, stage: PipelineStage) -> None:
         """Remove stage from pipeline"""
         if stage in self.stage_order:
             self.stage_order.remove(stage)
             logger.info(f"Removed stage: {stage.value}")
-    
+
     def execute(
         self,
         context: ProcessingContext,
-        skip_stages: Optional[List[PipelineStage]] = None
-    ) -> List[StageResult]:
+        skip_stages: list[PipelineStage] | None = None
+    ) -> list[StageResult]:
         """
         Execute pipeline
         
@@ -142,74 +143,74 @@ class DeidentificationPipeline:
             List of stage results
         """
         skip_stages = skip_stages or []
-        results: List[StageResult] = []
-        
+        results: list[StageResult] = []
+
         logger.info(f"Starting pipeline execution for job: {context.job_id}")
-        
+
         for stage in self.stage_order:
             # Skip if requested
             if stage in skip_stages:
                 logger.info(f"Skipping stage: {stage.value}")
                 continue
-            
+
             # Check if handler exists
             if stage not in self.stage_handlers:
                 logger.warning(f"No handler for stage: {stage.value}, skipping")
                 continue
-            
+
             # Execute stage
             logger.info(f"Executing stage: {stage.value}")
-            
+
             try:
                 handler = self.stage_handlers[stage]
                 stage_result = handler(context)
                 results.append(stage_result)
-                
+
                 # Check if stage failed
                 if not stage_result.success:
                     logger.error(
                         f"Stage {stage.value} failed: {stage_result.error_message}"
                     )
-                    
+
                     # Add error to context
                     context.add_error(
                         error_type=f"stage_failure_{stage.value}",
                         message=stage_result.error_message or "Unknown error",
                         details=stage_result.error_details
                     )
-                    
+
                     # Stop pipeline on critical failure
                     if self._is_critical_stage(stage):
                         logger.error("Critical stage failed, stopping pipeline")
                         break
-                
+
                 else:
                     logger.info(
                         f"Stage {stage.value} completed in "
                         f"{stage_result.duration_seconds:.2f}s"
                     )
-            
+
             except Exception as e:
                 logger.exception(f"Unexpected error in stage {stage.value}: {e}")
-                
+
                 stage_result = StageResult(stage=stage, success=False)
                 stage_result.set_error(str(e), {"exception_type": type(e).__name__})
                 results.append(stage_result)
-                
+
                 context.add_error(
                     error_type=f"stage_exception_{stage.value}",
                     message=str(e),
                     details={"exception_type": type(e).__name__}
                 )
-                
+
                 # Stop on critical failure
                 if self._is_critical_stage(stage):
                     logger.error("Critical stage exception, stopping pipeline")
                     break
-        
+
         logger.info(f"Pipeline execution completed for job: {context.job_id}")
         return results
-    
+
     def _is_critical_stage(self, stage: PipelineStage) -> bool:
         """Check if stage is critical (failure should stop pipeline)"""
         critical_stages = [
@@ -217,8 +218,8 @@ class DeidentificationPipeline:
             PipelineStage.PHI_IDENTIFICATION,
         ]
         return stage in critical_stages
-    
-    def get_stage_summary(self, results: List[StageResult]) -> Dict[str, Any]:
+
+    def get_stage_summary(self, results: list[StageResult]) -> dict[str, Any]:
         """
         Get summary of stage results
         
@@ -231,12 +232,12 @@ class DeidentificationPipeline:
         total_stages = len(results)
         successful_stages = sum(1 for r in results if r.success)
         failed_stages = total_stages - successful_stages
-        
+
         total_duration = sum(
-            r.duration_seconds for r in results 
+            r.duration_seconds for r in results
             if r.duration_seconds is not None
         )
-        
+
         return {
             "total_stages": total_stages,
             "successful_stages": successful_stages,
@@ -253,7 +254,7 @@ class DeidentificationPipeline:
                 for r in results
             ]
         }
-    
+
     def __repr__(self) -> str:
         return (
             f"DeidentificationPipeline("
@@ -269,7 +270,7 @@ def create_document_loading_handler(loader_factory):
     """Create document loading stage handler"""
     def handler(context: ProcessingContext) -> StageResult:
         result = StageResult(stage=PipelineStage.DOCUMENT_LOADING, success=False)
-        
+
         try:
             # Document loading logic here
             # This is handled by the engine
@@ -277,9 +278,9 @@ def create_document_loading_handler(loader_factory):
             result.mark_completed(success=True)
         except Exception as e:
             result.set_error(str(e))
-        
+
         return result
-    
+
     return handler
 
 
@@ -287,28 +288,28 @@ def create_language_detection_handler():
     """Create language detection stage handler"""
     def handler(context: ProcessingContext) -> StageResult:
         result = StageResult(stage=PipelineStage.LANGUAGE_DETECTION, success=False)
-        
+
         try:
             # Language detection logic
             for doc_context in context.documents:
                 # Simple heuristic: check for Chinese characters
                 text = doc_context.document.content
                 has_chinese = any('\u4e00' <= char <= '\u9fff' for char in text)
-                
+
                 if has_chinese:
                     from ...domain import SupportedLanguage
                     doc_context.detected_language = SupportedLanguage.TRADITIONAL_CHINESE
                 else:
                     from ...domain import SupportedLanguage
                     doc_context.detected_language = SupportedLanguage.ENGLISH
-            
+
             result.output["detected"] = True
             result.mark_completed(success=True)
         except Exception as e:
             result.set_error(str(e))
-        
+
         return result
-    
+
     return handler
 
 
@@ -316,25 +317,25 @@ def create_validation_handler():
     """Create validation stage handler"""
     def handler(context: ProcessingContext) -> StageResult:
         result = StageResult(stage=PipelineStage.VALIDATION, success=False)
-        
+
         try:
             # Validation logic
             total_phi = 0
             total_masked = 0
-            
+
             for doc_context in context.documents:
                 total_phi += len(doc_context.phi_entities)
                 if doc_context.masked_content:
                     total_masked += 1
-            
+
             result.output["total_phi_entities"] = total_phi
             result.output["total_masked_documents"] = total_masked
             result.output["validation_passed"] = total_masked == len(context.documents)
-            
+
             result.mark_completed(success=True)
         except Exception as e:
             result.set_error(str(e))
-        
+
         return result
-    
+
     return handler

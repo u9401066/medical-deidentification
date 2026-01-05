@@ -12,7 +12,7 @@ Design Principles:
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
+from typing import Any
 
 # Import PHIType from domain layer - DDD principle: reuse domain types
 # 從 domain 層匯入 PHIType - DDD 原則：重用領域類型
@@ -40,21 +40,21 @@ class ToolResult:
     end_pos: int
     confidence: float = 0.9
     tool_name: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     def __hash__(self):
         return hash((self.text, self.phi_type, self.start_pos))
-    
+
     def __eq__(self, other):
         if not isinstance(other, ToolResult):
             return False
         return (
-            self.text == other.text 
-            and self.phi_type == other.phi_type 
+            self.text == other.text
+            and self.phi_type == other.phi_type
             and self.start_pos == other.start_pos
         )
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "text": self.text,
@@ -65,9 +65,9 @@ class ToolResult:
             "tool_name": self.tool_name,
             "metadata": self.metadata,
         }
-    
+
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "ToolResult":
+    def from_dict(cls, d: dict[str, Any]) -> "ToolResult":
         """Create from dictionary."""
         phi_type = d.get("phi_type", "OTHER")
         if isinstance(phi_type, str):
@@ -75,7 +75,7 @@ class ToolResult:
                 phi_type = PHIType(phi_type)
             except ValueError:
                 phi_type = PHIType.OTHER
-        
+
         return cls(
             text=d.get("text", ""),
             phi_type=phi_type,
@@ -111,7 +111,7 @@ class BasePHITool(ABC):
                 # Detection logic here
                 return results
     """
-    
+
     @property
     @abstractmethod
     def name(self) -> str:
@@ -120,18 +120,18 @@ class BasePHITool(ABC):
         工具名稱（用於日誌和識別）
         """
         pass
-    
+
     @property
     @abstractmethod
-    def supported_types(self) -> List[PHIType]:
+    def supported_types(self) -> list[PHIType]:
         """
         List of PHI types this tool can detect
         此工具可檢測的 PHI 類型列表
         """
         pass
-    
+
     @abstractmethod
-    def scan(self, text: str) -> List[ToolResult]:
+    def scan(self, text: str) -> list[ToolResult]:
         """
         Scan text and return detected PHI
         掃描文本並返回檢測到的 PHI
@@ -143,15 +143,15 @@ class BasePHITool(ABC):
             List of ToolResult objects
         """
         pass
-    
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name})"
-    
+
     def __str__(self) -> str:
         return self.name
 
 
-def merge_results(results: List[ToolResult]) -> List[ToolResult]:
+def merge_results(results: list[ToolResult]) -> list[ToolResult]:
     """
     Merge overlapping results, keeping the one with highest confidence
     合併重疊的結果，保留信心度最高的
@@ -164,13 +164,13 @@ def merge_results(results: List[ToolResult]) -> List[ToolResult]:
     """
     if not results:
         return []
-    
+
     # Sort by start position
     sorted_results = sorted(results, key=lambda r: (r.start_pos, -r.confidence))
-    
+
     merged = []
     current = sorted_results[0]
-    
+
     for result in sorted_results[1:]:
         # Check if overlapping
         if result.start_pos < current.end_pos:
@@ -185,8 +185,8 @@ def merge_results(results: List[ToolResult]) -> List[ToolResult]:
             # No overlap - add current and move to next
             merged.append(current)
             current = result
-    
+
     # Don't forget the last one
     merged.append(current)
-    
+
     return merged
