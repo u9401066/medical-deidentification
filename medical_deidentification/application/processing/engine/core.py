@@ -216,13 +216,39 @@ class DeidentificationEngine:
     
     def _initialize_rag(self) -> None:
         """Initialize RAG components (lazy loading)"""
+        if self._phi_chain is not None:
+            logger.debug("PHI chain already initialized")
+            return  # Already initialized
+        
         if not self.config.use_rag:
-            logger.info("RAG disabled")
+            logger.info("RAG disabled, initializing PHI chain without regulation context")
+            # 即使不使用 RAG，也需要初始化 PHI chain
+            llm_config = LLMConfig(
+                provider=self.config.llm_provider,
+                model_name=self.config.llm_model,
+                temperature=0.0
+            )
+            phi_config = PHIIdentificationConfig(
+                llm_config=llm_config,
+                retrieve_regulation_context=False  # 不使用 regulation context
+            )
+            self._phi_chain = PHIIdentificationChain(
+                regulation_chain=None,  # 無 regulation chain
+                config=phi_config,
+                chunk_size=500,
+                chunk_overlap=50
+            )
+            
+            # Update pipeline handlers
+            if self._pipeline_handlers:
+                self._pipeline_handlers.phi_chain = self._phi_chain
+            
+            logger.success("PHI chain initialized (without RAG)")
             return
         
-        if self._regulation_chain is not None and self._phi_chain is not None:
+        if self._regulation_chain is not None:
             logger.debug("RAG already initialized")
-            return  # Already initialized
+            return
         
         logger.info("Initializing RAG components...")
         
@@ -335,9 +361,8 @@ class DeidentificationEngine:
                 )
                 context.mark_document_processed(success=False)
         
-        # Initialize RAG if needed
-        if self.config.use_rag:
-            self._initialize_rag()
+        # Initialize RAG or PHI chain
+        self._initialize_rag()
         
         # Execute pipeline
         stage_results = self.pipeline.execute(context)
@@ -412,9 +437,30 @@ class DeidentificationEngine:
         # Calculate statistics
         total_phi = sum(len(doc.phi_entities) for doc in context.documents)
         
+        # Collect all PHI entities for summary
+        all_phi_entities = []
+        
         # Build document results
         doc_results = []
         for doc_context in context.documents:
+            # Serialize PHI entities for this document
+            phi_entities_serialized = [
+                {
+                    "type": e.type.value if hasattr(e.type, 'value') else str(e.type),
+                    "text": e.text,
+                    "start_pos": e.start_pos,
+                    "end_pos": e.end_pos,
+                    "confidence": e.confidence,
+                    "reason": e.reason or "",
+                    "regulation_source": e.regulation_source,
+                }
+                for e in doc_context.phi_entities
+            ]
+            all_phi_entities.extend(phi_entities_serialized)
+            
+            # Get output path from metadata if available
+            output_path = doc_context.metadata.get("output_path", "")
+            
             doc_results.append({
                 "document_id": doc_context.document_id,
                 "filename": doc_context.document.metadata.filename,
@@ -423,7 +469,11 @@ class DeidentificationEngine:
                     if doc_context.detected_language else None
                 ),
                 "phi_entities_count": len(doc_context.phi_entities),
+                "phi_entities": phi_entities_serialized,  # 新增：PHI 詳細列表
                 "masked": doc_context.masked_content is not None,
+                "masked_content": doc_context.masked_content,  # 新增：遮罩後內容
+                "original_content": doc_context.document.content[:10000] if doc_context.document.content else None,  # 新增：原始內容（前 10000 字元）
+                "output_path": output_path,  # 新增：輸出路徑
                 "processing_time_seconds": doc_context.get_processing_time()
             })
         
@@ -446,6 +496,16 @@ class DeidentificationEngine:
         else:
             status = ProcessingStatus.FAILED
         
+        # Build enhanced summary with PHI entities
+        enhanced_summary = context.get_summary()
+        enhanced_summary["phi_entities"] = all_phi_entities  # 新增：所有 PHI 實體列表
+        enhanced_summary["phi_by_type"] = {}  # 新增：按類型統計
+        for entity in all_phi_entities:
+            phi_type = entity["type"]
+            if phi_type not in enhanced_summary["phi_by_type"]:
+                enhanced_summary["phi_by_type"][phi_type] = 0
+            enhanced_summary["phi_by_type"][phi_type] += 1
+        
         # Create result
         result = ProcessingResult(
             job_id=context.job_id,
@@ -460,7 +520,7 @@ class DeidentificationEngine:
             documents=doc_results,
             stage_results=stage_summary,
             errors=context.errors,
-            summary=context.get_summary()
+            summary=enhanced_summary
         )
         
         return result

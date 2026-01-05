@@ -29,6 +29,18 @@ env.bak/
 venv.bak/
 .venv/
 
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm
+.eslintcache
+.next
+out/
+dist/
+
 # uv (package manager)
 uv.lock
 .uv/
@@ -77,6 +89,13 @@ data/output/reports/*
 !data/test/.gitkeep
 !data/output/results/.gitkeep
 !data/output/reports/.gitkeep
+
+# Web App Data
+web/backend/data/uploads/*
+web/backend/data/results/*
+web/backend/data/reports/*
+web/backend/data/tasks.json
+!web/backend/data/.gitkeep
 
 # Temporary files
 tmp/

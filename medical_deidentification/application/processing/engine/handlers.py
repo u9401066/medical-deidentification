@@ -264,6 +264,10 @@ class PipelineHandlers:
                 result.output["reports_dir"] = str(self.output_manager.reports_dir)
                 result.output["output_generated"] = True
                 
+                # Store output path in each document's metadata
+                for doc_context in context.documents:
+                    doc_context.metadata["output_path"] = str(result_path)
+                
                 result.mark_completed(success=True)
                 logger.success(f"✓ Output paths configured: {result_path}")
             

@@ -1,25 +1,18 @@
-# Progress (Updated: 2025-12-30)
+# Progress (Updated: 2026-01-05)
 
 ## Done
 
-- Python 3.12 升級完成
-- LangChain json_schema 方法修復
-- License 更新為 Apache 2.0
-- Author 修正為 u9401066
-- Benchmark 計畫文件 (docs/benchmark-plan.md)
-- 建立 benchmark 評估模組 (scripts/benchmark/)
-- 安裝 presidio-evaluator + spacy + langchain-community
-- 產生 100 筆 Presidio 合成 PHI 資料
-- 執行 granite4:1b benchmark: F1=0.69, 9.57s/sample
-- 執行 qwen2.5:1.5b benchmark: F1=0.37, 3.49s/sample
-- 建立 optimized_evaluator.py 優化版評估器
+- 設置前端測試套件 (Vitest + React Testing Library + MSW)
+- 建立 46 個測試案例全部通過
+- 修正 TypeScript 編譯錯誤
+- 新增 Table UI 組件
+- 更新 package.json 測試腳本
 
 ## Doing
 
-- Git commit 和 push
+- 前端 0 檔案問題待排查
 
 ## Next
 
-- 建立台灣 PHI 產生器
-- 取得 i2b2 資料集 (需 DUA)
-- 考慮 GPU 加速或更小模型
+- E2E 測試 (Playwright)
+- 部署文件更新
