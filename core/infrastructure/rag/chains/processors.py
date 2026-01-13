@@ -28,6 +28,7 @@ from ....domain.phi_identification_models import (
     PHIDetectionResponse,
     PHIIdentificationResult,
 )
+from ...llm.factory import get_structured_output_method
 from ...prompts import get_phi_identification_prompt, get_system_message
 
 # Import tool result type for type hints
@@ -115,13 +116,19 @@ def build_phi_identification_chain(
         ])
 
         # Use LangChain's with_structured_output
-        # method="json_schema" uses Ollama's native structured output API (most reliable)
-        # method="function_calling" uses tool calling (can hang on some models)
-        # method="json_mode" requires format instructions in prompt
-        chain = prompt | llm.with_structured_output(
-            PHIDetectionResponse,
-            method="json_schema"  # 使用 Ollama 原生 structured output API
-        )
+        # Auto-detect best method based on provider:
+        # - Ollama: json_schema (native, most reliable)
+        # - OpenAI: json_schema (via response_format)
+        # - Anthropic: function_calling (only supported method)
+        method = get_structured_output_method(llm)
+        
+        if method:
+            chain = prompt | llm.with_structured_output(
+                PHIDetectionResponse,
+                method=method
+            )
+        else:
+            chain = prompt | llm.with_structured_output(PHIDetectionResponse)
 
     else:
         # Method 2: PydanticOutputParser (fallback)

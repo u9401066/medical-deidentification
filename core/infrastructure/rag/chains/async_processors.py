@@ -20,6 +20,7 @@ from langchain_core.runnables import Runnable
 from loguru import logger
 
 from ....domain.phi_identification_models import PHIDetectionResponse
+from ...llm.factory import get_structured_output_method
 from ...prompts import get_phi_identification_prompt, get_system_message
 
 
@@ -156,13 +157,21 @@ def build_async_phi_chain(
         ("user", prompt_template_text)
     ])
 
-    # Use json_schema method - most reliable for Ollama
-    chain = prompt | llm.with_structured_output(
-        PHIDetectionResponse,
-        method="json_schema"
-    )
+    # Auto-detect best method based on provider:
+    # - Ollama: json_schema (native, most reliable)
+    # - OpenAI: json_schema
+    # - Anthropic: function_calling (only supported method)
+    method = get_structured_output_method(llm)
+    
+    if method:
+        chain = prompt | llm.with_structured_output(
+            PHIDetectionResponse,
+            method=method
+        )
+    else:
+        chain = prompt | llm.with_structured_output(PHIDetectionResponse)
 
-    logger.debug(f"Built async PHI chain (language={language})")
+    logger.debug(f"Built async PHI chain (language={language}, method={method})")
     return chain
 
 

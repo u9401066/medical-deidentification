@@ -11,36 +11,36 @@ and the domain layer, providing validation and type safety.
 Design Principles:
 - DTOs for LLM structured output (Pydantic validation)
 - Conversion methods to domain entities (to_phi_entity())
-- Field validators for data integrity
-- Type mapping integration with PHITypeMapper
+- Support for dynamic PHI types (base + custom + discovered)
+- model_validator for cross-field normalization
 
 設計原則：
 - LLM 結構化輸出的 DTO（Pydantic 驗證）
 - 轉換方法到領域實體（to_phi_entity()）
-- 欄位驗證器確保數據完整性
-- 與 PHITypeMapper 的類型映射整合
+- 支援動態 PHI 類型（基礎 + 自訂 + 發現）
+- 使用 model_validator 進行跨欄位正規化
 """
 
 from typing import Any
 
 from loguru import logger
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
 from .entities import PHIEntity
-from .phi_type_mapper import get_default_mapper
+from .phi_type_registry import get_phi_type_registry
 from .phi_types import CustomPHIType, PHIType
 
 
 class PHIIdentificationResult(BaseModel):
     """
     單個 PHI 實體的結構化識別結果
-    
+
     Structured Output Model for LLM PHI identification results.
     This is a DTO (Data Transfer Object) that validates LLM output
     before converting to domain entities.
-    
+
     這是一個 DTO（數據傳輸對象），在轉換為領域實體之前驗證 LLM 輸出。
-    
+
     Fields:
         entity_text: The exact PHI text from document
         phi_type: PHI type (uses domain PHIType enum)
@@ -104,78 +104,122 @@ class PHIIdentificationResult(BaseModel):
 
     @field_validator('end_position')
     @classmethod
-    def validate_position_range(cls, v: int | None, info) -> int | None:
+    def validate_position_range(cls, v: int | None, info: ValidationInfo) -> int | None:
         """
         Ensure end_position >= start_position
         確保結束位置 >= 起始位置
         """
         if v is None:
             return 0
-        if 'start_position' in info.data and info.data.get('start_position') is not None:
-            if v < info.data['start_position']:
-                return info.data['start_position']  # Auto-fix instead of raising error
+        start = info.data.get('start_position') if info.data else None
+        if start is not None and v < start:
+            return int(start)  # Auto-fix instead of raising error
         return v
+
+    @model_validator(mode='before')
+    @classmethod
+    def normalize_phi_type_and_custom(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Normalize phi_type and handle dynamic/custom types.
+        正規化 phi_type 並處理動態/自訂類型。
+
+        This uses model_validator(mode='before') to properly set both
+        phi_type and custom_type_name in a single pass.
+        使用 model_validator(mode='before') 在單次處理中正確設定 phi_type 和 custom_type_name。
+
+        Supported formats from LLM:
+        - Standard enum: "NAME", "DATE", "SSN", etc.
+        - Custom prefix: "CUSTOM:xxx" → phi_type=CUSTOM, custom_type_name=xxx
+        - Unknown string: Registered as discovered type
+
+        支援的 LLM 輸出格式：
+        - 標準枚舉：「NAME」、「DATE」、「SSN」等
+        - 自訂前綴：「CUSTOM:xxx」→ phi_type=CUSTOM, custom_type_name=xxx
+        - 未知字串：註冊為發現的類型
+        """
+        if not isinstance(data, dict):
+            return data
+
+        phi_type_raw = data.get('phi_type')
+
+        # Already a PHIType enum, no processing needed
+        if isinstance(phi_type_raw, PHIType):
+            return data
+
+        if not isinstance(phi_type_raw, str):
+            return data
+
+        phi_type_str = phi_type_raw.strip()
+        registry = get_phi_type_registry()
+
+        # Case 1: "CUSTOM:xxx" format from LLM
+        if phi_type_str.upper().startswith('CUSTOM:'):
+            custom_name = phi_type_str[7:].strip()
+            data['phi_type'] = PHIType.CUSTOM
+            data['custom_type_name'] = custom_name or 'Unknown Custom Type'
+
+            # Record as discovered type
+            registry.record_discovered_type(
+                custom_name,
+                description=data.get('reason'),
+            )
+            logger.debug(f"Recorded discovered type from LLM: {custom_name}")
+            return data
+
+        # Case 2: Try standard PHIType enum
+        phi_type_upper = phi_type_str.upper().replace(' ', '_').replace('-', '_')
+        try:
+            data['phi_type'] = PHIType[phi_type_upper]
+            return data
+        except KeyError:
+            pass
+
+        # Case 3: Check if it's a registered custom/RAG type
+        type_info = registry.get_type(phi_type_str)
+        if type_info:
+            data['phi_type'] = PHIType.CUSTOM
+            data['custom_type_name'] = type_info.name
+            data['custom_type_description'] = type_info.description
+            return data
+
+        # Case 4: Unknown type - register as discovered and use CUSTOM
+        logger.warning(f"Unknown PHI type '{phi_type_str}' from LLM, registering as discovered type")
+        registry.record_discovered_type(
+            phi_type_str,
+            description=data.get('reason'),
+        )
+        data['phi_type'] = PHIType.CUSTOM
+        data['custom_type_name'] = phi_type_str
+
+        return data
 
     @field_validator('custom_type_name')
     @classmethod
-    def validate_custom_type(cls, v: str | None, info) -> str | None:
+    def validate_custom_type(cls, v: str | None, info: ValidationInfo) -> str | None:
         """
         Ensure CUSTOM type has custom_type_name
         確保 CUSTOM 類型有 custom_type_name
         """
-        if 'phi_type' in info.data and info.data['phi_type'] == PHIType.CUSTOM:
+        data = info.data or {}
+        if data.get('phi_type') == PHIType.CUSTOM:
             if not v or not v.strip():
                 # Provide default fallback instead of raising error
                 fallback_name = "Unknown PHI Type"
-                if info.data.get('entity_text'):
-                    fallback_name = f"Custom PHI: {info.data['entity_text'][:50]}"
+                entity_text = data.get('entity_text')
+                if entity_text:
+                    fallback_name = f"Custom PHI: {str(entity_text)[:50]}"
                 logger.warning(f"CUSTOM type missing custom_type_name, using fallback: {fallback_name}")
                 return fallback_name
         return v
-
-    @field_validator('phi_type', mode='before')
-    @classmethod
-    def normalize_phi_type(cls, v, info) -> PHIType:
-        """
-        Convert string to PHIType enum using domain PHITypeMapper
-        使用領域層的 PHITypeMapper 將字串轉換為 PHIType 枚舉
-        
-        This integrates with the centralized type mapping system in domain layer.
-        這與領域層中的集中式類型映射系統整合。
-        """
-        if isinstance(v, PHIType):
-            return v
-
-        if isinstance(v, str):
-            # Use domain-layer PHITypeMapper for all mappings
-            mapper = get_default_mapper()
-            mapped_type, custom_name = mapper.map_with_custom(v)
-
-            # CRITICAL FIX: If mapped to CUSTOM, ALWAYS store the custom_type_name
-            # This prevents "custom_type must be provided" error in PHIEntity
-            if mapped_type == PHIType.CUSTOM:
-                if custom_name:
-                    # Store original custom name from mapper
-                    if hasattr(info, 'data'):
-                        info.data['custom_type_name'] = custom_name
-                else:
-                    # Fallback: use original string as custom type name
-                    logger.warning(f"PHI type '{v}' mapped to CUSTOM but no custom_name provided, using original string")
-                    if hasattr(info, 'data'):
-                        info.data['custom_type_name'] = v
-
-            return mapped_type
-
-        raise ValueError(f"Invalid phi_type: {v}")
 
     def to_phi_entity(self) -> PHIEntity:
         """
         Convert to PHIEntity domain model
         轉換為 PHIEntity 領域模型
-        
+
         This bridges the DTO layer (infrastructure) to the domain layer.
         這連接了 DTO 層（基礎設施）和領域層。
-        
+
         Returns:
             PHIEntity: Immutable domain entity
         """
@@ -216,12 +260,12 @@ class PHIDetectionResponse(BaseModel):
     """
     Complete PHI detection response (multiple entities)
     完整的 PHI 檢測響應（多個實體）
-    
+
     This model represents the complete structured output from LLM
     for PHI identification in a document.
-    
+
     這個模型代表 LLM 對文檔中 PHI 識別的完整結構化輸出。
-    
+
     Fields:
         entities: List of identified PHI entities
         total_entities: Total count (validated against list length)
@@ -269,10 +313,10 @@ class PHIIdentificationConfig(BaseModel):
     """
     Configuration for PHI identification
     PHI 識別配置
-    
+
     This configuration model controls the behavior of PHI identification process.
     這個配置模型控制 PHI 識別過程的行為。
-    
+
     Fields:
         llm_config: LLM provider and model settings (dict format to avoid circular import)
         use_structured_output: Use Pydantic structured output

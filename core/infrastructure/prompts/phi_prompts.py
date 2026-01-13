@@ -5,6 +5,99 @@ PHI 識別 Prompts
 All prompts related to PHI identification, structured output, and validation.
 """
 
+from core.domain.phi_type_registry import get_phi_type_registry
+
+
+def get_dynamic_phi_types_prompt(format: str = "list") -> str:
+    """
+    Get dynamic PHI types list for prompts.
+    取得動態 PHI 類型列表用於 prompt。
+
+    This function retrieves all registered PHI types from the central registry,
+    including base types, custom types, RAG-discovered types, and LLM-discovered types.
+
+    Args:
+        format: Output format - "list", "json", or "markdown"
+
+    Returns:
+        Formatted string of PHI types for inclusion in prompts
+
+    Example:
+        >>> types_prompt = get_dynamic_phi_types_prompt("list")
+        >>> full_prompt = f\"\"\"
+        ... PHI Types to identify:
+        ... {types_prompt}
+        ... \"\"\"
+    """
+    registry = get_phi_type_registry()
+    return registry.get_types_for_prompt(format=format)
+
+
+def get_phi_identification_prompt_dynamic(
+    context: str = "",
+    text: str = "",
+    include_custom_types: bool = True,
+) -> str:
+    """
+    Generate PHI identification prompt with dynamic type list.
+    生成包含動態類型列表的 PHI 識別 prompt。
+
+    Args:
+        context: Regulation context
+        text: Medical text to analyze
+        include_custom_types: Whether to include custom/discovered types
+
+    Returns:
+        Complete prompt with dynamic type list
+    """
+    registry = get_phi_type_registry()
+    types_section = registry.get_types_for_prompt(
+        format="list",
+        include_base=True,
+        include_custom=include_custom_types,
+    )
+
+    return f"""You are a PHI identification expert. Identify all Protected Health Information (PHI) in the medical text according to regulations.
+
+═══════════════════════════════════════════════════════════════════════════════
+KNOWN PHI TYPES (標準 + 自訂 PHI 類型)
+═══════════════════════════════════════════════════════════════════════════════
+{types_section}
+
+NOTE: If you discover a PHI type not listed above, use format: "CUSTOM:YOUR_TYPE_NAME"
+注意：如果發現上列未包含的 PHI 類型，請使用格式：「CUSTOM:自訂類型名稱」
+
+═══════════════════════════════════════════════════════════════════════════════
+REGULATIONS (法規)
+═══════════════════════════════════════════════════════════════════════════════
+{context}
+
+═══════════════════════════════════════════════════════════════════════════════
+MEDICAL TEXT TO ANALYZE (待分析醫療文本)
+═══════════════════════════════════════════════════════════════════════════════
+{text}
+
+═══════════════════════════════════════════════════════════════════════════════
+INSTRUCTIONS (指示)
+═══════════════════════════════════════════════════════════════════════════════
+1. Identify ALL PHI entities according to regulations
+2. For each entity, provide:
+   - entity_text: Exact text from document
+   - phi_type: Type from the list above (or CUSTOM:xxx for new types)
+   - start_position: Character position where entity starts
+   - end_position: Character position where entity ends
+   - confidence: Your confidence level (0.0-1.0)
+   - reason: Explanation of why this is PHI
+
+3. Special rules:
+   - Ages over 89 years ONLY (ages 89 and below are NOT PHI)
+   - Rare diseases (prevalence <1:2000) that could identify individuals
+   - Common diseases like diabetes, hypertension, cancer do NOT need redaction
+
+4. Return in structured format with all identified entities
+
+IMPORTANT: Return ONLY the PHI entities found, NOT the full text."""
+
 # ============================================================================
 # PHI Identification Prompts (English)
 # ============================================================================
@@ -109,7 +202,7 @@ PHI_IDENTIFICATION_PROMPT_ZH_TW = """您是一位醫療去識別化專家。根�
    - 罕見疾病（發生率 <1:2000）才需要去識別化（常見疾病如糖尿病、高血壓、癌症不需要）
    - 遺傳資訊
    - 小型地理區域
-   
+
 4. 以 JSON 陣列格式返回結果：
 [
   {{
@@ -182,7 +275,7 @@ Return JSON:
 # MapReduce Map Stage Prompt
 # ============================================================================
 
-PHI_MAP_REDUCE_PROMPT_V1 = """You are a PHI identification expert. 
+PHI_MAP_REDUCE_PROMPT_V1 = """You are a PHI identification expert.
 Extract ONLY PHI entities from the medical text section, not the full text.
 
 Identify these PHI types:

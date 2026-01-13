@@ -20,34 +20,39 @@ Examples:
     ...     load_prompt_config,
     ...     PromptManager,
     ... )
-    >>> 
+    >>>
     >>> # Load default PHI identification config
     >>> config = load_prompt_config("phi_identification")
     >>> prompt = config.get_prompt(model_name="granite4:1b", medical_text="...")
-    >>> 
+    >>>
     >>> # Legacy: Get PHI identification prompt
     >>> from core.infrastructure.prompts import (
     ...     get_phi_identification_prompt
     ... )
-    >>> 
+    >>>
     >>> prompt = get_phi_identification_prompt()
-    >>> 
+    >>>
     >>> # Get Chinese version
     >>> prompt_zh = get_phi_identification_prompt(language="zh-TW")
-    >>> 
+    >>>
     >>> # Get structured output version
     >>> prompt_structured = get_phi_identification_prompt(structured=True)
-    
+
     >>> # List all available prompts
     >>> from core.infrastructure.prompts import (
     ...     list_available_prompts
     ... )
-    >>> 
+    >>>
     >>> prompts = list_available_prompts()
     >>> print(prompts)
 """
 
 # NEW: YAML-based prompt management
+# Dynamic PHI type prompts
+from .phi_prompts import (
+    get_dynamic_phi_types_prompt,
+    get_phi_identification_prompt_dynamic,
+)
 from .prompt_manager import (
     FewShotExample,
     ModelConfig,
@@ -106,6 +111,10 @@ __all__ = [
     "ModelConfig",
     "OptimizationConfig",
     "load_prompt_config",
+
+    # Dynamic PHI type prompts
+    "get_dynamic_phi_types_prompt",
+    "get_phi_identification_prompt_dynamic",
 
     # Enums
     "PromptType",

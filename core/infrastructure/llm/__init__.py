@@ -48,6 +48,7 @@ from .factory import (
     create_llm_with_structured_output,
     create_openai_llm,
     create_structured_output_llm,
+    get_structured_output_method,
 )
 
 # Manager
@@ -72,6 +73,7 @@ __all__ = [
     "create_anthropic_llm",
     "create_structured_output_llm",
     "create_llm_with_structured_output",
+    "get_structured_output_method",
 
     # Manager
     "LLMManager",

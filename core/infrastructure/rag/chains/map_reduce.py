@@ -17,6 +17,7 @@ from ....domain import PHIEntity
 from ....domain.phi_identification_models import (
     PHIDetectionResponse,
 )
+from ...llm.factory import get_structured_output_method
 from ...prompts import get_phi_map_reduce_prompt, get_system_message
 from .utils import deduplicate_entities
 
@@ -52,13 +53,24 @@ def build_map_chain(llm) -> Runnable:
     ])
 
     # Build chain: prompt → LLM with structured output
-    # This creates a Runnable that can be invoked with {"page_content": "..."}
-    map_chain: Runnable = (
-        map_prompt
-        | llm.with_structured_output(PHIDetectionResponse)
-    )
+    # Auto-detect best method based on provider:
+    # - Ollama: json_schema (native)
+    # - OpenAI: json_schema
+    # - Anthropic: function_calling
+    method = get_structured_output_method(llm)
+    
+    if method:
+        map_chain: Runnable = (
+            map_prompt
+            | llm.with_structured_output(PHIDetectionResponse, method=method)
+        )
+    else:
+        map_chain: Runnable = (
+            map_prompt
+            | llm.with_structured_output(PHIDetectionResponse)
+        )
 
-    logger.debug("Built MapReduce map chain with centralized prompt and LangChain Runnable")
+    logger.debug(f"Built MapReduce map chain (method={method})")
     return map_chain
 
 

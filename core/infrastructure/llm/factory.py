@@ -265,6 +265,62 @@ def create_anthropic_llm(
     return create_llm(config)
 
 
+def get_structured_output_method(llm) -> str | None:
+    """
+    Get the best structured output method for the given LLM
+    根據 LLM provider 返回最佳 structured output method
+    
+    Different providers support different methods:
+    - ChatOllama: json_schema (native, most reliable)
+    - ChatOpenAI: json_schema (via response_format) or function_calling
+    - ChatAnthropic: function_calling only (no json_schema support!)
+    
+    不同 provider 支援不同的方法：
+    - ChatOllama: json_schema（原生，最穩定）
+    - ChatOpenAI: json_schema（透過 response_format）或 function_calling
+    - ChatAnthropic: 只支援 function_calling（不支援 json_schema！）
+    
+    Args:
+        llm: LangChain chat model instance
+        
+    Returns:
+        Method name string or None (use provider's default)
+        
+    Examples:
+        >>> from langchain_ollama import ChatOllama
+        >>> llm = ChatOllama(model="qwen2.5:7b")
+        >>> method = get_structured_output_method(llm)
+        >>> llm.with_structured_output(MySchema, method=method)
+    """
+    # Get LLM type identifier
+    llm_type = getattr(llm, '_llm_type', '') or ''
+    class_name = llm.__class__.__name__.lower()
+    
+    # Combine for more reliable detection
+    identifier = f"{llm_type} {class_name}".lower()
+    
+    if 'anthropic' in identifier or 'claude' in identifier:
+        # Anthropic/Claude only supports function_calling
+        # Using json_schema will raise an error
+        logger.debug("Detected Anthropic/Claude LLM, using function_calling method")
+        return "function_calling"
+    
+    elif 'ollama' in identifier:
+        # Ollama has native JSON schema support (most reliable)
+        logger.debug("Detected Ollama LLM, using json_schema method")
+        return "json_schema"
+    
+    elif 'openai' in identifier or 'gpt' in identifier:
+        # OpenAI supports both, json_schema is more reliable
+        logger.debug("Detected OpenAI LLM, using json_schema method")
+        return "json_schema"
+    
+    else:
+        # Unknown provider - let LangChain use its default
+        logger.debug(f"Unknown LLM type '{identifier}', using provider default")
+        return None
+
+
 def create_structured_output_llm(
     config: LLMConfig | None = None,
     schema = None,
@@ -273,6 +329,9 @@ def create_structured_output_llm(
     """
     Create LLM with structured output capability
     創建支援結構化輸出的 LLM
+    
+    Automatically selects the best structured output method based on provider.
+    根據 provider 自動選擇最佳 structured output 方法。
     
     Args:
         config: LLMConfig instance
@@ -299,8 +358,15 @@ def create_structured_output_llm(
         logger.warning("No schema provided for structured output, returning base LLM")
         return llm
 
-    logger.info(f"Adding structured output schema: {schema.__name__}")
-    return llm.with_structured_output(schema)
+    # Auto-detect best method for this provider
+    method = get_structured_output_method(llm)
+    
+    logger.info(f"Adding structured output schema: {schema.__name__} (method={method})")
+    
+    if method:
+        return llm.with_structured_output(schema, method=method)
+    else:
+        return llm.with_structured_output(schema)
 
 
 # Alias for backward compatibility

@@ -9,6 +9,9 @@ DDD Structure (領域驅動設計結構):
 ├── phi_types.py               - Type definitions (PHIType enum, CustomPHIType)
 │                                類型定義（PHI 類型枚舉、自定義類型）
 │
+├── phi_type_registry.py       - Central PHI type registry (singleton)
+│                                中央 PHI 類型註冊表（單例）
+│
 ├── entities.py                - Domain entities (PHIEntity)
 │                                領域實體（PHI 實體）
 │
@@ -68,6 +71,13 @@ from .phi_type_mapper import (
     get_default_mapper,
     register_custom_mappings_from_config,
 )
+
+# PHI Type Registry | PHI 類型註冊表
+from .phi_type_registry import (
+    PHITypeRegistry,
+    RegisteredType,
+    get_phi_type_registry,
+)
 from .phi_types import CustomPHIType, PHIType
 
 # Value Objects | 值物件
@@ -83,6 +93,10 @@ __all__ = [
     "PHIType",
     "CustomPHIType",
     "StrategyType",
+    # PHI Type Registry (Singleton)
+    "PHITypeRegistry",
+    "RegisteredType",
+    "get_phi_type_registry",
     # Entities
     "PHIEntity",
     # Value Objects
