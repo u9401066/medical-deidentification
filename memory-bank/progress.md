@@ -49,6 +49,31 @@
     ├── shared/          # 共享工具
     └── lib/             # 向後兼容 (90% 覆蓋)
     ```
+- **Backend 模組化重構完成** (2026-01-14)
+  - ✅ 從單體 main.py (1258 行) 拆分為模組化架構
+  - ✅ 目錄結構:
+    ```
+    web/backend/
+    ├── main.py          # 60 行 (入口)
+    ├── config.py        # 配置
+    ├── models/          # Pydantic 模型
+    │   ├── config.py    # PHIConfig, PHITypeConfig
+    │   ├── task.py      # TaskStatus, ProcessRequest
+    │   ├── file.py      # UploadedFile
+    │   └── regulation.py
+    ├── services/        # 業務邏輯 (Singleton)
+    │   ├── task_service.py
+    │   ├── file_service.py
+    │   ├── processing_service.py
+    │   └── regulation_service.py
+    └── api/             # FastAPI Routers
+        ├── files.py, preview.py, processing.py
+        ├── results.py, settings.py, health.py
+        └── __init__.py (api_router 聚合器)
+    ```
+  - ✅ 所有 21 個 API 端點正常運作
+  - ✅ 原始程式碼保留為 `main_legacy.py`
+  - 📊 程式碼精簡: 1258 行 → 60 行 (入口), 總體更好維護
 
 ## Doing
 

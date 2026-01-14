@@ -5,8 +5,40 @@
 - ✅ **Frontend DDD 重構完成** - 採用領域驅動設計重構 web/frontend
 - ✅ 前端自動測試套件 (Vitest + React Testing Library)
 - ✅ Log 輸出可讀取 (終端機 + Agent 可追蹤)
+- ✅ **Backend 模組化重構完成** - 從單體拆分為 DDD 架構
 
 ## Current Session Focus (Jan 14, 2026)
+
+### Backend 模組化重構完成 ✅
+
+#### 新架構 (已建立)
+```
+web/backend/
+├── main.py              # 60 行入口 (from 1258 行)
+├── config.py            # 集中配置
+├── models/              # Pydantic 模型 ✅
+│   ├── config.py        # PHIConfig, PHITypeConfig
+│   ├── task.py          # TaskStatus, ProcessRequest
+│   ├── file.py          # UploadedFile
+│   └── regulation.py
+├── services/            # 業務邏輯 (Singleton) ✅
+│   ├── task_service.py  # 任務管理
+│   ├── file_service.py  # 檔案操作
+│   ├── processing_service.py  # PHI 處理
+│   └── regulation_service.py  # 法規管理
+└── api/                 # FastAPI Routers ✅
+    ├── files.py         # 檔案上傳下載
+    ├── preview.py       # 預覽
+    ├── processing.py    # 處理任務
+    ├── results.py       # 結果報告
+    ├── settings.py      # 設定法規
+    ├── health.py        # 健康檢查
+    └── __init__.py      # api_router 聚合
+```
+
+#### 測試結果
+- **21 個 API 端點全部通過**
+- 原始 `main_legacy.py` 保留備份
 
 ### Frontend DDD Architecture 完成 ✅
 
