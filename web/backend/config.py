@@ -2,6 +2,7 @@
 Web Backend Configuration
 後端配置模組
 """
+
 import os
 from pathlib import Path
 
@@ -26,6 +27,7 @@ CORS_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
+
 # 確保目錄存在
 def ensure_directories():
     """確保所有資料目錄存在"""
@@ -34,14 +36,14 @@ def ensure_directories():
 
 
 __all__ = [
+    "CORS_ORIGINS",
+    "DATA_DIR",
+    "MAX_FILE_SIZE",
     "OLLAMA_BASE_URL",
     "OLLAMA_MODEL",
-    "DATA_DIR",
-    "UPLOAD_DIR",
-    "RESULTS_DIR",
-    "REPORTS_DIR",
     "REGULATIONS_DIR",
-    "MAX_FILE_SIZE",
-    "CORS_ORIGINS",
+    "REPORTS_DIR",
+    "RESULTS_DIR",
+    "UPLOAD_DIR",
     "ensure_directories",
 ]

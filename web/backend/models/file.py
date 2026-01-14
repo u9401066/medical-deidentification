@@ -2,6 +2,7 @@
 File Models
 檔案相關資料模型
 """
+
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -9,6 +10,7 @@ from pydantic import BaseModel
 
 class UploadedFile(BaseModel):
     """已上傳的檔案資訊"""
+
     file_id: str
     filename: str
     size: int

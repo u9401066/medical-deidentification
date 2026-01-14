@@ -2,6 +2,7 @@
 Medical De-identification Web API
 FastAPI 後端服務
 """
+
 import json
 import os
 
@@ -66,8 +67,10 @@ def format_time(seconds: float | None) -> str:
 # Pydantic Models
 # ============================================================
 
+
 class PHITypeConfig(BaseModel):
     """單一 PHI 類型配置"""
+
     enabled: bool = True
     masking: str = "mask"  # mask, hash, replace, delete, keep
     replace_with: str | None = None  # 自訂替換詞，當 masking 為 'replace' 時使用
@@ -75,19 +78,28 @@ class PHITypeConfig(BaseModel):
 
 class PHIConfig(BaseModel):
     """PHI 處理配置"""
+
     masking_type: str = Field(default="redact", description="redact, hash, pseudonymize")
-    phi_types: list[str] | dict[str, PHITypeConfig] = Field(default_factory=lambda: [
-        "NAME", "DATE", "PHONE", "EMAIL", "ADDRESS", "ID_NUMBER", "MEDICAL_RECORD"
-    ])
+    phi_types: list[str] | dict[str, PHITypeConfig] = Field(
+        default_factory=lambda: [
+            "NAME",
+            "DATE",
+            "PHONE",
+            "EMAIL",
+            "ADDRESS",
+            "ID_NUMBER",
+            "MEDICAL_RECORD",
+        ]
+    )
     preserve_format: bool = Field(default=True)
     custom_patterns: dict[str, str] | None = None
-    
+
     def get_enabled_types(self) -> list[str]:
         """取得啟用的 PHI 類型列表"""
         if isinstance(self.phi_types, list):
             return self.phi_types
         return [k for k, v in self.phi_types.items() if v.enabled]
-    
+
     def get_replace_text(self, phi_type: str) -> str | None:
         """取得指定 PHI 類型的替換詞"""
         if isinstance(self.phi_types, dict):
@@ -99,6 +111,7 @@ class PHIConfig(BaseModel):
 
 class ProcessRequest(BaseModel):
     """處理請求"""
+
     file_ids: list[str]
     config: PHIConfig | None = None
     job_name: str | None = None
@@ -106,6 +119,7 @@ class ProcessRequest(BaseModel):
 
 class TaskStatus(BaseModel):
     """任務狀態"""
+
     task_id: str
     status: str  # pending, processing, completed, failed
     progress: float = 0.0
@@ -125,6 +139,7 @@ class TaskStatus(BaseModel):
 
 class RegulationRule(BaseModel):
     """法規規則"""
+
     id: str
     name: str
     description: str
@@ -135,6 +150,7 @@ class RegulationRule(BaseModel):
 
 class UploadedFile(BaseModel):
     """上傳的檔案資訊"""
+
     file_id: str
     filename: str
     size: int
@@ -149,6 +165,7 @@ class UploadedFile(BaseModel):
 # Application Setup
 # ============================================================
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """應用程式生命週期管理"""
@@ -162,7 +179,9 @@ async def lifespan(app: FastAPI):
                 for task_id, task_data in saved_tasks.items():
                     task_data["created_at"] = datetime.fromisoformat(task_data["created_at"])
                     if task_data.get("completed_at"):
-                        task_data["completed_at"] = datetime.fromisoformat(task_data["completed_at"])
+                        task_data["completed_at"] = datetime.fromisoformat(
+                            task_data["completed_at"]
+                        )
                     tasks_db[task_id] = task_data
             logger.info(f"Loaded {len(tasks_db)} existing tasks")
         except Exception as e:
@@ -178,7 +197,9 @@ async def lifespan(app: FastAPI):
             serializable[task_id] = {
                 **task,
                 "created_at": task["created_at"].isoformat(),
-                "completed_at": task["completed_at"].isoformat() if task.get("completed_at") else None
+                "completed_at": task["completed_at"].isoformat()
+                if task.get("completed_at")
+                else None,
             }
         with open(tasks_file, "w") as f:
             json.dump(serializable, f, indent=2, ensure_ascii=False)
@@ -214,8 +235,9 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB in bytes
 def _sanitize_path(file_id: str) -> bool:
     """驗證 file_id 格式，防止路徑穿越攻擊"""
     import re
+
     # file_id 只允許英數字和連字號
-    return bool(re.match(r'^[a-zA-Z0-9-]+$', file_id))
+    return bool(re.match(r"^[a-zA-Z0-9-]+$", file_id))
 
 
 @app.post("/api/upload", response_model=UploadedFile)
@@ -235,7 +257,7 @@ async def upload_file(file: UploadFile = File(...)):
 
     # M2: 檔案大小限制
     if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(413, f"檔案過大，最大允許 {MAX_FILE_SIZE // (1024*1024)}MB")
+        raise HTTPException(413, f"檔案過大，最大允許 {MAX_FILE_SIZE // (1024 * 1024)}MB")
 
     with open(save_path, "wb") as f:
         f.write(content)
@@ -269,20 +291,23 @@ async def upload_file(file: UploadFile = File(...)):
 async def list_files():
     """列出所有上傳的檔案（含處理狀態）"""
     files = []
-    
+
     # 建立檔案 ID -> 任務狀態的映射
     file_task_map: dict[str, dict] = {}
     for task in tasks_db.values():
         for file_id in task.get("file_ids", []):
             # 取最新的任務
-            if file_id not in file_task_map or task["created_at"] > file_task_map[file_id]["created_at"]:
+            if (
+                file_id not in file_task_map
+                or task["created_at"] > file_task_map[file_id]["created_at"]
+            ):
                 file_task_map[file_id] = task
-    
+
     for meta_file in UPLOAD_DIR.glob("*.meta.json"):
         with open(meta_file) as f:
             meta = json.load(f)
             file_id = meta["file_id"]
-            
+
             # 判斷檔案狀態
             status = "pending"
             task_id = None
@@ -296,16 +321,18 @@ async def list_files():
                     status = "processing"
                 elif task_status == "failed":
                     status = "error"
-            
-            files.append(UploadedFile(
-                file_id=file_id,
-                filename=meta["filename"],
-                size=meta["size"],
-                upload_time=datetime.fromisoformat(meta["upload_time"]),
-                file_type=meta["file_type"],
-                status=status,
-                task_id=task_id,
-            ))
+
+            files.append(
+                UploadedFile(
+                    file_id=file_id,
+                    filename=meta["filename"],
+                    size=meta["size"],
+                    upload_time=datetime.fromisoformat(meta["upload_time"]),
+                    file_type=meta["file_type"],
+                    status=status,
+                    task_id=task_id,
+                )
+            )
     return sorted(files, key=lambda x: x.upload_time, reverse=True)
 
 
@@ -340,20 +367,21 @@ async def delete_file(file_id: str):
 
 @app.get("/api/download/{file_id}")
 async def download_result(
-    file_id: str, 
+    file_id: str,
     file_type: str = Query("result", enum=["result", "report"]),
-    format: str = Query("xlsx", enum=["xlsx", "csv", "json"])
+    format: str = Query("xlsx", enum=["xlsx", "csv", "json"]),
 ):
     """下載處理結果或報告
-    
+
     Args:
         file_id: 任務 ID
         file_type: result (處理結果) 或 report (報告)
         format: xlsx, csv, json
     """
-    import pandas as pd
     from io import BytesIO
-    
+
+    import pandas as pd
+
     if file_type == "result":
         search_dir = RESULTS_DIR
     else:
@@ -365,22 +393,20 @@ async def download_result(
         raise HTTPException(404, "檔案不存在")
 
     json_path = matching_files[0]
-    
+
     # 如果要求 JSON 格式，直接返回
     if format == "json":
         return FileResponse(
-            json_path,
-            filename=f"{file_id}_{file_type}.json",
-            media_type="application/json"
+            json_path, filename=f"{file_id}_{file_type}.json", media_type="application/json"
         )
-    
+
     # 讀取 JSON
     with open(json_path, encoding="utf-8") as f:
         data = json.load(f)
-    
+
     # 輸出 mask 後的完整資料
     output = BytesIO()
-    
+
     if file_type == "result":
         # 優先使用 masked_data (表格資料)
         all_masked_data = []
@@ -390,41 +416,53 @@ async def download_result(
                 all_masked_data.extend(masked_data)
             elif file_result.get("masked_content"):
                 # 純文字內容，包裝成表格
-                all_masked_data.append({
-                    "檔案": file_result.get("filename", ""),
-                    "內容": file_result.get("masked_content", "")
-                })
-        
+                all_masked_data.append(
+                    {
+                        "檔案": file_result.get("filename", ""),
+                        "內容": file_result.get("masked_content", ""),
+                    }
+                )
+
         if all_masked_data:
             df = pd.DataFrame(all_masked_data)
         else:
             # fallback: 輸出 PHI 摘要
-            df = pd.DataFrame([{
-                "訊息": "沒有可輸出的資料",
-                "任務 ID": file_id,
-            }])
+            df = pd.DataFrame(
+                [
+                    {
+                        "訊息": "沒有可輸出的資料",
+                        "任務 ID": file_id,
+                    }
+                ]
+            )
     else:
         # 報告格式：輸出 PHI 列表
         phi_records = []
         for file_detail in data.get("file_details", []):
             filename = file_detail.get("filename", "unknown")
             for phi in file_detail.get("phi_entities", []):
-                phi_records.append({
-                    "檔案": filename,
-                    "PHI 類型": phi.get("type", ""),
-                    "原始值": phi.get("value", ""),
-                    "遮罩值": phi.get("masked_value", "[MASKED]"),
-                    "信心度": phi.get("confidence", ""),
-                })
-        
+                phi_records.append(
+                    {
+                        "檔案": filename,
+                        "PHI 類型": phi.get("type", ""),
+                        "原始值": phi.get("value", ""),
+                        "遮罩值": phi.get("masked_value", "[MASKED]"),
+                        "信心度": phi.get("confidence", ""),
+                    }
+                )
+
         if phi_records:
             df = pd.DataFrame(phi_records)
         else:
-            df = pd.DataFrame([{
-                "訊息": "沒有發現 PHI",
-                "任務 ID": file_id,
-            }])
-    
+            df = pd.DataFrame(
+                [
+                    {
+                        "訊息": "沒有發現 PHI",
+                        "任務 ID": file_id,
+                    }
+                ]
+            )
+
     # 產生檔案
     if format == "xlsx":
         df.to_excel(output, index=False, engine="openpyxl")
@@ -434,14 +472,15 @@ async def download_result(
         df.to_csv(output, index=False, encoding="utf-8-sig")  # BOM for Excel
         media_type = "text/csv"
         filename = f"{file_id}_{file_type}.csv"
-    
+
     output.seek(0)
-    
+
     from starlette.responses import StreamingResponse
+
     return StreamingResponse(
         output,
         media_type=media_type,
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
@@ -449,11 +488,10 @@ async def download_result(
 # Data Preview APIs
 # ============================================================
 
+
 @app.get("/api/preview/{file_id}")
 async def preview_file(
-    file_id: str,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100)
+    file_id: str, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100)
 ):
     """預覽上傳的檔案內容"""
     meta_file = UPLOAD_DIR / f"{file_id}.meta.json"
@@ -557,6 +595,7 @@ async def _preview_json(file_path: Path, page: int, page_size: int):
 # PHI Processing APIs
 # ============================================================
 
+
 @app.post("/api/process", response_model=TaskStatus)
 async def start_processing(request: ProcessRequest, background_tasks: BackgroundTasks):
     """開始 PHI 處理任務"""
@@ -623,10 +662,11 @@ def update_processing_stats(chars_processed: int, time_seconds: float):
         processing_stats["total_time_seconds"] += time_seconds
         processing_stats["task_count"] += 1
         processing_stats["avg_chars_per_second"] = (
-            processing_stats["total_chars_processed"] /
-            processing_stats["total_time_seconds"]
+            processing_stats["total_chars_processed"] / processing_stats["total_time_seconds"]
         )
-        logger.info(f"📊 Updated processing stats: avg speed = {processing_stats['avg_chars_per_second']:.2f} chars/sec")
+        logger.info(
+            f"📊 Updated processing stats: avg speed = {processing_stats['avg_chars_per_second']:.2f} chars/sec"
+        )
 
 
 async def process_phi_task(task_id: str):
@@ -640,6 +680,7 @@ async def process_phi_task(task_id: str):
     try:
         # 載入處理引擎（必須成功）
         from core.application.processing.engine import DeidentificationEngine, EngineConfig
+
         logger.info("✅ DeidentificationEngine loaded successfully")
 
         file_ids = task["file_ids"]
@@ -670,7 +711,9 @@ async def process_phi_task(task_id: str):
 
         # 初始預估時間
         if processing_stats["avg_chars_per_second"] > 0:
-            task["estimated_remaining_seconds"] = total_chars / processing_stats["avg_chars_per_second"]
+            task["estimated_remaining_seconds"] = (
+                total_chars / processing_stats["avg_chars_per_second"]
+            )
             task["message"] = f"預計需要 {format_time(task['estimated_remaining_seconds'])}"
 
         for i, file_id in enumerate(file_ids):
@@ -682,17 +725,15 @@ async def process_phi_task(task_id: str):
             task["elapsed_seconds"] = elapsed
 
             # 計算預估剩餘時間
-            remaining = estimate_remaining_time(
-                total_chars,
-                task["processed_chars"],
-                elapsed
-            )
+            remaining = estimate_remaining_time(total_chars, task["processed_chars"], elapsed)
             task["estimated_remaining_seconds"] = remaining
 
             # 更新訊息
             elapsed_str = format_time(elapsed)
             remaining_str = format_time(remaining) if remaining else "計算中..."
-            task["message"] = f"處理檔案 {i+1}/{len(file_ids)}... (已用時 {elapsed_str}, 預計剩餘 {remaining_str})"
+            task["message"] = (
+                f"處理檔案 {i + 1}/{len(file_ids)}... (已用時 {elapsed_str}, 預計剩餘 {remaining_str})"
+            )
 
             # 讀取檔案
             meta_file = UPLOAD_DIR / f"{file_id}.meta.json"
@@ -719,30 +760,34 @@ async def process_phi_task(task_id: str):
             phi_entities = []
             doc_phi_list = doc_info.get("phi_entities", [])
             for entity in doc_phi_list:
-                phi_entities.append({
-                    "type": entity.get("type", "UNKNOWN"),
-                    "value": entity.get("text", ""),
-                    "masked_value": "[MASKED]",  # 遮罩後的值需要從 masked_content 解析
-                    "field": None,  # 欄位資訊需要額外處理
-                    "row": None,
-                    "confidence": entity.get("confidence", 0.9),
-                    "start_pos": entity.get("start_pos"),
-                    "end_pos": entity.get("end_pos"),
-                    "reason": entity.get("reason", ""),
-                })
+                phi_entities.append(
+                    {
+                        "type": entity.get("type", "UNKNOWN"),
+                        "value": entity.get("text", ""),
+                        "masked_value": "[MASKED]",  # 遮罩後的值需要從 masked_content 解析
+                        "field": None,  # 欄位資訊需要額外處理
+                        "row": None,
+                        "confidence": entity.get("confidence", 0.9),
+                        "start_pos": entity.get("start_pos"),
+                        "end_pos": entity.get("end_pos"),
+                        "reason": entity.get("reason", ""),
+                    }
+                )
 
             # 也檢查 summary.phi_entities (備用)
             if not phi_entities:
                 summary_phi = result.summary.get("phi_entities", [])
                 for entity in summary_phi:
-                    phi_entities.append({
-                        "type": entity.get("type", "UNKNOWN"),
-                        "value": entity.get("text", ""),
-                        "masked_value": "[MASKED]",
-                        "field": None,
-                        "row": None,
-                        "confidence": entity.get("confidence", 0.9),
-                    })
+                    phi_entities.append(
+                        {
+                            "type": entity.get("type", "UNKNOWN"),
+                            "value": entity.get("text", ""),
+                            "masked_value": "[MASKED]",
+                            "field": None,
+                            "row": None,
+                            "confidence": entity.get("confidence", 0.9),
+                        }
+                    )
 
             # 取得原始和遮罩後的內容 (新結構直接提供)
             original_content = doc_info.get("original_content", "")
@@ -753,13 +798,14 @@ async def process_phi_task(task_id: str):
             original_data = None
             masked_data = None
             import pandas as pd
+
             try:
                 if meta["file_type"] == "csv":
                     original_df = pd.read_csv(file_path)
-                    original_data = original_df.head(100).to_dict(orient='records')
+                    original_data = original_df.head(100).to_dict(orient="records")
                 elif meta["file_type"] == "xlsx":
                     original_df = pd.read_excel(file_path)
-                    original_data = original_df.head(100).to_dict(orient='records')
+                    original_data = original_df.head(100).to_dict(orient="records")
 
                 # 優先使用引擎返回的輸出路徑
                 if output_path and Path(output_path).exists():
@@ -768,20 +814,24 @@ async def process_phi_task(task_id: str):
                         masked_df = pd.read_csv(out_path)
                     else:
                         masked_df = pd.read_excel(out_path)
-                    masked_data = masked_df.head(100).to_dict(orient='records')
+                    masked_data = masked_df.head(100).to_dict(orient="records")
                     logger.info(f"使用引擎輸出路徑: {output_path}")
                 else:
                     # 備用：查找處理後的輸出檔案
                     output_dir = Path("data/output/results")
                     if output_dir.exists():
                         original_stem = file_path.stem
-                        for output_file in sorted(output_dir.glob(f"*{original_stem}*"), key=lambda x: x.stat().st_mtime, reverse=True):
+                        for output_file in sorted(
+                            output_dir.glob(f"*{original_stem}*"),
+                            key=lambda x: x.stat().st_mtime,
+                            reverse=True,
+                        ):
                             if output_file.suffix in [".csv", ".xlsx"]:
                                 if output_file.suffix == ".csv":
                                     masked_df = pd.read_csv(output_file)
                                 else:
                                     masked_df = pd.read_excel(output_file)
-                                masked_data = masked_df.head(100).to_dict(orient='records')
+                                masked_data = masked_df.head(100).to_dict(orient="records")
                                 logger.info(f"找到處理後檔案: {output_file}")
                                 break
             except Exception as read_err:
@@ -790,21 +840,27 @@ async def process_phi_task(task_id: str):
             # 取得按類型統計
             phi_by_type = result.summary.get("phi_by_type", {})
 
-            results.append({
-                "file_id": file_id,
-                "filename": meta["filename"],
-                "phi_found": phi_count,
-                "phi_by_type": phi_by_type,  # 新增：按類型統計
-                "rows_processed": result.processed_documents,
-                "status": "completed",
-                "phi_entities": phi_entities,
-                "original_data": original_data,
-                "masked_data": masked_data,
-                "original_content": original_content[:5000] if original_content else None,  # 限制大小
-                "masked_content": masked_content[:5000] if masked_content else None,
-                "output_path": output_path,
-            })
-            logger.info(f"Engine processed {meta['filename']}: found {phi_count} PHI, types: {phi_by_type}")
+            results.append(
+                {
+                    "file_id": file_id,
+                    "filename": meta["filename"],
+                    "phi_found": phi_count,
+                    "phi_by_type": phi_by_type,  # 新增：按類型統計
+                    "rows_processed": result.processed_documents,
+                    "status": "completed",
+                    "phi_entities": phi_entities,
+                    "original_data": original_data,
+                    "masked_data": masked_data,
+                    "original_content": original_content[:5000]
+                    if original_content
+                    else None,  # 限制大小
+                    "masked_content": masked_content[:5000] if masked_content else None,
+                    "output_path": output_path,
+                }
+            )
+            logger.info(
+                f"Engine processed {meta['filename']}: found {phi_count} PHI, types: {phi_by_type}"
+            )
 
             # 更新已處理字符數
             task["processed_chars"] = task.get("processed_chars", 0) + file_chars.get(file_id, 0)
@@ -817,13 +873,18 @@ async def process_phi_task(task_id: str):
         result_id = task_id
         result_file = RESULTS_DIR / f"{result_id}_results.json"
         with open(result_file, "w", encoding="utf-8") as f:
-            json.dump({
-                "task_id": task_id,
-                "job_name": task["job_name"],
-                "config": task["config"],
-                "results": results,
-                "processed_at": datetime.now().isoformat(),
-            }, f, indent=2, ensure_ascii=False)
+            json.dump(
+                {
+                    "task_id": task_id,
+                    "job_name": task["job_name"],
+                    "config": task["config"],
+                    "results": results,
+                    "processed_at": datetime.now().isoformat(),
+                },
+                f,
+                indent=2,
+                ensure_ascii=False,
+            )
 
         # 產生報告
         report_file = REPORTS_DIR / f"{result_id}_report.json"
@@ -858,7 +919,9 @@ async def process_phi_task(task_id: str):
         task["elapsed_seconds"] = total_time
         task["estimated_remaining_seconds"] = 0
         task["processing_speed"] = processing_speed
-        task["message"] = f"處理完成！找到 {total_phi} 個 PHI (耗時 {format_time(total_time)}, 速度 {processing_speed:.1f} 字元/秒)"
+        task["message"] = (
+            f"處理完成！找到 {total_phi} 個 PHI (耗時 {format_time(total_time)}, 速度 {processing_speed:.1f} 字元/秒)"
+        )
         task["completed_at"] = datetime.now()
         task["result_file"] = str(result_file.name)
         task["report_file"] = str(report_file.name)
@@ -920,6 +983,7 @@ async def get_processing_stats():
 # Results & Reports APIs
 # ============================================================
 
+
 @app.get("/api/results")
 async def list_results():
     """列出所有處理結果"""
@@ -939,14 +1003,16 @@ async def list_results():
                 # 取得檔案名稱
                 filenames = [fr.get("filename", "Unknown") for fr in file_results]
 
-                results.append({
-                    "task_id": task_id,
-                    "filename": ", ".join(filenames) if filenames else "Unknown",
-                    "phi_count": phi_count,
-                    "files_processed": len(file_results),
-                    "status": "completed",
-                    "created_at": data.get("processed_at"),
-                })
+                results.append(
+                    {
+                        "task_id": task_id,
+                        "filename": ", ".join(filenames) if filenames else "Unknown",
+                        "phi_count": phi_count,
+                        "files_processed": len(file_results),
+                        "status": "completed",
+                        "created_at": data.get("processed_at"),
+                    }
+                )
         except Exception as e:
             logger.warning(f"Failed to read result file {result_file}: {e}")
 
@@ -985,16 +1051,18 @@ async def list_reports():
         with open(report_file, encoding="utf-8") as f:
             report = json.load(f)
             task_id = report["task_id"]
-            reports.append({
-                "id": task_id,  # 前端需要 id 欄位
-                "task_id": task_id,
-                "filename": report.get("filename", report_file.name),  # 加入 filename
-                "job_name": report.get("job_name", ""),
-                "files_processed": report["summary"]["files_processed"],
-                "total_phi_found": report["summary"]["total_phi_found"],
-                "created_at": report["generated_at"],  # 前端需要 created_at
-                "generated_at": report["generated_at"],
-            })
+            reports.append(
+                {
+                    "id": task_id,  # 前端需要 id 欄位
+                    "task_id": task_id,
+                    "filename": report.get("filename", report_file.name),  # 加入 filename
+                    "job_name": report.get("job_name", ""),
+                    "files_processed": report["summary"]["files_processed"],
+                    "total_phi_found": report["summary"]["total_phi_found"],
+                    "created_at": report["generated_at"],  # 前端需要 created_at
+                    "generated_at": report["generated_at"],
+                }
+            )
     return sorted(reports, key=lambda x: x["generated_at"], reverse=True)
 
 
@@ -1002,27 +1070,93 @@ async def list_reports():
 # Settings & Regulations APIs
 # ============================================================
 
+
 @app.get("/api/settings/phi-types")
 async def get_phi_types():
     """取得可用的 PHI 類型"""
     return {
         "phi_types": [
-            {"id": "NAME", "name": "姓名", "description": "患者或相關人員姓名", "category": "identifier"},
-            {"id": "DATE", "name": "日期", "description": "出生日期、就診日期等", "category": "temporal"},
+            {
+                "id": "NAME",
+                "name": "姓名",
+                "description": "患者或相關人員姓名",
+                "category": "identifier",
+            },
+            {
+                "id": "DATE",
+                "name": "日期",
+                "description": "出生日期、就診日期等",
+                "category": "temporal",
+            },
             {"id": "PHONE", "name": "電話", "description": "電話號碼", "category": "contact"},
-            {"id": "EMAIL", "name": "電子郵件", "description": "電子郵件地址", "category": "contact"},
-            {"id": "ADDRESS", "name": "地址", "description": "住址、工作地址等", "category": "geographic"},
-            {"id": "ID_NUMBER", "name": "身份證號", "description": "身分證字號、護照號碼", "category": "identifier"},
-            {"id": "MEDICAL_RECORD", "name": "病歷號", "description": "病歷號碼", "category": "identifier"},
-            {"id": "SOCIAL_SECURITY", "name": "社會安全碼", "description": "健保卡號等", "category": "identifier"},
-            {"id": "ACCOUNT_NUMBER", "name": "帳號", "description": "銀行帳號等", "category": "financial"},
-            {"id": "LICENSE_NUMBER", "name": "執照號碼", "description": "駕照、證照號碼", "category": "identifier"},
-            {"id": "VEHICLE_ID", "name": "車輛識別", "description": "車牌號碼", "category": "identifier"},
-            {"id": "DEVICE_ID", "name": "設備識別", "description": "設備序號、IP 位址", "category": "technical"},
+            {
+                "id": "EMAIL",
+                "name": "電子郵件",
+                "description": "電子郵件地址",
+                "category": "contact",
+            },
+            {
+                "id": "ADDRESS",
+                "name": "地址",
+                "description": "住址、工作地址等",
+                "category": "geographic",
+            },
+            {
+                "id": "ID_NUMBER",
+                "name": "身份證號",
+                "description": "身分證字號、護照號碼",
+                "category": "identifier",
+            },
+            {
+                "id": "MEDICAL_RECORD",
+                "name": "病歷號",
+                "description": "病歷號碼",
+                "category": "identifier",
+            },
+            {
+                "id": "SOCIAL_SECURITY",
+                "name": "社會安全碼",
+                "description": "健保卡號等",
+                "category": "identifier",
+            },
+            {
+                "id": "ACCOUNT_NUMBER",
+                "name": "帳號",
+                "description": "銀行帳號等",
+                "category": "financial",
+            },
+            {
+                "id": "LICENSE_NUMBER",
+                "name": "執照號碼",
+                "description": "駕照、證照號碼",
+                "category": "identifier",
+            },
+            {
+                "id": "VEHICLE_ID",
+                "name": "車輛識別",
+                "description": "車牌號碼",
+                "category": "identifier",
+            },
+            {
+                "id": "DEVICE_ID",
+                "name": "設備識別",
+                "description": "設備序號、IP 位址",
+                "category": "technical",
+            },
             {"id": "URL", "name": "網址", "description": "網站網址", "category": "technical"},
-            {"id": "BIOMETRIC", "name": "生物識別", "description": "指紋、聲紋等", "category": "biometric"},
+            {
+                "id": "BIOMETRIC",
+                "name": "生物識別",
+                "description": "指紋、聲紋等",
+                "category": "biometric",
+            },
             {"id": "PHOTO", "name": "影像", "description": "全臉照片等", "category": "biometric"},
-            {"id": "AGE", "name": "年齡", "description": "超過 89 歲的年齡", "category": "demographic"},
+            {
+                "id": "AGE",
+                "name": "年齡",
+                "description": "超過 89 歲的年齡",
+                "category": "demographic",
+            },
         ],
         "masking_types": [
             {"id": "redact", "name": "遮蔽", "description": "以 [REDACTED] 取代"},
@@ -1055,6 +1189,7 @@ async def update_config(config: PHIConfig):
 
 class RegulationContent(BaseModel):
     """法規完整內容"""
+
     id: str
     name: str
     content: str
@@ -1070,11 +1205,11 @@ async def get_regulation_content(rule_id: str):
         "hipaa-phi": "hipaa_phi_definition.md",
         "taiwan-pdpa": "taiwan_pdpa.md",
     }
-    
+
     # 先找專案根目錄的 regulations
     project_root = Path(__file__).parent.parent.parent
     regulations_source = project_root / "regulations" / "source_documents"
-    
+
     source_file = source_files.get(rule_id)
     if source_file:
         file_path = regulations_source / source_file
@@ -1087,7 +1222,7 @@ async def get_regulation_content(rule_id: str):
                 "content": content,
                 "source_file": source_file,
             }
-    
+
     # 找自訂法規
     custom_rules_file = REGULATIONS_DIR / "custom_rules.json"
     if custom_rules_file.exists():
@@ -1101,7 +1236,7 @@ async def get_regulation_content(rule_id: str):
                         "content": rule.get("content", ""),
                         "source_file": None,
                     }
-    
+
     raise HTTPException(404, f"找不到法規內容: {rule_id}")
 
 
@@ -1114,8 +1249,17 @@ async def list_regulations():
             "id": "hipaa-safe-harbor",
             "name": "HIPAA Safe Harbor",
             "description": "美國 HIPAA 法規的 18 項識別資訊",
-            "phi_types": ["NAME", "DATE", "PHONE", "EMAIL", "ADDRESS", "ID_NUMBER",
-                         "MEDICAL_RECORD", "SOCIAL_SECURITY", "ACCOUNT_NUMBER"],
+            "phi_types": [
+                "NAME",
+                "DATE",
+                "PHONE",
+                "EMAIL",
+                "ADDRESS",
+                "ID_NUMBER",
+                "MEDICAL_RECORD",
+                "SOCIAL_SECURITY",
+                "ACCOUNT_NUMBER",
+            ],
             "source": "hipaa",
             "enabled": True,
         },
@@ -1194,6 +1338,7 @@ async def update_regulation(rule_id: str, enabled: bool):
 # Health Check
 # ============================================================
 
+
 @app.get("/api/health")
 async def health_check():
     """健康檢查，包含 LLM 狀態"""
@@ -1206,12 +1351,14 @@ async def health_check():
     try:
         result = subprocess.run(
             ["curl", "-s", f"{ollama_url}/api/tags"],
-            check=False, capture_output=True,
+            check=False,
+            capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
         )
         if result.returncode == 0:
             import json as json_lib
+
             data = json_lib.loads(result.stdout)
             models = [m.get("name") for m in data.get("models", [])]
             if models:
@@ -1224,6 +1371,7 @@ async def health_check():
     engine_available = False
     try:
         from core.application.processing.engine import DeidentificationEngine
+
         engine_available = True
     except ImportError:
         pass
@@ -1236,9 +1384,9 @@ async def health_check():
             "status": llm_status,
             "model": llm_model,
             "provider": "ollama",
-            "endpoint": ollama_url
+            "endpoint": ollama_url,
         },
-        "engine_available": engine_available
+        "engine_available": engine_available,
     }
 
 
@@ -1248,6 +1396,7 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "main:app",
         host="0.0.0.0",

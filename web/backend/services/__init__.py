@@ -1,14 +1,17 @@
 """
 Services Package - 業務邏輯層
 """
-from .task_service import TaskService
+
 from .file_service import FileService
+from .phi_config_service import PHIConfigService
 from .processing_service import ProcessingService
 from .regulation_service import RegulationService
+from .task_service import TaskService
 
 __all__ = [
-    "TaskService",
     "FileService",
+    "PHIConfigService",
     "ProcessingService",
     "RegulationService",
+    "TaskService",
 ]

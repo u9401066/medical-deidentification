@@ -74,6 +74,19 @@
   - ✅ 所有 21 個 API 端點正常運作
   - ✅ 原始程式碼保留為 `main_legacy.py`
   - 📊 程式碼精簡: 1258 行 → 60 行 (入口), 總體更好維護
+- **PHI 設定獨立服務** (2026-01-14)
+  - ✅ 建立 `services/phi_config_service.py` - 獨立管理 PHI 設定
+  - ✅ 設定持久化到 `data/phi_configs/current_config.json`
+  - ✅ 支援設定導入/導出 (JSON 格式)
+  - ✅ 內建 3 個預設範本 (HIPAA 標準、最小化、研究安全模式)
+  - ✅ 新增 API 端點:
+    - `GET/PUT /api/settings/config` - 取得/更新設定
+    - `GET/PUT /api/settings/phi-types/{type}` - 個別類型設定
+    - `GET /api/settings/export` - 導出設定 JSON
+    - `GET /api/settings/export/download` - 下載設定檔
+    - `POST /api/settings/import` - 上傳導入設定
+    - `POST /api/settings/import/json` - JSON 導入設定
+    - `GET/POST/DELETE /api/settings/presets/*` - 預設範本管理
 
 ## Doing
 

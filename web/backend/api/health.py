@@ -2,10 +2,10 @@
 Health API Router
 健康檢查 API
 """
+
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter
 
@@ -27,17 +27,18 @@ async def health_check():
     llm_status = "offline"
     llm_model = None
     ollama_url = OLLAMA_BASE_URL.rstrip("/")
-    
+
     try:
         result = subprocess.run(
             ["curl", "-s", f"{ollama_url}/api/tags"],
             check=False,
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
         )
         if result.returncode == 0:
             import json
+
             try:
                 data = json.loads(result.stdout)
                 if data.get("models"):
@@ -49,18 +50,18 @@ async def health_check():
         llm_status = "timeout"
     except Exception:
         pass
-    
+
     # 檢查引擎狀態
     processing_service = get_processing_service()
     engine_available = processing_service.engine_available
-    
+
     return {
         "status": "healthy",
         "llm": {
             "status": llm_status,
             "model": llm_model,
             "provider": "ollama",
-            "endpoint": ollama_url
+            "endpoint": ollama_url,
         },
-        "engine_available": engine_available
+        "engine_available": engine_available,
     }

@@ -1,0 +1,38 @@
+{
+  "name": "研究安全模式",
+  "description": "保留日期但移除直接識別符，適合研究用途",
+  "config": {
+    "masking_type": "pseudonymize",
+    "preserve_format": true,
+    "phi_types": {
+      "NAME": {
+        "enabled": true,
+        "masking": "hash"
+      },
+      "DATE": {
+        "enabled": false,
+        "masking": "keep"
+      },
+      "PHONE": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "EMAIL": {
+        "enabled": true,
+        "masking": "hash"
+      },
+      "ADDRESS": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "ID_NUMBER": {
+        "enabled": true,
+        "masking": "hash"
+      },
+      "MEDICAL_RECORD": {
+        "enabled": true,
+        "masking": "hash"
+      }
+    }
+  }
+}

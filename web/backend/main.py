@@ -8,6 +8,7 @@ FastAPI 後端服務 (模組化版本)
 - services/: 業務邏輯服務
 - config.py: 應用配置
 """
+
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -21,8 +22,8 @@ _backend_dir = Path(__file__).parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
-from config import CORS_ORIGINS, ensure_directories
 from api import api_router
+from config import CORS_ORIGINS, ensure_directories
 
 
 @asynccontextmanager
@@ -31,10 +32,10 @@ async def lifespan(app: FastAPI):
     # 啟動時
     ensure_directories()
     logger.info("🚀 Medical De-identification API started")
-    logger.info(f"📁 Data directories initialized")
-    
+    logger.info("📁 Data directories initialized")
+
     yield
-    
+
     # 關閉時
     logger.info("👋 Medical De-identification API stopped")
 
@@ -65,6 +66,7 @@ app.include_router(api_router)
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "main:app",
         host="0.0.0.0",

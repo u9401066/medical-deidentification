@@ -1,6 +1,7 @@
 """
 API Package - FastAPI 路由
 """
+
 import sys
 from pathlib import Path
 
@@ -12,11 +13,11 @@ if str(_backend_dir) not in sys.path:
 from fastapi import APIRouter
 
 from api.files import router as files_router
+from api.health import router as health_router
 from api.preview import router as preview_router
 from api.processing import router as processing_router
 from api.results import router as results_router
 from api.settings import router as settings_router
-from api.health import router as health_router
 
 # 建立主路由
 api_router = APIRouter(prefix="/api")

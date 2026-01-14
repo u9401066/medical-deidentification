@@ -2,6 +2,7 @@
 File Service
 檔案管理服務
 """
+
 import json
 import re
 import sys
@@ -17,37 +18,38 @@ _backend_dir = Path(__file__).parent.parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
-from config import UPLOAD_DIR, MAX_FILE_SIZE
+from config import MAX_FILE_SIZE, UPLOAD_DIR
 from models.file import UploadedFile
+
 from services.task_service import get_task_service
 
 
 class FileService:
     """檔案管理服務 - 處理檔案上傳、列表、刪除"""
-    
+
     def __init__(self, upload_dir: Path = UPLOAD_DIR):
         self.upload_dir = upload_dir
         self.upload_dir.mkdir(parents=True, exist_ok=True)
-    
+
     @staticmethod
     def sanitize_path(file_id: str) -> bool:
         """驗證 file_id 格式，防止路徑穿越攻擊"""
-        return bool(re.match(r'^[a-zA-Z0-9-]+$', file_id))
-    
+        return bool(re.match(r"^[a-zA-Z0-9-]+$", file_id))
+
     async def upload(self, filename: str, content: bytes) -> UploadedFile:
         """上傳檔案"""
         # 檢查檔案大小
         if len(content) > MAX_FILE_SIZE:
-            raise ValueError(f"檔案過大，最大允許 {MAX_FILE_SIZE // (1024*1024)}MB")
-        
+            raise ValueError(f"檔案過大，最大允許 {MAX_FILE_SIZE // (1024 * 1024)}MB")
+
         file_id = str(uuid.uuid4())[:8]
         file_ext = Path(filename).suffix.lower()
         save_path = self.upload_dir / f"{file_id}{file_ext}"
-        
+
         # 儲存檔案
         with open(save_path, "wb") as f:
             f.write(content)
-        
+
         # 儲存元數據
         metadata = {
             "file_id": file_id,
@@ -57,13 +59,13 @@ class FileService:
             "file_type": file_ext.lstrip("."),
             "path": str(save_path),
         }
-        
+
         with open(self.upload_dir / f"{file_id}.meta.json", "w") as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
-        
+
         # 日誌脫敏 - 只記錄 file_id，不記錄可能含 PHI 的原始檔名
         logger.info(f"📁 Uploaded file: [REDACTED] -> {file_id} ({file_ext}, {len(content)} bytes)")
-        
+
         return UploadedFile(
             file_id=file_id,
             filename=filename,
@@ -71,18 +73,18 @@ class FileService:
             upload_time=datetime.now(),
             file_type=file_ext.lstrip("."),
         )
-    
+
     def list_files(self) -> list[UploadedFile]:
         """列出所有上傳的檔案（含處理狀態）"""
         files = []
         task_service = get_task_service()
         file_task_map = task_service.get_file_task_map()
-        
+
         for meta_file in self.upload_dir.glob("*.meta.json"):
             with open(meta_file) as f:
                 meta = json.load(f)
                 file_id = meta["file_id"]
-                
+
                 # 判斷檔案狀態
                 status = "pending"
                 task_id = None
@@ -96,62 +98,64 @@ class FileService:
                         status = "processing"
                     elif task_status == "failed":
                         status = "error"
-                
-                files.append(UploadedFile(
-                    file_id=file_id,
-                    filename=meta["filename"],
-                    size=meta["size"],
-                    upload_time=datetime.fromisoformat(meta["upload_time"]),
-                    file_type=meta["file_type"],
-                    status=status,
-                    task_id=task_id,
-                ))
-        
+
+                files.append(
+                    UploadedFile(
+                        file_id=file_id,
+                        filename=meta["filename"],
+                        size=meta["size"],
+                        upload_time=datetime.fromisoformat(meta["upload_time"]),
+                        file_type=meta["file_type"],
+                        status=status,
+                        task_id=task_id,
+                    )
+                )
+
         return sorted(files, key=lambda x: x.upload_time, reverse=True)
-    
+
     def get_file_path(self, file_id: str) -> Path | None:
         """取得檔案路徑"""
         meta_file = self.upload_dir / f"{file_id}.meta.json"
         if not meta_file.exists():
             return None
-        
+
         with open(meta_file) as f:
             meta = json.load(f)
-        
+
         return Path(meta["path"])
-    
+
     def get_file_metadata(self, file_id: str) -> dict[str, Any] | None:
         """取得檔案元數據"""
         meta_file = self.upload_dir / f"{file_id}.meta.json"
         if not meta_file.exists():
             return None
-        
+
         with open(meta_file) as f:
             return json.load(f)
-    
+
     def delete(self, file_id: str) -> bool:
         """刪除檔案"""
         if not self.sanitize_path(file_id):
             raise ValueError("無效的檔案 ID")
-        
+
         meta_file = self.upload_dir / f"{file_id}.meta.json"
         if not meta_file.exists():
             return False
-        
+
         with open(meta_file) as f:
             meta = json.load(f)
-        
+
         # 路徑穿越防護
         target_path = Path(meta["path"]).resolve()
         allowed_dir = self.upload_dir.resolve()
         if not str(target_path).startswith(str(allowed_dir)):
             logger.warning(f"⚠️ Path traversal attempt blocked: {file_id}")
             raise PermissionError("禁止的操作")
-        
+
         # 刪除檔案和元數據
         target_path.unlink(missing_ok=True)
         meta_file.unlink()
-        
+
         logger.info(f"🗑️ Deleted file: {file_id}")
         return True
 

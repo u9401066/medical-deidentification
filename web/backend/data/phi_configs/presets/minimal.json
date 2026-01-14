@@ -1,0 +1,26 @@
+{
+  "name": "最小化處理",
+  "description": "僅處理最敏感的個人識別資訊",
+  "config": {
+    "masking_type": "redact",
+    "preserve_format": true,
+    "phi_types": {
+      "NAME": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "ID_NUMBER": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "SSN": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "MEDICAL_RECORD": {
+        "enabled": true,
+        "masking": "mask"
+      }
+    }
+  }
+}

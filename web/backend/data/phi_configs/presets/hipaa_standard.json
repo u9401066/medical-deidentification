@@ -1,0 +1,86 @@
+{
+  "name": "HIPAA 標準",
+  "description": "符合 HIPAA Safe Harbor 的 18 項識別符標準配置",
+  "config": {
+    "masking_type": "redact",
+    "preserve_format": true,
+    "phi_types": {
+      "NAME": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "DATE": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "PHONE": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "FAX": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "EMAIL": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "SSN": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "MEDICAL_RECORD": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "ID_NUMBER": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "ACCOUNT": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "LICENSE": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "VEHICLE": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "DEVICE": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "URL": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "IP": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "BIOMETRIC": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "PHOTO": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "AGE_OVER_89": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "ADDRESS": {
+        "enabled": true,
+        "masking": "mask"
+      },
+      "LOCATION": {
+        "enabled": true,
+        "masking": "mask"
+      }
+    }
+  }
+}

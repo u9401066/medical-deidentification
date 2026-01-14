@@ -2,6 +2,7 @@
 Task Service
 任務管理服務
 """
+
 from datetime import datetime
 from typing import Any
 
@@ -10,10 +11,10 @@ from loguru import logger
 
 class TaskService:
     """任務管理服務 - 管理 PHI 處理任務的生命週期"""
-    
+
     def __init__(self):
         self._tasks_db: dict[str, dict[str, Any]] = {}
-        
+
         # 處理速度統計
         self._processing_stats = {
             "total_chars_processed": 0,
@@ -21,18 +22,14 @@ class TaskService:
             "task_count": 0,
             "avg_chars_per_second": 50.0,
         }
-    
+
     @property
     def tasks_db(self) -> dict[str, dict[str, Any]]:
         """取得任務資料庫"""
         return self._tasks_db
-    
+
     def create_task(
-        self,
-        task_id: str,
-        file_ids: list[str],
-        config: dict[str, Any],
-        job_name: str | None = None
+        self, task_id: str, file_ids: list[str], config: dict[str, Any], job_name: str | None = None
     ) -> dict[str, Any]:
         """建立新任務"""
         now = datetime.now()
@@ -57,11 +54,11 @@ class TaskService:
         self._tasks_db[task_id] = task
         logger.info(f"📋 Created task: {task_id} with {len(file_ids)} files")
         return task
-    
+
     def get_task(self, task_id: str) -> dict[str, Any] | None:
         """取得任務資訊"""
         return self._tasks_db.get(task_id)
-    
+
     def update_task(self, task_id: str, **updates) -> dict[str, Any] | None:
         """更新任務狀態"""
         task = self._tasks_db.get(task_id)
@@ -70,39 +67,35 @@ class TaskService:
             task["updated_at"] = datetime.now()
             return task
         return None
-    
+
     def list_tasks(self) -> list[dict[str, Any]]:
         """列出所有任務 (按建立時間倒序)"""
-        return sorted(
-            self._tasks_db.values(),
-            key=lambda x: x["created_at"],
-            reverse=True
-        )
-    
+        return sorted(self._tasks_db.values(), key=lambda x: x["created_at"], reverse=True)
+
     def get_file_task_map(self) -> dict[str, dict[str, Any]]:
         """取得檔案 ID -> 任務的映射"""
         file_task_map: dict[str, dict[str, Any]] = {}
         for task in self._tasks_db.values():
             for file_id in task.get("file_ids", []):
                 # 取最新的任務
-                if file_id not in file_task_map or task["created_at"] > file_task_map[file_id]["created_at"]:
+                if (
+                    file_id not in file_task_map
+                    or task["created_at"] > file_task_map[file_id]["created_at"]
+                ):
                     file_task_map[file_id] = task
         return file_task_map
-    
+
     def estimate_remaining_time(
-        self, 
-        total_chars: int, 
-        processed_chars: int, 
-        elapsed: float
+        self, total_chars: int, processed_chars: int, elapsed: float
     ) -> float | None:
         """估計剩餘處理時間"""
         if processed_chars <= 0 or elapsed <= 0:
             return None
-        
+
         chars_per_second = processed_chars / elapsed
         remaining_chars = total_chars - processed_chars
         return remaining_chars / chars_per_second
-    
+
     def update_processing_stats(self, chars_processed: int, time_seconds: float):
         """更新處理統計資料"""
         if chars_processed > 0 and time_seconds > 0:
@@ -110,10 +103,10 @@ class TaskService:
             self._processing_stats["total_time_seconds"] += time_seconds
             self._processing_stats["task_count"] += 1
             self._processing_stats["avg_chars_per_second"] = (
-                self._processing_stats["total_chars_processed"] / 
-                self._processing_stats["total_time_seconds"]
+                self._processing_stats["total_chars_processed"]
+                / self._processing_stats["total_time_seconds"]
             )
-    
+
     def get_processing_stats(self) -> dict[str, Any]:
         """取得處理統計資料"""
         return {

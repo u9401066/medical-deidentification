@@ -2,6 +2,7 @@
 Task Models
 任務相關資料模型
 """
+
 from datetime import datetime
 from typing import Any
 
@@ -12,6 +13,7 @@ from .config import PHIConfig
 
 class ProcessRequest(BaseModel):
     """處理請求"""
+
     file_ids: list[str] = Field(..., description="要處理的檔案 ID 列表")
     config: PHIConfig = Field(default_factory=PHIConfig)
     job_name: str | None = Field(default=None, description="任務名稱")
@@ -19,6 +21,7 @@ class ProcessRequest(BaseModel):
 
 class TaskStatus(BaseModel):
     """任務狀態"""
+
     task_id: str
     status: str  # pending, processing, completed, failed
     progress: float = 0.0
@@ -28,12 +31,12 @@ class TaskStatus(BaseModel):
     updated_at: datetime
     result: dict[str, Any] | None = None
     error: str | None = None
-    
+
     # 進度相關
     current_file: str | None = None
     files_completed: int = 0
     total_files: int = 0
-    
+
     # 時間估計
     elapsed_time: float | None = None
     estimated_remaining: float | None = None
