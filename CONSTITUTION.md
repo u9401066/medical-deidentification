@@ -17,12 +17,28 @@
 3. 禁止在 Domain Layer 直接操作資料庫
 
 ### 第 3 條：分層架構
-```
+
+**後端 (Python)**
+```text
 ├── core/domain/         # 核心領域（純業務邏輯，無外部依賴）
 ├── core/application/    # 應用層（用例、服務編排）
 ├── core/infrastructure/ # 基礎設施（DAL、外部服務、LLM）
 └── core/interface/      # 呈現層（API、CLI）
 ```
+
+**前端 (TypeScript/React)**
+```text
+├── web/frontend/src/domain/         # 領域層（實體、值物件）
+├── web/frontend/src/application/    # 應用層（Hooks、Services）
+├── web/frontend/src/infrastructure/ # 基礎設施（API、Storage、Logging）
+├── web/frontend/src/presentation/   # 呈現層（Components、Pages）
+└── web/frontend/src/shared/         # 共享工具（Types、Utils）
+```
+
+### 第 3.1 條：前端 DDD 特別規範
+1. 日誌必須可輸出到終端機，供 Agent 讀取
+2. 自動測試套件為必要配置（Vitest + RTL）
+3. 詳細規範見子法：`.github/bylaws/frontend-ddd.md`
 
 ---
 

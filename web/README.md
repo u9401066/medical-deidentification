@@ -67,21 +67,32 @@ web/
 │   ├── pyproject.toml      # uv 依賴配置
 │   └── README.md
 │
-└── frontend/               # React + TypeScript 前端
+└── frontend/               # React + TypeScript 前端 (DDD 架構)
     ├── src/
-    │   ├── api/           # API 客戶端
-    │   ├── components/    # React 元件
-    │   │   ├── ui/       # 通用 UI 元件 (Button, Card, etc.)
-    │   │   ├── Sidebar.tsx
-    │   │   ├── DataPreview.tsx
-    │   │   ├── ResultsPreview.tsx
-    │   │   ├── Reports.tsx
-    │   │   └── Settings.tsx
-    │   ├── lib/          # 工具函數
-    │   ├── App.tsx       # 主應用程式
-    │   └── main.tsx      # 進入點
-    ├── package.json      # npm 依賴配置
-    └── vite.config.ts    # Vite 配置
+    │   ├── domain/           # 領域層 - 純業務邏輯
+    │   │   ├── entities/     # 實體 (Task, File, Report)
+    │   │   └── value-objects/# 值物件 (PHIConfig, PHIType)
+    │   ├── application/      # 應用層 - Use Cases
+    │   │   └── hooks/        # React Query hooks
+    │   ├── infrastructure/   # 基礎設施層
+    │   │   ├── api/          # API 客戶端
+    │   │   └── logging/      # 日誌系統 (可供 Agent 讀取)
+    │   ├── presentation/     # 呈現層 - UI
+    │   │   └── components/   # React 元件
+    │   │       ├── ui/       # 通用 UI 元件
+    │   │       ├── Sidebar.tsx
+    │   │       ├── TasksPanel.tsx
+    │   │       ├── ResultsPanel.tsx
+    │   │       ├── Reports.tsx
+    │   │       └── Settings.tsx
+    │   ├── shared/           # 共享工具
+    │   │   ├── types/        # TypeScript 類型
+    │   │   └── utils/        # 工具函數
+    │   ├── lib/              # 向後兼容工具
+    │   ├── App.tsx           # 主應用程式
+    │   └── main.tsx          # 進入點
+    ├── package.json          # npm 依賴配置
+    └── vite.config.ts        # Vite 配置
 ```
 
 ## 使用流程

@@ -1,0 +1,760 @@
+[
+  {
+    "model": "llama3.1:8b",
+    "f1_score": 0.6124999999999999,
+    "precision": 0.8448275862068966,
+    "recall": 0.4803921568627451,
+    "avg_latency_sec": 2.0555661050602794,
+    "total_cases": 5,
+    "true_positives": 49,
+    "false_positives": 9,
+    "false_negatives": 53,
+    "structured_output_success": 5,
+    "structured_output_failures": 0,
+    "case_results": [
+      {
+        "case_id": "CASE-001",
+        "latency_sec": 1.9328354327008128,
+        "expected_count": 27,
+        "detected_count": 11,
+        "tp": 7,
+        "fp": 4,
+        "fn": 17,
+        "detected_entities": [
+          {
+            "text": "陳老先生",
+            "type": "NAME"
+          },
+          {
+            "text": "94",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "1930",
+            "type": "DATE"
+          },
+          {
+            "text": "Nov 21, 2024",
+            "type": "DATE"
+          },
+          {
+            "text": "02-2758-9999",
+            "type": "PHONE"
+          },
+          {
+            "text": "台北市信義區",
+            "type": "LOCATION"
+          },
+          {
+            "text": "A123456789",
+            "type": "ID"
+          },
+          {
+            "text": "AFib",
+            "type": "RARE_DISEASE"
+          },
+          {
+            "text": "HTN",
+            "type": "RARE_DISEASE"
+          },
+          {
+            "text": "Dr. 王",
+            "type": "NAME"
+          },
+          {
+            "text": "台大醫院",
+            "type": "HOSPITAL_NAME"
+          }
+        ]
+      },
+      {
+        "case_id": "CASE-002",
+        "latency_sec": 2.122898319736123,
+        "expected_count": 28,
+        "detected_count": 13,
+        "tp": 12,
+        "fp": 1,
+        "fn": 14,
+        "detected_entities": [
+          {
+            "text": "李雅婷",
+            "type": "NAME"
+          },
+          {
+            "text": "28",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "0912-345-678",
+            "type": "PHONE"
+          },
+          {
+            "text": "yalee1996@gmail.com",
+            "type": "EMAIL"
+          },
+          {
+            "text": "0933-888-999",
+            "type": "PHONE"
+          },
+          {
+            "text": "HD-2023-0056",
+            "type": "INSURANCE_NUMBER"
+          },
+          {
+            "text": "新竹市東區",
+            "type": "LOCATION"
+          },
+          {
+            "text": "2005",
+            "type": "DATE"
+          },
+          {
+            "text": "2018",
+            "type": "DATE"
+          },
+          {
+            "text": "1995",
+            "type": "DATE"
+          },
+          {
+            "text": "2021",
+            "type": "DATE"
+          },
+          {
+            "text": "2023",
+            "type": "DATE"
+          },
+          {
+            "text": "Mar 15, 2024",
+            "type": "DATE"
+          }
+        ]
+      },
+      {
+        "case_id": "CASE-003",
+        "latency_sec": 3.0280115203931928,
+        "expected_count": 31,
+        "detected_count": 20,
+        "tp": 17,
+        "fp": 3,
+        "fn": 13,
+        "detected_entities": [
+          {
+            "text": "小明",
+            "type": "NAME"
+          },
+          {
+            "text": "8",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "Duchenne Muscular Dystrophy (DMD)",
+            "type": "RARE_DISEASE"
+          },
+          {
+            "text": "May 15, 2016",
+            "type": "DATE"
+          },
+          {
+            "text": "王爸爸",
+            "type": "NAME"
+          },
+          {
+            "text": "0988-123-456",
+            "type": "PHONE"
+          },
+          {
+            "text": "王媽媽",
+            "type": "NAME"
+          },
+          {
+            "text": "0955-789-012",
+            "type": "PHONE"
+          },
+          {
+            "text": "台中市西屯區",
+            "type": "LOCATION"
+          },
+          {
+            "text": "逢甲大學",
+            "type": "LOCATION"
+          },
+          {
+            "text": "西屯國小",
+            "type": "LOCATION"
+          },
+          {
+            "text": "2",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "台中工業區",
+            "type": "LOCATION"
+          },
+          {
+            "text": "Dr. 陳",
+            "type": "NAME"
+          },
+          {
+            "text": "陳",
+            "type": "NAME"
+          },
+          {
+            "text": "中榮小兒神經科",
+            "type": "HOSPITAL_NAME"
+          },
+          {
+            "text": "35",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "1989",
+            "type": "DATE"
+          },
+          {
+            "text": "38",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "1986",
+            "type": "DATE"
+          }
+        ]
+      },
+      {
+        "case_id": "CASE-004",
+        "latency_sec": 1.3416360933333635,
+        "expected_count": 9,
+        "detected_count": 6,
+        "tp": 6,
+        "fp": 0,
+        "fn": 3,
+        "detected_entities": [
+          {
+            "text": "張三",
+            "type": "NAME"
+          },
+          {
+            "text": "45",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "2024-11-20",
+            "type": "DATE"
+          },
+          {
+            "text": "02-1234-5678",
+            "type": "PHONE"
+          },
+          {
+            "text": "A123456789",
+            "type": "ID"
+          },
+          {
+            "text": "台北市大安區",
+            "type": "LOCATION"
+          }
+        ]
+      },
+      {
+        "case_id": "CASE-005",
+        "latency_sec": 1.8524491591379046,
+        "expected_count": 13,
+        "detected_count": 8,
+        "tp": 7,
+        "fp": 1,
+        "fn": 6,
+        "detected_entities": [
+          {
+            "text": "John Smith",
+            "type": "NAME"
+          },
+          {
+            "text": "52",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "john.smith@example.com",
+            "type": "EMAIL"
+          },
+          {
+            "text": "+886-912-345-678",
+            "type": "PHONE"
+          },
+          {
+            "text": "+886-933-111-222",
+            "type": "PHONE"
+          },
+          {
+            "text": "INS-2024-9876",
+            "type": "INSURANCE_NUMBER"
+          },
+          {
+            "text": "US123456789",
+            "type": "ID"
+          },
+          {
+            "text": "市北园应兰六都123一前",
+            "type": "LOCATION"
+          }
+        ]
+      }
+    ],
+    "errors": []
+  },
+  {
+    "model": "gemma3:27b",
+    "f1_score": 0.898989898989899,
+    "precision": 0.9270833333333334,
+    "recall": 0.8725490196078431,
+    "avg_latency_sec": 9.886589665710925,
+    "total_cases": 5,
+    "true_positives": 89,
+    "false_positives": 7,
+    "false_negatives": 13,
+    "structured_output_success": 5,
+    "structured_output_failures": 0,
+    "case_results": [
+      {
+        "case_id": "CASE-001",
+        "latency_sec": 10.719938927330077,
+        "expected_count": 27,
+        "detected_count": 21,
+        "tp": 19,
+        "fp": 2,
+        "fn": 5,
+        "detected_entities": [
+          {
+            "text": "陳老先生",
+            "type": "NAME"
+          },
+          {
+            "text": "Mr. Chen",
+            "type": "NAME"
+          },
+          {
+            "text": "94",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "1930",
+            "type": "DATE"
+          },
+          {
+            "text": "Nov 21, 2024",
+            "type": "DATE"
+          },
+          {
+            "text": "陳大衛",
+            "type": "NAME"
+          },
+          {
+            "text": "02-2758-9999",
+            "type": "PHONE"
+          },
+          {
+            "text": "台北市信義區",
+            "type": "LOCATION"
+          },
+          {
+            "text": "1960s",
+            "type": "DATE"
+          },
+          {
+            "text": "A123456789",
+            "type": "INSURANCE_NUMBER"
+          },
+          {
+            "text": "1995",
+            "type": "DATE"
+          },
+          {
+            "text": "65",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "2015",
+            "type": "DATE"
+          },
+          {
+            "text": "85",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "1945",
+            "type": "DATE"
+          },
+          {
+            "text": "15",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "台大醫院",
+            "type": "HOSPITAL_NAME"
+          },
+          {
+            "text": "1950",
+            "type": "DATE"
+          },
+          {
+            "text": "20",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "Nov 22",
+            "type": "DATE"
+          },
+          {
+            "text": "Nov 28",
+            "type": "DATE"
+          }
+        ]
+      },
+      {
+        "case_id": "CASE-002",
+        "latency_sec": 11.870759256184101,
+        "expected_count": 28,
+        "detected_count": 25,
+        "tp": 22,
+        "fp": 3,
+        "fn": 4,
+        "detected_entities": [
+          {
+            "text": "李雅婷",
+            "type": "NAME"
+          },
+          {
+            "text": "28",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "Huntington's Disease",
+            "type": "RARE_DISEASE"
+          },
+          {
+            "text": "43",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "52",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "2018",
+            "type": "DATE"
+          },
+          {
+            "text": "0912-345-678",
+            "type": "PHONE"
+          },
+          {
+            "text": "yalee1996@gmail.com",
+            "type": "EMAIL"
+          },
+          {
+            "text": "李先生",
+            "type": "NAME"
+          },
+          {
+            "text": "0933-888-999",
+            "type": "PHONE"
+          },
+          {
+            "text": "HD-2023-0056",
+            "type": "INSURANCE_NUMBER"
+          },
+          {
+            "text": "Jan 2023",
+            "type": "DATE"
+          },
+          {
+            "text": "27",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "新竹市東區",
+            "type": "LOCATION"
+          },
+          {
+            "text": "39",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "68",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "25",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "2021",
+            "type": "DATE"
+          },
+          {
+            "text": "30",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "Mar 15, 2024",
+            "type": "DATE"
+          },
+          {
+            "text": "張神經科",
+            "type": "NAME"
+          },
+          {
+            "text": "台大神經部",
+            "type": "HOSPITAL_NAME"
+          },
+          {
+            "text": "2023",
+            "type": "DATE"
+          },
+          {
+            "text": "新竹科學園區",
+            "type": "LOCATION"
+          },
+          {
+            "text": "2019-2023",
+            "type": "DATE"
+          }
+        ]
+      },
+      {
+        "case_id": "CASE-003",
+        "latency_sec": 13.164907094091177,
+        "expected_count": 31,
+        "detected_count": 29,
+        "tp": 27,
+        "fp": 2,
+        "fn": 3,
+        "detected_entities": [
+          {
+            "text": "小明",
+            "type": "NAME"
+          },
+          {
+            "text": "8",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "May 15, 2016",
+            "type": "DATE"
+          },
+          {
+            "text": "18 months",
+            "type": "DATE"
+          },
+          {
+            "text": "5",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "2021",
+            "type": "DATE"
+          },
+          {
+            "text": "王爸爸",
+            "type": "NAME"
+          },
+          {
+            "text": "0988-123-456",
+            "type": "PHONE"
+          },
+          {
+            "text": "王媽媽",
+            "type": "NAME"
+          },
+          {
+            "text": "0955-789-012",
+            "type": "PHONE"
+          },
+          {
+            "text": "台中市西屯區",
+            "type": "LOCATION"
+          },
+          {
+            "text": "逢甲大學",
+            "type": "LOCATION"
+          },
+          {
+            "text": "西屯國小",
+            "type": "LOCATION"
+          },
+          {
+            "text": "台中工業區",
+            "type": "LOCATION"
+          },
+          {
+            "text": "2",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "2018",
+            "type": "DATE"
+          },
+          {
+            "text": "4",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "7",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "2023",
+            "type": "DATE"
+          },
+          {
+            "text": "2022",
+            "type": "DATE"
+          },
+          {
+            "text": "6",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "35",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "1989",
+            "type": "DATE"
+          },
+          {
+            "text": "38",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "1986",
+            "type": "DATE"
+          },
+          {
+            "text": "19",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "2005",
+            "type": "DATE"
+          },
+          {
+            "text": "Duchenne Muscular Dystrophy",
+            "type": "RARE_DISEASE"
+          },
+          {
+            "text": "中榮小兒神經科",
+            "type": "HOSPITAL_NAME"
+          }
+        ]
+      },
+      {
+        "case_id": "CASE-004",
+        "latency_sec": 6.807959422469139,
+        "expected_count": 9,
+        "detected_count": 9,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0,
+        "detected_entities": [
+          {
+            "text": "張三",
+            "type": "NAME"
+          },
+          {
+            "text": "45",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "2024-11-20",
+            "type": "DATE"
+          },
+          {
+            "text": "02-1234-5678",
+            "type": "PHONE"
+          },
+          {
+            "text": "A123456789",
+            "type": "ID"
+          },
+          {
+            "text": "台北市大安區",
+            "type": "LOCATION"
+          },
+          {
+            "text": "2023-11-15",
+            "type": "DATE"
+          },
+          {
+            "text": "李四",
+            "type": "NAME"
+          },
+          {
+            "text": "2024-12-20",
+            "type": "DATE"
+          }
+        ]
+      },
+      {
+        "case_id": "CASE-005",
+        "latency_sec": 6.869383628480136,
+        "expected_count": 13,
+        "detected_count": 12,
+        "tp": 12,
+        "fp": 0,
+        "fn": 1,
+        "detected_entities": [
+          {
+            "text": "John Smith",
+            "type": "NAME"
+          },
+          {
+            "text": "52",
+            "type": "AGE_OVER_89"
+          },
+          {
+            "text": "Nov 23, 2024",
+            "type": "DATE"
+          },
+          {
+            "text": "john.smith@example.com",
+            "type": "EMAIL"
+          },
+          {
+            "text": "+886-912-345-678",
+            "type": "PHONE"
+          },
+          {
+            "text": "Mary Smith",
+            "type": "NAME"
+          },
+          {
+            "text": "+886-933-111-222",
+            "type": "PHONE"
+          },
+          {
+            "text": "INS-2024-9876",
+            "type": "INSURANCE_NUMBER"
+          },
+          {
+            "text": "US123456789",
+            "type": "ID"
+          },
+          {
+            "text": "台北市中山區民生東路123號",
+            "type": "LOCATION"
+          },
+          {
+            "text": "Nov 23",
+            "type": "DATE"
+          },
+          {
+            "text": "Dec 15, 2024",
+            "type": "DATE"
+          }
+        ]
+      }
+    ],
+    "errors": []
+  }
+]

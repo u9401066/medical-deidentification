@@ -1,0 +1,67 @@
+[
+  {
+    "model": "llama3.3:70b",
+    "f1_score": 0.92,
+    "precision": 0.9387755102040817,
+    "recall": 0.9019607843137255,
+    "avg_latency_sec": 8.974471790716052,
+    "avg_tokens_per_sec": 40.406496727296364,
+    "total_cases": 5,
+    "true_positives": 92,
+    "false_positives": 6,
+    "false_negatives": 10,
+    "case_results": [
+      {
+        "case_id": "CASE-001",
+        "latency_sec": 9.757947470992804,
+        "tokens_per_sec": 40.870314040379164,
+        "expected_count": 27,
+        "detected_count": 23,
+        "tp": 21,
+        "fp": 1,
+        "fn": 3
+      },
+      {
+        "case_id": "CASE-002",
+        "latency_sec": 10.964001603424549,
+        "tokens_per_sec": 40.71362884247002,
+        "expected_count": 28,
+        "detected_count": 25,
+        "tp": 24,
+        "fp": 1,
+        "fn": 2
+      },
+      {
+        "case_id": "CASE-003",
+        "latency_sec": 13.181185744702816,
+        "tokens_per_sec": 40.464931756924244,
+        "expected_count": 31,
+        "detected_count": 31,
+        "tp": 28,
+        "fp": 2,
+        "fn": 2
+      },
+      {
+        "case_id": "CASE-004",
+        "latency_sec": 4.5989005491137505,
+        "tokens_per_sec": 40.11007355987683,
+        "expected_count": 9,
+        "detected_count": 9,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "case_id": "CASE-005",
+        "latency_sec": 6.370323585346341,
+        "tokens_per_sec": 39.87353543683157,
+        "expected_count": 13,
+        "detected_count": 12,
+        "tp": 10,
+        "fp": 2,
+        "fn": 3
+      }
+    ],
+    "errors": []
+  }
+]

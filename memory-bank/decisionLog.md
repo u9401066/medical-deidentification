@@ -9,6 +9,7 @@
 | 2025-11-22 | 繁體中文 + 學術英文雙語 | 技術文件用英文,註解和溝通用繁體中文,確保國際標準與本地化平衡 |
 | 2025-11-22 | MVP 開發原則 | 優先實作核心功能,快速迭代交付,及早獲得回饋 |
 | 2025-11-22 | DDD (Domain-Driven Design) | 四層架構: Domain (模型/配置) → Application (用例) → Infrastructure (技術實作) → Interface (CLI) |
+| 2026-01-14 | Frontend DDD 架構 | 前端採用相同 DDD 分層：domain → application → infrastructure → presentation |
 
 ## Architecture Decisions | 架構決策
 
@@ -21,6 +22,8 @@
 | 2025-11-22 | 結構化輸出 (Pydantic + LangChain) | 使用 Pydantic BaseModel + with_structured_output() 確保類型安全,避免 JSON parsing 錯誤 |
 | 2025-11-22 | 可擴充 PHI 類型系統 | 28 標準類型 + CustomPHIType 動態擴展,支援不同國家/法規/機構需求 |
 | 2025-11-22 | 多語言支援 (10+ 語言) | 支援繁中/簡中/英/日/韓/西/法/德/泰/越,使用 SupportedLanguage 枚舉確保類型安全 |
+| 2026-01-14 | Frontend 日誌可讀取 | 前端日誌必須輸出到 console,並存於 window.__FRONTEND_LOGS__ 供 Agent 讀取 |
+| 2026-01-14 | 前端自動測試套件 | 使用 Vitest + React Testing Library,覆蓋率要求 domain≥90%, application≥80%, presentation≥70% |
 
 ## Technical Patterns | 技術模式
 

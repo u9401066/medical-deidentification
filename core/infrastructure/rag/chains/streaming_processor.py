@@ -249,8 +249,8 @@ class StreamingChunkProcessor(Generic[T]):
 
                 chunk_end = chunk_start + len(content)
 
-                # Calculate content hash for verification
-                content_hash = hashlib.md5(content.encode()).hexdigest()[:8]
+                # Calculate content hash for verification (sha256 for security)
+                content_hash = hashlib.sha256(content.encode()).hexdigest()[:8]
 
                 chunk_info = ChunkInfo(
                     chunk_id=chunk_id,
@@ -298,7 +298,7 @@ class StreamingChunkProcessor(Generic[T]):
             if not content:
                 break
 
-            content_hash = hashlib.md5(content.encode()).hexdigest()[:8]
+            content_hash = hashlib.sha256(content.encode()).hexdigest()[:8]
 
             chunk_info = ChunkInfo(
                 chunk_id=chunk_id,
@@ -480,7 +480,7 @@ class StreamingChunkProcessor(Generic[T]):
         Process text string with checkpoint support
         處理文本字串，支援斷點續處理
         """
-        text_hash = hashlib.md5(text.encode()).hexdigest()
+        text_hash = hashlib.sha256(text.encode()).hexdigest()
 
         # Check for checkpoint
         checkpoint = None
@@ -514,8 +514,8 @@ class StreamingChunkProcessor(Generic[T]):
             yield result
 
     def _calculate_file_hash(self, file_path: str) -> str:
-        """Calculate hash of file for change detection"""
-        hasher = hashlib.md5()
+        """Calculate hash of file for change detection (sha256 for security)"""
+        hasher = hashlib.sha256()
         with open(file_path, 'rb') as f:
             # Only hash first 1MB for speed
             hasher.update(f.read(1024 * 1024))

@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Frontend DDD Architecture** - 前端完全遷移到 Domain-Driven Design
+  - Domain 層: Task, File, Report entities + PHIConfig, PHIType value-objects
+  - Infrastructure 層: API 客戶端 + Logger (支援 Agent 讀取 `window.__FRONTEND_LOGS__`)
+  - Application 層: React Query hooks (useTasks, useFiles)
+  - Presentation 層: UI 元件遷移
+  - Shared 層: 共享類型和工具
+  - 68 個測試全部通過，domain 層 100% 覆蓋率
+- **Frontend DDD 治理文件**
+  - 子法: `.github/bylaws/frontend-ddd.md`
+  - 新 Skill: `.claude/skills/frontend-ddd/SKILL.md`
+  - 更新 `test-generator` 支援 Vitest + RTL
 - **Lightweight LLM Benchmark & Recommendation** - CPU 環境輕量 LLM 效能評測
   - 🏆 `granite4:1b` - 最佳品質 (F1=89.4%, JSON 100% 成功)
   - ⭐ `qwen2.5:1.5b` - 最佳平衡 (F1=66.7%, 速度 ~4s)

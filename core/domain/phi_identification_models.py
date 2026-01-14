@@ -166,30 +166,18 @@ class PHIIdentificationResult(BaseModel):
             logger.debug(f"Recorded discovered type from LLM: {custom_name}")
             return data
 
-        # Case 2: Try standard PHIType enum
-        phi_type_upper = phi_type_str.upper().replace(' ', '_').replace('-', '_')
-        try:
-            data['phi_type'] = PHIType[phi_type_upper]
-            return data
-        except KeyError:
-            pass
+        # Case 2: Use registry's unified mapping (handles enum + aliases + custom)
+        mapped_type, custom_name = registry.map_alias(phi_type_str)
+        data['phi_type'] = mapped_type
 
-        # Case 3: Check if it's a registered custom/RAG type
-        type_info = registry.get_type(phi_type_str)
-        if type_info:
-            data['phi_type'] = PHIType.CUSTOM
-            data['custom_type_name'] = type_info.name
-            data['custom_type_description'] = type_info.description
-            return data
-
-        # Case 4: Unknown type - register as discovered and use CUSTOM
-        logger.warning(f"Unknown PHI type '{phi_type_str}' from LLM, registering as discovered type")
-        registry.record_discovered_type(
-            phi_type_str,
-            description=data.get('reason'),
-        )
-        data['phi_type'] = PHIType.CUSTOM
-        data['custom_type_name'] = phi_type_str
+        if mapped_type == PHIType.CUSTOM:
+            data['custom_type_name'] = custom_name
+            # Record as discovered type if not already known
+            if not registry.is_known_type(custom_name or phi_type_str):
+                registry.record_discovered_type(
+                    custom_name or phi_type_str,
+                    description=data.get('reason'),
+                )
 
         return data
 

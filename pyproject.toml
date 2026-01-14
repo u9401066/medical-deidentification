@@ -144,6 +144,8 @@ known-first-party = ["core"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "ARG", "PLR2004"]
 "scripts/**/*.py" = ["S101", "T201"]  # allow print in scripts
+# LLM factory uses lazy imports for optional dependencies
+"core/infrastructure/llm/factory.py" = ["PLC0415"]
 
 # === ty (Type Checker - Astral, 超快！) ===
 # ty 是 Astral 團隊（uv/ruff 作者）的新型別檢查器

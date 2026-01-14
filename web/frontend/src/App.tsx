@@ -1,6 +1,6 @@
 import { FileSearch, Database, FileBarChart, Settings, ListTodo } from 'lucide-react'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui'
-import { Sidebar, DataPreview, TasksPanel, ResultsPanel, Reports, SettingsPanel } from '@/components'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/presentation/components/ui'
+import { Sidebar, DataPreview, TasksPanel, ResultsPanel, Reports, SettingsPanel } from '@/presentation/components'
 
 function App() {
   return (

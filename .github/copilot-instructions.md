@@ -49,9 +49,10 @@
 | `changelog-updater` | CHANGELOG 自動更新 | changelog |
 | `roadmap-updater` | ROADMAP 狀態追蹤 | roadmap |
 | `code-reviewer` | 程式碼審查 | review, CR |
-| `test-generator` | 測試生成 | test, 測試 |
+| `test-generator` | 測試生成 (Python + Frontend) | test, 測試, vitest |
 | `code-refactor` | 主動重構 | refactor, 重構 |
 | `ddd-architect` | DDD 架構輔助 | DDD, 架構 |
+| `frontend-ddd` | 前端 DDD 架構 | frontend, 前端, react, vitest |
 
 ## 回應風格
 

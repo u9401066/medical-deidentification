@@ -66,7 +66,7 @@ class PromptTemplate:
 
     def render(self, **kwargs) -> str:
         """Render template with variables"""
-        env = Environment(loader=BaseLoader())
+        env = Environment(loader=BaseLoader(), autoescape=True)
         try:
             tmpl = env.from_string(self.template)
             return tmpl.render(**kwargs)

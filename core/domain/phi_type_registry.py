@@ -108,11 +108,13 @@ class PHITypeRegistry:
             return
 
         self._types: dict[str, RegisteredType] = {}
+        self._aliases: dict[str, str] = {}  # alias -> canonical name
         self._discovery_callbacks: list[Callable[[str, str], None]] = []
         self._initialize_base_types()
+        self._initialize_aliases()
         self._initialized = True
 
-        logger.info(f"PHITypeRegistry initialized with {len(self._types)} base types")
+        logger.info(f"PHITypeRegistry initialized with {len(self._types)} base types, {len(self._aliases)} aliases")
 
     def _initialize_base_types(self) -> None:
         """Initialize with base PHIType enum values"""
@@ -155,6 +157,131 @@ class PHITypeRegistry:
                 source="base",
                 base_type=phi_type,
             )
+
+    def _initialize_aliases(self) -> None:
+        """
+        Initialize Chinese and English aliases for PHI types.
+        初始化 PHI 類型的中英文別名。
+
+        These mappings allow flexible input from LLM outputs.
+        這些映射允許從 LLM 輸出中靈活輸入。
+        """
+        # Aliases map to canonical PHIType enum names
+        alias_mappings: dict[str, list[str]] = {
+            # Names / 姓名
+            "NAME": ["姓名", "名字", "患者姓名", "病人姓名", "醫師姓名", "醫生姓名", "name", "patient_name"],
+            # Dates / 日期
+            "DATE": ["日期", "出生日期", "就診日期", "住院日期", "date", "birth_date"],
+            # Age / 年齡
+            "AGE_OVER_89": ["年齡", "歲數", "年齡超過89歲", "age", "age_over_89"],
+            "AGE_OVER_90": ["年齡超過90歲", "age_over_90"],
+            # Location / 地理位置
+            "LOCATION": ["地址", "地點", "位置", "住址", "小型地理區域", "地理區域", "地理位置", "address", "location"],
+            # Contact / 聯絡方式
+            "PHONE": ["電話", "電話號碼", "聯絡電話", "手機", "phone", "mobile"],
+            "FAX": ["傳真", "傳真號碼", "fax"],
+            "EMAIL": ["電子郵件", "郵件", "email", "e-mail"],
+            "CONTACT": ["聯絡資訊", "contact", "contact_info"],
+            # IDs / 識別碼
+            "ID": ["身份證號碼", "身分證字號", "識別碼", "識別資訊", "id", "identifier"],
+            "MEDICAL_RECORD_NUMBER": ["病歷號", "病歷號碼", "醫療記錄號", "mrn", "medical_record"],
+            "ACCOUNT_NUMBER": ["帳號", "帳戶號碼", "account", "account_number"],
+            # Insurance / 保險
+            "INSURANCE_NUMBER": ["保險號碼", "醫療保險號碼", "醫療保險ID", "健保卡號", "insurance", "insurance_id"],
+            # Facility / 醫療機構
+            "HOSPITAL_NAME": ["醫院", "醫院名稱", "醫療機構", "醫療機構名稱", "組織名稱", "組織資訊", "hospital", "facility"],
+            "DEPARTMENT_NAME": ["科室", "科室名稱", "department"],
+            "WARD_NUMBER": ["病房號", "ward", "ward_number"],
+            "BED_NUMBER": ["床號", "bed", "bed_number"],
+            # Medical / 醫療資訊
+            "RARE_DISEASE": ["罕見疾病", "診斷", "rare_disease"],
+            "GENETIC_INFO": ["基因資訊", "遺傳資訊", "genetic", "genetic_info"],
+            # Biometric / 生物特徵
+            "PHOTO": ["照片", "photo", "photograph"],
+            "BIOMETRIC": ["生物特徵", "指紋", "biometric", "fingerprint"],
+            # Device / 設備
+            "DEVICE_ID": ["設備識別碼", "裝置識別碼", "device", "device_id"],
+            # Certificate / 證書
+            "CERTIFICATE": ["證書", "證書號碼", "執照號碼", "certificate", "license"],
+            # Network / 網路
+            "URL": ["網址", "url", "website"],
+            "IP_ADDRESS": ["IP位址", "IP地址", "ip", "ip_address"],
+            # SSN / 社會安全號碼
+            "SSN": ["社會安全號碼", "社安號", "ssn", "social_security"],
+        }
+
+        for canonical_name, aliases in alias_mappings.items():
+            for alias in aliases:
+                # Store lowercase for case-insensitive matching
+                self._aliases[alias.lower()] = canonical_name
+
+    # =========================================================================
+    # Alias Mapping Methods (from PHITypeMapper)
+    # =========================================================================
+
+    def map_alias(self, name: str) -> tuple[PHIType, str | None]:
+        """
+        Map a PHI type name/alias to PHIType enum.
+        將 PHI 類型名稱/別名映射到 PHIType enum。
+
+        This is the main entry point for converting LLM output to PHIType.
+        這是將 LLM 輸出轉換為 PHIType 的主要入口點。
+
+        Args:
+            name: PHI type name (e.g., "姓名", "NAME", "name")
+
+        Returns:
+            Tuple of (PHIType, custom_type_name)
+            - If mapped: (PHIType.NAME, None)
+            - If unknown: (PHIType.CUSTOM, "original_name")
+        """
+        if not name or not name.strip():
+            return PHIType.CUSTOM, "Unknown PHI Type"
+
+        name_clean = name.strip()
+        name_lower = name_clean.lower()
+        name_upper = name_clean.upper().replace(" ", "_").replace("-", "_")
+
+        # 1. Try direct PHIType enum match
+        try:
+            return PHIType[name_upper], None
+        except KeyError:
+            pass
+
+        # 2. Try alias lookup (case-insensitive)
+        if name_lower in self._aliases:
+            canonical = self._aliases[name_lower]
+            try:
+                return PHIType[canonical], None
+            except KeyError:
+                pass
+
+        # 3. Check if it's a registered custom/discovered type
+        if name_clean in self._types:
+            reg_type = self._types[name_clean]
+            if reg_type.base_type:
+                return reg_type.base_type, None
+            return PHIType.CUSTOM, name_clean
+
+        # 4. Unknown type - return CUSTOM
+        logger.debug(f"Unknown PHI type '{name}', mapping to CUSTOM")
+        return PHIType.CUSTOM, name_clean
+
+    def register_alias(self, alias: str, canonical_name: str) -> None:
+        """
+        Register a new alias for a PHI type.
+        註冊 PHI 類型的新別名。
+
+        Args:
+            alias: The alias to register
+            canonical_name: The canonical PHIType name (e.g., "NAME")
+        """
+        self._aliases[alias.lower()] = canonical_name.upper()
+        logger.debug(f"Registered alias: '{alias}' -> {canonical_name}")
+
+    def get_all_aliases(self) -> dict[str, str]:
+        """Get all registered aliases"""
+        return dict(self._aliases)
 
     # =========================================================================
     # Registration Methods

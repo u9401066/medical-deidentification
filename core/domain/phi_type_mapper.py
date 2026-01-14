@@ -1,17 +1,31 @@
 """
 PHI Type Mapper | PHI 類型映射器
 
-Maps language-specific PHI type names to standard PHIType enum values.
-將特定語言的 PHI 類型名稱映射到標準 PHIType 枚舉值。
+⚠️ DEPRECATED: This module is deprecated. Use PHITypeRegistry instead.
+⚠️ 已棄用：此模組已棄用。請改用 PHITypeRegistry。
 
-This module centralizes all PHI type mappings and provides extensibility
-for custom types discovered from regulations or user requirements.
-此模組集中管理所有 PHI 類型映射，並提供從法規或用戶需求發現的自定義類型的擴展性。
+The functionality has been merged into PHITypeRegistry:
+- get_phi_type_registry().map_alias(name) replaces get_default_mapper().map(name)
+- registry.register_alias(alias, canonical) replaces mapper.register_custom_mapping()
+
+This module is kept for backward compatibility but will be removed in a future version.
+此模組保留供向後相容，但將在未來版本中移除。
 """
+
+import warnings
 
 from loguru import logger
 
 from .phi_types import CustomPHIType, PHIType
+
+
+def _deprecation_warning() -> None:
+    """Issue deprecation warning"""
+    warnings.warn(
+        "PHITypeMapper is deprecated. Use get_phi_type_registry().map_alias() instead.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
 
 
 class PHITypeMapper:
@@ -42,7 +56,12 @@ class PHITypeMapper:
     """
 
     def __init__(self):
-        """Initialize with default mappings"""
+        """Initialize with default mappings
+        
+        ⚠️ DEPRECATED: Use get_phi_type_registry() instead.
+        """
+        _deprecation_warning()
+        
         # Core mappings (built-in, not modifiable at runtime)
         self._core_mappings: dict[str, PHIType] = self._build_core_mappings()
 
@@ -325,9 +344,23 @@ def get_default_mapper() -> PHITypeMapper:
     Get default global PHI type mapper singleton
     獲取默認的全局 PHI 類型映射器單例
     
+    ⚠️ DEPRECATED: Use get_phi_type_registry() instead.
+    This function is deprecated and will be removed in a future version.
+    
+    Migration:
+        # Before (deprecated):
+        mapper = get_default_mapper()
+        phi_type = mapper.map("姓名")
+        
+        # After (recommended):
+        from core.domain import get_phi_type_registry
+        registry = get_phi_type_registry()
+        phi_type, custom_name = registry.map_alias("姓名")
+    
     Returns:
         PHITypeMapper instance
     """
+    _deprecation_warning()
     global _default_mapper
     if _default_mapper is None:
         _default_mapper = PHITypeMapper()
