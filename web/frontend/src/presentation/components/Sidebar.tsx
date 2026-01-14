@@ -248,14 +248,14 @@ export function Sidebar() {
             selectedFiles.length === 0 ||
             !files.some(
               (f: UploadedFile) =>
-                selectedFiles.includes(f.id) && f.status === 'completed'
+                selectedFiles.includes(f.id) && f.status === 'completed' && f.task_id
             )
           }
           onClick={async () => {
             for (const fileId of selectedFiles) {
               const file = files.find((f: UploadedFile) => f.id === fileId)
-              if (file?.status === 'completed') {
-                await api.downloadResult(fileId)
+              if (file?.status === 'completed' && file.task_id) {
+                await api.downloadResult(file.task_id)
               }
             }
           }}

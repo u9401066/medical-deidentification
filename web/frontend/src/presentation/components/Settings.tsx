@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, ChangeEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Settings2, Upload, Shield, FileText, Save, Plus } from 'lucide-react'
+import { Settings2, Upload, Shield, FileText, Save, Plus, ChevronUp, Eye } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Badge, ScrollArea, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui'
 import api, { PHIType, MaskingType, PHIConfig, RegulationRule } from '@/infrastructure/api'
 
@@ -240,44 +240,70 @@ function PHISettings({
                         </p>
                       </div>
                     </div>
-                    <Select
-                      value={
-                        localConfig.phi_types?.[phiType.type]?.masking ||
-                        phiType.default_masking ||
-                        'mask'
-                      }
-                      onValueChange={(value: MaskingType) =>
-                        setLocalConfig((prev) => ({
-                          ...prev,
-                          phi_types: {
-                            ...prev.phi_types,
-                            [phiType.type]: {
-                              ...prev.phi_types?.[phiType.type],
-                              masking: value,
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={
+                          localConfig.phi_types?.[phiType.type]?.masking ||
+                          phiType.default_masking ||
+                          'mask'
+                        }
+                        onValueChange={(value: MaskingType) =>
+                          setLocalConfig((prev) => ({
+                            ...prev,
+                            phi_types: {
+                              ...prev.phi_types,
+                              [phiType.type]: {
+                                ...prev.phi_types?.[phiType.type],
+                                masking: value,
+                              },
                             },
-                          },
-                        }))
-                      }
-                    >
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {maskingTypes.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {type === 'mask'
-                              ? '遮蔽'
-                              : type === 'hash'
-                              ? '雜湊'
-                              : type === 'replace'
-                              ? '替換'
-                              : type === 'delete'
-                              ? '刪除'
-                              : '保留'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {maskingTypes.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type === 'mask'
+                                ? '遮蔽'
+                                : type === 'hash'
+                                ? '雜湊'
+                                : type === 'replace'
+                                ? '替換'
+                                : type === 'delete'
+                                ? '刪除'
+                                : '保留'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {/* 替換詞輸入框 - 只在選擇「替換」時顯示 */}
+                      {(localConfig.phi_types?.[phiType.type]?.masking ||
+                        phiType.default_masking) === 'replace' && (
+                        <input
+                          type="text"
+                          placeholder="輸入替換詞"
+                          className="w-28 px-2 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          value={
+                            localConfig.phi_types?.[phiType.type]?.replace_with || ''
+                          }
+                          onChange={(e) =>
+                            setLocalConfig((prev) => ({
+                              ...prev,
+                              phi_types: {
+                                ...prev.phi_types,
+                                [phiType.type]: {
+                                  ...prev.phi_types?.[phiType.type],
+                                  replace_with: e.target.value,
+                                },
+                              },
+                            }))
+                          }
+                        />
+                      )}
+                    </div>
                   </div>
                 ))
               )}
@@ -300,12 +326,35 @@ function RegulationsSettings({
   isUploading: boolean
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [expandedRule, setExpandedRule] = useState<string | null>(null)
+  const [ruleContent, setRuleContent] = useState<string | null>(null)
+  const [loadingContent, setLoadingContent] = useState(false)
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       onUpload(file)
       e.target.value = ''
+    }
+  }
+
+  const handleToggleContent = async (ruleId: string) => {
+    if (expandedRule === ruleId) {
+      // 收起
+      setExpandedRule(null)
+      setRuleContent(null)
+    } else {
+      // 展開並載入內容
+      setExpandedRule(ruleId)
+      setLoadingContent(true)
+      try {
+        const content = await api.getRegulationContent(ruleId)
+        setRuleContent(content.content)
+      } catch (err) {
+        setRuleContent('無法載入法規內容')
+      } finally {
+        setLoadingContent(false)
+      }
     }
   }
 
@@ -371,11 +420,25 @@ function RegulationsSettings({
                   >
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium">{reg.name}</h4>
-                      <Badge
-                        variant={reg.enabled ? 'default' : 'secondary'}
-                      >
-                        {reg.enabled ? '啟用' : '停用'}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleContent(reg.id)}
+                          className="h-7 px-2"
+                        >
+                          {expandedRule === reg.id ? (
+                            <><ChevronUp className="h-4 w-4 mr-1" />收起</>
+                          ) : (
+                            <><Eye className="h-4 w-4 mr-1" />查看內容</>
+                          )}
+                        </Button>
+                        <Badge
+                          variant={reg.enabled ? 'default' : 'secondary'}
+                        >
+                          {reg.enabled ? '啟用' : '停用'}
+                        </Badge>
+                      </div>
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {reg.description}
@@ -385,6 +448,25 @@ function RegulationsSettings({
                       <span>•</span>
                       <span>{reg.rules_count} 條規則</span>
                     </div>
+                    
+                    {/* 展開的法規內容 */}
+                    {expandedRule === reg.id && (
+                      <div className="mt-3 p-3 bg-muted/50 rounded-lg border">
+                        {loadingContent ? (
+                          <div className="flex items-center justify-center py-4">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+                            <span className="ml-2 text-sm text-muted-foreground">載入中...</span>
+                          </div>
+                        ) : (
+                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                            <pre className="whitespace-pre-wrap text-xs font-mono bg-background p-3 rounded overflow-auto max-h-64">
+                              {ruleContent || '無內容'}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
                     <div className="flex items-center gap-2 mt-2">
                       <Switch
                         checked={reg.enabled}

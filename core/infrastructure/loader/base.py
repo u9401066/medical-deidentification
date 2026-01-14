@@ -16,6 +16,7 @@ from loguru import logger
 # Import domain models
 from ...domain.loader_models import (
     DocumentFormat,
+    DocumentMetadata,
     LoadedDocument,
     LoaderConfig,
 )

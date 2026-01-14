@@ -44,7 +44,7 @@ function getPhiColor(type: string) {
   return PHI_COLORS[type] || PHI_COLORS.DEFAULT
 }
 
-// Diff 高亮組件
+// Diff 高亮組件 - 加強 masked 內容的視覺效果
 function DiffCell({ original, masked, phiType }: { original: string; masked: string; phiType?: string }) {
   if (original === masked) {
     return <span>{String(original)}</span>
@@ -55,18 +55,68 @@ function DiffCell({ original, masked, phiType }: { original: string; masked: str
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2">
-        <span className="text-xs text-red-500 font-medium">原始:</span>
-        <span className={`px-1 rounded ${colors.bg} ${colors.text} line-through`}>
+        <span className="text-xs text-red-500 font-medium shrink-0">原始:</span>
+        <span className={`px-1.5 py-0.5 rounded ${colors.bg} ${colors.text} line-through opacity-70`}>
           {String(original)}
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-xs text-green-500 font-medium">處理:</span>
-        <span className="px-1 rounded bg-green-100 text-green-800 font-mono">
+        <span className="text-xs text-green-500 font-medium shrink-0">遮罩:</span>
+        <span className="px-1.5 py-0.5 rounded bg-yellow-200 text-yellow-900 font-mono font-semibold border border-yellow-400 shadow-sm">
           {String(masked)}
         </span>
       </div>
     </div>
+  )
+}
+
+// 高亮文字中的 masked 部分
+function HighlightedContent({ masked, phiEntities }: { 
+  original?: string; 
+  masked: string; 
+  phiEntities?: PHIEntity[];
+}) {
+  if (!phiEntities || phiEntities.length === 0) {
+    return <span>{masked}</span>
+  }
+
+  // 收集所有 mask 標記
+  const maskPattern = /\[([A-Z_]+)_\d+\]|\[MASKED\]|\*{3,}/g
+  const parts: Array<{ text: string; isMasked: boolean }> = []
+  let lastIndex = 0
+  let match
+
+  while ((match = maskPattern.exec(masked)) !== null) {
+    // 添加前面的普通文字
+    if (match.index > lastIndex) {
+      parts.push({ text: masked.slice(lastIndex, match.index), isMasked: false })
+    }
+    // 添加 masked 部分
+    parts.push({ text: match[0], isMasked: true })
+    lastIndex = match.index + match[0].length
+  }
+  
+  // 添加剩餘文字
+  if (lastIndex < masked.length) {
+    parts.push({ text: masked.slice(lastIndex), isMasked: false })
+  }
+
+  if (parts.length === 0) {
+    return <span>{masked}</span>
+  }
+
+  return (
+    <span>
+      {parts.map((part, idx) => 
+        part.isMasked ? (
+          <mark key={idx} className="bg-yellow-300 text-yellow-900 px-1 rounded font-mono font-semibold border border-yellow-500">
+            {part.text}
+          </mark>
+        ) : (
+          <span key={idx}>{part.text}</span>
+        )
+      )}
+    </span>
   )
 }
 
@@ -353,15 +403,19 @@ export function ResultsPanel() {
                     ) : fileResult.original_content && fileResult.masked_content ? (
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <h4 className="text-sm font-medium mb-2 text-red-600">原始內容</h4>
-                          <pre className="bg-red-50 p-3 rounded text-xs whitespace-pre-wrap overflow-auto max-h-64">
+                          <h4 className="text-sm font-medium mb-2 text-red-600">📄 原始內容</h4>
+                          <pre className="bg-red-50 p-3 rounded text-xs whitespace-pre-wrap overflow-auto max-h-64 border border-red-200">
                             {fileResult.original_content}
                           </pre>
                         </div>
                         <div>
-                          <h4 className="text-sm font-medium mb-2 text-green-600">處理後</h4>
-                          <pre className="bg-green-50 p-3 rounded text-xs whitespace-pre-wrap overflow-auto max-h-64">
-                            {fileResult.masked_content}
+                          <h4 className="text-sm font-medium mb-2 text-green-600">🔒 遮罩後 <span className="text-yellow-600">(黃色標記 = PHI)</span></h4>
+                          <pre className="bg-green-50 p-3 rounded text-xs whitespace-pre-wrap overflow-auto max-h-64 border border-green-200">
+                            <HighlightedContent 
+                              original={fileResult.original_content} 
+                              masked={fileResult.masked_content}
+                              phiEntities={fileResult.phi_entities}
+                            />
                           </pre>
                         </div>
                       </div>

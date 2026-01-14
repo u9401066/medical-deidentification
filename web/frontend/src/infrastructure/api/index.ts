@@ -63,6 +63,13 @@ export interface UploadedFile {
   file_type: string;
   preview_available: boolean;
   status: 'pending' | 'processing' | 'completed' | 'error';
+  task_id?: string | null;  // 關聯的處理任務 ID
+}
+
+export interface PHITypeConfig {
+  enabled?: boolean;
+  masking?: MaskingType;
+  replace_with?: string;  // 自訂替換詞，當 masking 為 'replace' 時使用
 }
 
 export interface PHIConfig {
@@ -70,7 +77,7 @@ export interface PHIConfig {
   strict_mode?: boolean;
   default_masking?: MaskingType;
   masking_type?: string;
-  phi_types?: Record<string, { enabled?: boolean; masking?: MaskingType }>;
+  phi_types?: Record<string, PHITypeConfig>;
   preserve_format?: boolean;
   custom_patterns?: Record<string, string>;
 }
@@ -132,6 +139,13 @@ export interface RegulationRule {
   rules_count: number;
 }
 
+export interface RegulationContent {
+  id: string;
+  name: string;
+  content: string;
+  source_file?: string;
+}
+
 export interface Report {
   id: string;
   filename: string;
@@ -143,35 +157,42 @@ export interface Report {
   generated_at?: string;
 }
 
+export interface PHIEntity {
+  type: string;
+  value: string;
+  masked_value: string;
+  field?: string | null;
+  row?: number | null;
+  confidence?: number;
+  start_pos?: number;
+  end_pos?: number;
+  reason?: string;
+}
+
 export interface ReportDetail {
-  id: string;
-  filename: string;
-  source_file_id: string;
-  created_at: string;
-  task_id?: string;
+  task_id: string;
   job_name?: string;
+  generated_at?: string;
   summary?: {
-    total_records?: number;
-    phi_found?: number;
-    phi_masked?: number;
-    processing_time?: number;
     files_processed?: number;
+    total_phi_found?: number;
+    total_chars?: number;
+    processing_time_seconds?: number;
+    processing_speed_chars_per_sec?: number;
   };
-  phi_types?: Record<string, number>;
-  details?: Array<{
-    field: string;
-    original: string;
-    masked: string;
-    phi_type: string;
-  }>;
   file_details?: Array<{
     file_id: string;
     filename: string;
     phi_found: number;
+    phi_by_type?: Record<string, number>;
     rows_processed?: number;
     status: string;
+    phi_entities?: PHIEntity[];
+    original_data?: Record<string, unknown>[];
+    masked_data?: Record<string, unknown>[] | null;
+    original_content?: string;
+    masked_content?: string;
   }>;
-  generated_at?: string;
 }
 
 export interface ResultItem {
@@ -187,18 +208,6 @@ export interface ResultItem {
     rows_processed?: number;
     status: string;
   }>;
-}
-
-export interface PHIEntity {
-  type: string;
-  value: string;
-  masked_value: string;
-  field?: string;
-  row?: number;
-  confidence?: number;
-  start_pos?: number;
-  end_pos?: number;
-  reason?: string;
 }
 
 export interface ResultDetail {
@@ -256,6 +265,7 @@ export const listFiles = async (): Promise<UploadedFile[]> => {
     ...f,
     id: f.file_id || f.id,
     status: f.status || 'pending',
+    task_id: f.task_id || null,
   }));
 };
 
@@ -265,10 +275,11 @@ export const deleteFile = async (fileId: string): Promise<void> => {
 
 export const downloadResult = async (
   fileId: string,
-  fileType: 'result' | 'report' = 'result'
+  fileType: 'result' | 'report' = 'result',
+  format: 'xlsx' | 'csv' | 'json' = 'xlsx'
 ): Promise<Blob> => {
   const response = await apiClient.get(`/download/${fileId}`, {
-    params: { file_type: fileType },
+    params: { file_type: fileType, format },
     responseType: 'blob',
   });
   return response.data;
@@ -362,6 +373,11 @@ export const listRegulations = async (): Promise<RegulationRule[]> => {
   return response.data;
 };
 
+export const getRegulationContent = async (ruleId: string): Promise<RegulationContent> => {
+  const response = await apiClient.get(`/regulations/${ruleId}/content`);
+  return response.data;
+};
+
 export const uploadRegulation = async (
   file: File
 ): Promise<{ message: string; rules: RegulationRule[] }> => {
@@ -413,6 +429,7 @@ const api = {
   getConfig,
   updateConfig,
   listRegulations,
+  getRegulationContent,
   uploadRegulation,
   updateRegulation,
   healthCheck,

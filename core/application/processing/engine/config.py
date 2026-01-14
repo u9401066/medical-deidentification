@@ -78,6 +78,10 @@ class EngineConfig(BaseModel):
         default="gpt-4o-mini",
         description="LLM model name"
     )
+    llm_base_url: str | None = Field(
+        default=None,
+        description="LLM API base URL (for Ollama: http://host:port)"
+    )
     embeddings_preset: str = Field(
         default="multilingual",
         description="Embeddings model preset"

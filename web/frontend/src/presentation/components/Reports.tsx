@@ -85,25 +85,25 @@ export function Reports() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-muted rounded-lg p-4 text-center">
                     <p className="text-2xl font-bold text-primary">
-                      {reportDetail.summary?.total_records || 0}
+                      {reportDetail.summary?.files_processed || 0}
                     </p>
-                    <p className="text-sm text-muted-foreground">總記錄數</p>
+                    <p className="text-sm text-muted-foreground">處理檔案數</p>
                   </div>
                   <div className="bg-muted rounded-lg p-4 text-center">
                     <p className="text-2xl font-bold text-orange-500">
-                      {reportDetail.summary?.phi_found || 0}
+                      {reportDetail.summary?.total_phi_found || 0}
                     </p>
                     <p className="text-sm text-muted-foreground">發現 PHI</p>
                   </div>
                   <div className="bg-muted rounded-lg p-4 text-center">
                     <p className="text-2xl font-bold text-green-500">
-                      {reportDetail.summary?.phi_masked || 0}
+                      {reportDetail.summary?.total_chars?.toLocaleString() || 0}
                     </p>
-                    <p className="text-sm text-muted-foreground">已遮蔽</p>
+                    <p className="text-sm text-muted-foreground">處理字數</p>
                   </div>
                   <div className="bg-muted rounded-lg p-4 text-center">
                     <p className="text-2xl font-bold text-blue-500">
-                      {reportDetail.summary?.processing_time?.toFixed(2) || 0}s
+                      {reportDetail.summary?.processing_time_seconds?.toFixed(1) || 0}s
                     </p>
                     <p className="text-sm text-muted-foreground">處理時間</p>
                   </div>
@@ -111,7 +111,7 @@ export function Reports() {
               </CardContent>
             </Card>
 
-            {/* PHI 類型統計 */}
+            {/* PHI 類型統計 - 從 file_details 聚合 */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -120,63 +120,98 @@ export function Reports() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {reportDetail.phi_types && Object.keys(reportDetail.phi_types).length > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {Object.entries(reportDetail.phi_types).map(([type, count]) => (
-                      <div
-                        key={type}
-                        className="flex items-center justify-between border rounded-lg p-3"
-                      >
-                        <span className="text-sm font-medium">{type}</span>
-                        <Badge variant="secondary">{count as number}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground text-center py-4">
-                    無 PHI 類型資料
-                  </p>
-                )}
+                {(() => {
+                  // 聚合所有檔案的 PHI 類型統計
+                  const aggregatedTypes: Record<string, number> = {};
+                  reportDetail.file_details?.forEach((file: any) => {
+                    if (file.phi_by_type) {
+                      Object.entries(file.phi_by_type).forEach(([type, count]) => {
+                        aggregatedTypes[type] = (aggregatedTypes[type] || 0) + (count as number);
+                      });
+                    }
+                  });
+                  
+                  return Object.keys(aggregatedTypes).length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {Object.entries(aggregatedTypes).map(([type, count]) => (
+                        <div
+                          key={type}
+                          className="flex items-center justify-between border rounded-lg p-3"
+                        >
+                          <span className="text-sm font-medium">{type}</span>
+                          <Badge variant="secondary">{count}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-center py-4">
+                      無 PHI 類型資料
+                    </p>
+                  );
+                })()}
               </CardContent>
             </Card>
 
-            {/* 詳細記錄 */}
+            {/* 詳細記錄 - 顯示 PHI 實體列表 */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
-                  處理詳情
+                  PHI 詳細列表
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[300px]">
-                  {reportDetail.details && reportDetail.details.length > 0 ? (
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="p-2 text-left">欄位</th>
-                          <th className="p-2 text-left">原始值</th>
-                          <th className="p-2 text-left">遮蔽值</th>
-                          <th className="p-2 text-left">類型</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {reportDetail.details.map((item: any, idx: number) => (
-                          <tr key={idx} className="border-b hover:bg-muted/30">
-                            <td className="p-2">{item.field}</td>
-                            <td className="p-2 font-mono text-xs text-red-600">
-                              {item.original}
-                            </td>
-                            <td className="p-2 font-mono text-xs text-green-600">
-                              {item.masked}
-                            </td>
-                            <td className="p-2">
-                              <Badge variant="outline">{item.phi_type}</Badge>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                <ScrollArea className="h-[400px]">
+                  {reportDetail.file_details && reportDetail.file_details.length > 0 ? (
+                    <div className="space-y-4">
+                      {reportDetail.file_details.map((fileDetail: any, fileIdx: number) => (
+                        <div key={fileIdx} className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-medium">{fileDetail.filename}</h4>
+                            <Badge variant="destructive">{fileDetail.phi_found} PHI</Badge>
+                          </div>
+                          {fileDetail.phi_entities && fileDetail.phi_entities.length > 0 ? (
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b">
+                                  <th className="p-2 text-left">類型</th>
+                                  <th className="p-2 text-left">原始值</th>
+                                  <th className="p-2 text-left">遮罩值</th>
+                                  <th className="p-2 text-left">信心度</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {fileDetail.phi_entities.slice(0, 50).map((item: any, idx: number) => (
+                                  <tr key={idx} className="border-b hover:bg-muted/30">
+                                    <td className="p-2">
+                                      <Badge variant="outline">{item.type}</Badge>
+                                    </td>
+                                    <td className="p-2 font-mono text-xs text-red-600">
+                                      {item.value}
+                                    </td>
+                                    <td className="p-2 font-mono text-xs text-green-600">
+                                      {item.masked_value}
+                                    </td>
+                                    <td className="p-2 text-muted-foreground">
+                                      {item.confidence ? `${(item.confidence * 100).toFixed(0)}%` : '-'}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          ) : (
+                            <p className="text-muted-foreground text-center py-2">
+                              此檔案未發現 PHI
+                            </p>
+                          )}
+                          {fileDetail.phi_entities?.length > 50 && (
+                            <p className="text-sm text-muted-foreground text-center mt-2">
+                              顯示前 50 筆，共 {fileDetail.phi_entities.length} 筆
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <p className="text-muted-foreground text-center py-4">
                       無詳細記錄
@@ -197,23 +232,23 @@ export function Reports() {
               <CardContent>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-muted-foreground">檔案名稱:</span>
-                    <span className="ml-2 font-medium">{reportDetail.filename}</span>
+                    <span className="text-muted-foreground">任務名稱:</span>
+                    <span className="ml-2 font-medium">{reportDetail.job_name}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">建立時間:</span>
+                    <span className="text-muted-foreground">產生時間:</span>
                     <span className="ml-2 font-medium">
-                      {formatDate(reportDetail.created_at)}
+                      {formatDate(reportDetail.generated_at || '')}
                     </span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">報告 ID:</span>
-                    <span className="ml-2 font-mono text-xs">{reportDetail.id}</span>
+                    <span className="text-muted-foreground">任務 ID:</span>
+                    <span className="ml-2 font-mono text-xs">{reportDetail.task_id}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">來源檔案:</span>
-                    <span className="ml-2 font-mono text-xs">
-                      {reportDetail.source_file_id}
+                    <span className="text-muted-foreground">處理速度:</span>
+                    <span className="ml-2 font-medium">
+                      {reportDetail.summary?.processing_speed_chars_per_sec?.toFixed(1) || 0} 字/秒
                     </span>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import { renderWithProviders, userEvent } from '@/test/test-utils';
+import { renderWithProviders } from '@/test/test-utils';
 import { ResultsPanel } from './ResultsPanel';
 
 describe('ResultsPanel', () => {

@@ -12,7 +12,8 @@ import {
   previewFile,
   PreviewData,
 } from '@/infrastructure/api/files';
-import { UploadedFile } from '@/domain/entities/File';
+// UploadedFile type used for documentation but not runtime
+// import { UploadedFile } from '@/domain/entities/File';
 
 // Query Keys
 export const FILES_QUERY_KEY = ['files'] as const;

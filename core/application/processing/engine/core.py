@@ -230,7 +230,8 @@ class DeidentificationEngine:
             llm_config = LLMConfig(
                 provider=self.config.llm_provider,
                 model_name=self.config.llm_model,
-                temperature=0.0
+                temperature=0.0,
+                api_base=self.config.llm_base_url
             )
             phi_config = PHIIdentificationConfig(
                 llm_config=llm_config,
@@ -281,7 +282,8 @@ class DeidentificationEngine:
         llm_config = LLMConfig(
             provider=self.config.llm_provider,
             model_name=self.config.llm_model,
-            temperature=0.0
+            temperature=0.0,
+            api_base=self.config.llm_base_url
         )
         phi_config = PHIIdentificationConfig(
             llm_config=llm_config,

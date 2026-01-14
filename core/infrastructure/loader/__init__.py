@@ -26,10 +26,10 @@ Features:
 from .base import (
     DocumentFormat,  # Add DocumentFormat export
     DocumentLoader,
-    DocumentMetadata,
     LoadedDocument,
     LoaderConfig,
 )
+from ...domain.loader_models import DocumentMetadata
 from .factory import (
     DocumentLoaderFactory,
     create_loader,

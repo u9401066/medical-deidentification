@@ -3,6 +3,7 @@ Medical De-identification Web API
 FastAPI 後端服務
 """
 import json
+import os
 
 # 確保可以 import 主專案模組
 import sys
@@ -13,6 +14,10 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
+
+# LLM 配置 (支援遠端 Ollama API)
+# 必須設定環境變數 OLLAMA_BASE_URL，或使用本地預設值
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -61,14 +66,35 @@ def format_time(seconds: float | None) -> str:
 # Pydantic Models
 # ============================================================
 
+class PHITypeConfig(BaseModel):
+    """單一 PHI 類型配置"""
+    enabled: bool = True
+    masking: str = "mask"  # mask, hash, replace, delete, keep
+    replace_with: str | None = None  # 自訂替換詞，當 masking 為 'replace' 時使用
+
+
 class PHIConfig(BaseModel):
     """PHI 處理配置"""
     masking_type: str = Field(default="redact", description="redact, hash, pseudonymize")
-    phi_types: list[str] = Field(default_factory=lambda: [
+    phi_types: list[str] | dict[str, PHITypeConfig] = Field(default_factory=lambda: [
         "NAME", "DATE", "PHONE", "EMAIL", "ADDRESS", "ID_NUMBER", "MEDICAL_RECORD"
     ])
     preserve_format: bool = Field(default=True)
     custom_patterns: dict[str, str] | None = None
+    
+    def get_enabled_types(self) -> list[str]:
+        """取得啟用的 PHI 類型列表"""
+        if isinstance(self.phi_types, list):
+            return self.phi_types
+        return [k for k, v in self.phi_types.items() if v.enabled]
+    
+    def get_replace_text(self, phi_type: str) -> str | None:
+        """取得指定 PHI 類型的替換詞"""
+        if isinstance(self.phi_types, dict):
+            config = self.phi_types.get(phi_type)
+            if config and config.masking == "replace":
+                return config.replace_with or f"[{phi_type}]"
+        return None
 
 
 class ProcessRequest(BaseModel):
@@ -115,6 +141,8 @@ class UploadedFile(BaseModel):
     upload_time: datetime
     file_type: str
     preview_available: bool = True
+    status: str = "pending"  # pending, processing, completed, error
+    task_id: str | None = None  # 關聯的處理任務 ID
 
 
 # ============================================================
@@ -179,6 +207,17 @@ app.add_middleware(
 # File Upload & Download APIs
 # ============================================================
 
+# 檔案大小限制 (50MB)
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB in bytes
+
+
+def _sanitize_path(file_id: str) -> bool:
+    """驗證 file_id 格式，防止路徑穿越攻擊"""
+    import re
+    # file_id 只允許英數字和連字號
+    return bool(re.match(r'^[a-zA-Z0-9-]+$', file_id))
+
+
 @app.post("/api/upload", response_model=UploadedFile)
 async def upload_file(file: UploadFile = File(...)):
     """上傳檔案"""
@@ -193,6 +232,10 @@ async def upload_file(file: UploadFile = File(...)):
     # 儲存檔案
     save_path = UPLOAD_DIR / f"{file_id}{file_ext}"
     content = await file.read()
+
+    # M2: 檔案大小限制
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(413, f"檔案過大，最大允許 {MAX_FILE_SIZE // (1024*1024)}MB")
 
     with open(save_path, "wb") as f:
         f.write(content)
@@ -210,7 +253,8 @@ async def upload_file(file: UploadFile = File(...)):
     with open(UPLOAD_DIR / f"{file_id}.meta.json", "w") as f:
         json.dump(metadata, f, indent=2, ensure_ascii=False)
 
-    logger.info(f"📁 Uploaded file: {file.filename} -> {file_id}")
+    # M4: 日誌脫敏 - 只記錄 file_id，不記錄可能含 PHI 的原始檔名
+    logger.info(f"📁 Uploaded file: [REDACTED] -> {file_id} ({file_ext}, {len(content)} bytes)")
 
     return UploadedFile(
         file_id=file_id,
@@ -223,17 +267,44 @@ async def upload_file(file: UploadFile = File(...)):
 
 @app.get("/api/files", response_model=list[UploadedFile])
 async def list_files():
-    """列出所有上傳的檔案"""
+    """列出所有上傳的檔案（含處理狀態）"""
     files = []
+    
+    # 建立檔案 ID -> 任務狀態的映射
+    file_task_map: dict[str, dict] = {}
+    for task in tasks_db.values():
+        for file_id in task.get("file_ids", []):
+            # 取最新的任務
+            if file_id not in file_task_map or task["created_at"] > file_task_map[file_id]["created_at"]:
+                file_task_map[file_id] = task
+    
     for meta_file in UPLOAD_DIR.glob("*.meta.json"):
         with open(meta_file) as f:
             meta = json.load(f)
+            file_id = meta["file_id"]
+            
+            # 判斷檔案狀態
+            status = "pending"
+            task_id = None
+            if file_id in file_task_map:
+                task = file_task_map[file_id]
+                task_id = task["task_id"]
+                task_status = task.get("status", "pending")
+                if task_status == "completed":
+                    status = "completed"
+                elif task_status == "processing":
+                    status = "processing"
+                elif task_status == "failed":
+                    status = "error"
+            
             files.append(UploadedFile(
-                file_id=meta["file_id"],
+                file_id=file_id,
                 filename=meta["filename"],
                 size=meta["size"],
                 upload_time=datetime.fromisoformat(meta["upload_time"]),
                 file_type=meta["file_type"],
+                status=status,
+                task_id=task_id,
             ))
     return sorted(files, key=lambda x: x.upload_time, reverse=True)
 
@@ -241,6 +312,10 @@ async def list_files():
 @app.delete("/api/files/{file_id}")
 async def delete_file(file_id: str):
     """刪除檔案"""
+    # H2: 路徑穿越防護 - 驗證 file_id 格式
+    if not _sanitize_path(file_id):
+        raise HTTPException(400, "無效的檔案 ID")
+
     meta_file = UPLOAD_DIR / f"{file_id}.meta.json"
     if not meta_file.exists():
         raise HTTPException(404, "檔案不存在")
@@ -248,8 +323,15 @@ async def delete_file(file_id: str):
     with open(meta_file) as f:
         meta = json.load(f)
 
+    # H2: 路徑穿越防護 - 確保路徑在允許目錄內
+    target_path = Path(meta["path"]).resolve()
+    allowed_dir = UPLOAD_DIR.resolve()
+    if not str(target_path).startswith(str(allowed_dir)):
+        logger.warning(f"⚠️ Path traversal attempt blocked: {file_id}")
+        raise HTTPException(403, "禁止的操作")
+
     # 刪除檔案和元數據
-    Path(meta["path"]).unlink(missing_ok=True)
+    target_path.unlink(missing_ok=True)
     meta_file.unlink()
 
     logger.info(f"🗑️ Deleted file: {file_id}")
@@ -257,23 +339,109 @@ async def delete_file(file_id: str):
 
 
 @app.get("/api/download/{file_id}")
-async def download_result(file_id: str, file_type: str = Query("result", enum=["result", "report"])):
-    """下載處理結果或報告"""
+async def download_result(
+    file_id: str, 
+    file_type: str = Query("result", enum=["result", "report"]),
+    format: str = Query("xlsx", enum=["xlsx", "csv", "json"])
+):
+    """下載處理結果或報告
+    
+    Args:
+        file_id: 任務 ID
+        file_type: result (處理結果) 或 report (報告)
+        format: xlsx, csv, json
+    """
+    import pandas as pd
+    from io import BytesIO
+    
     if file_type == "result":
         search_dir = RESULTS_DIR
     else:
         search_dir = REPORTS_DIR
 
-    # 找到對應的檔案
+    # 找到對應的 JSON 檔案
     matching_files = list(search_dir.glob(f"{file_id}*"))
     if not matching_files:
         raise HTTPException(404, "檔案不存在")
 
-    file_path = matching_files[0]
-    return FileResponse(
-        file_path,
-        filename=file_path.name,
-        media_type="application/octet-stream"
+    json_path = matching_files[0]
+    
+    # 如果要求 JSON 格式，直接返回
+    if format == "json":
+        return FileResponse(
+            json_path,
+            filename=f"{file_id}_{file_type}.json",
+            media_type="application/json"
+        )
+    
+    # 讀取 JSON
+    with open(json_path, encoding="utf-8") as f:
+        data = json.load(f)
+    
+    # 輸出 mask 後的完整資料
+    output = BytesIO()
+    
+    if file_type == "result":
+        # 優先使用 masked_data (表格資料)
+        all_masked_data = []
+        for file_result in data.get("results", []):
+            masked_data = file_result.get("masked_data")
+            if masked_data and isinstance(masked_data, list):
+                all_masked_data.extend(masked_data)
+            elif file_result.get("masked_content"):
+                # 純文字內容，包裝成表格
+                all_masked_data.append({
+                    "檔案": file_result.get("filename", ""),
+                    "內容": file_result.get("masked_content", "")
+                })
+        
+        if all_masked_data:
+            df = pd.DataFrame(all_masked_data)
+        else:
+            # fallback: 輸出 PHI 摘要
+            df = pd.DataFrame([{
+                "訊息": "沒有可輸出的資料",
+                "任務 ID": file_id,
+            }])
+    else:
+        # 報告格式：輸出 PHI 列表
+        phi_records = []
+        for file_detail in data.get("file_details", []):
+            filename = file_detail.get("filename", "unknown")
+            for phi in file_detail.get("phi_entities", []):
+                phi_records.append({
+                    "檔案": filename,
+                    "PHI 類型": phi.get("type", ""),
+                    "原始值": phi.get("value", ""),
+                    "遮罩值": phi.get("masked_value", "[MASKED]"),
+                    "信心度": phi.get("confidence", ""),
+                })
+        
+        if phi_records:
+            df = pd.DataFrame(phi_records)
+        else:
+            df = pd.DataFrame([{
+                "訊息": "沒有發現 PHI",
+                "任務 ID": file_id,
+            }])
+    
+    # 產生檔案
+    if format == "xlsx":
+        df.to_excel(output, index=False, engine="openpyxl")
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        filename = f"{file_id}_{file_type}.xlsx"
+    else:  # csv
+        df.to_csv(output, index=False, encoding="utf-8-sig")  # BOM for Excel
+        media_type = "text/csv"
+        filename = f"{file_id}_{file_type}.csv"
+    
+    output.seek(0)
+    
+    from starlette.responses import StreamingResponse
+    return StreamingResponse(
+        output,
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
 
@@ -536,7 +704,8 @@ async def process_phi_task(task_id: str):
             # 使用真正的處理引擎
             engine_config = EngineConfig(
                 llm_provider="ollama",
-                llm_model="qwen2.5:1.5b",
+                llm_model="gemma3:27b",  # 遠端 Ollama 使用 gemma3
+                llm_base_url=OLLAMA_BASE_URL,  # 傳入遠端 Ollama URL
                 use_rag=False,
             )
             engine = DeidentificationEngine(engine_config)
@@ -815,11 +984,15 @@ async def list_reports():
     for report_file in REPORTS_DIR.glob("*_report.json"):
         with open(report_file, encoding="utf-8") as f:
             report = json.load(f)
+            task_id = report["task_id"]
             reports.append({
-                "task_id": report["task_id"],
+                "id": task_id,  # 前端需要 id 欄位
+                "task_id": task_id,
+                "filename": report.get("filename", report_file.name),  # 加入 filename
                 "job_name": report.get("job_name", ""),
                 "files_processed": report["summary"]["files_processed"],
                 "total_phi_found": report["summary"]["total_phi_found"],
+                "created_at": report["generated_at"],  # 前端需要 created_at
                 "generated_at": report["generated_at"],
             })
     return sorted(reports, key=lambda x: x["generated_at"], reverse=True)
@@ -878,6 +1051,58 @@ async def update_config(config: PHIConfig):
         json.dump(config.model_dump(), f, indent=2, ensure_ascii=False)
     logger.info(f"⚙️ Config updated: {config.masking_type}")
     return {"message": "設定已更新", "config": config.model_dump()}
+
+
+class RegulationContent(BaseModel):
+    """法規完整內容"""
+    id: str
+    name: str
+    content: str
+    source_file: str | None = None
+
+
+@app.get("/api/regulations/{rule_id}/content")
+async def get_regulation_content(rule_id: str):
+    """取得法規的完整內容"""
+    # 法規來源檔案對照
+    source_files = {
+        "hipaa-safe-harbor": "hipaa_safe_harbor.md",
+        "hipaa-phi": "hipaa_phi_definition.md",
+        "taiwan-pdpa": "taiwan_pdpa.md",
+    }
+    
+    # 先找專案根目錄的 regulations
+    project_root = Path(__file__).parent.parent.parent
+    regulations_source = project_root / "regulations" / "source_documents"
+    
+    source_file = source_files.get(rule_id)
+    if source_file:
+        file_path = regulations_source / source_file
+        if file_path.exists():
+            with open(file_path, encoding="utf-8") as f:
+                content = f.read()
+            return {
+                "id": rule_id,
+                "name": rule_id.replace("-", " ").title(),
+                "content": content,
+                "source_file": source_file,
+            }
+    
+    # 找自訂法規
+    custom_rules_file = REGULATIONS_DIR / "custom_rules.json"
+    if custom_rules_file.exists():
+        with open(custom_rules_file, encoding="utf-8") as f:
+            custom_rules = json.load(f)
+            for rule in custom_rules:
+                if rule.get("id") == rule_id and rule.get("content"):
+                    return {
+                        "id": rule_id,
+                        "name": rule.get("name", rule_id),
+                        "content": rule.get("content", ""),
+                        "source_file": None,
+                    }
+    
+    raise HTTPException(404, f"找不到法規內容: {rule_id}")
 
 
 @app.get("/api/regulations", response_model=list[RegulationRule])
@@ -974,15 +1199,16 @@ async def health_check():
     """健康檢查，包含 LLM 狀態"""
     import subprocess
 
-    # 檢查 Ollama LLM 狀態
+    # 檢查 Ollama LLM 狀態 (支援遠端 API)
     llm_status = "offline"
     llm_model = None
+    ollama_url = OLLAMA_BASE_URL.rstrip("/")
     try:
         result = subprocess.run(
-            ["curl", "-s", "http://localhost:11434/api/tags"],
+            ["curl", "-s", f"{ollama_url}/api/tags"],
             check=False, capture_output=True,
             text=True,
-            timeout=3
+            timeout=5
         )
         if result.returncode == 0:
             import json as json_lib
@@ -1009,7 +1235,8 @@ async def health_check():
         "llm": {
             "status": llm_status,
             "model": llm_model,
-            "provider": "ollama"
+            "provider": "ollama",
+            "endpoint": ollama_url
         },
         "engine_available": engine_available
     }
