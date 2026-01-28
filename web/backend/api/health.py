@@ -35,7 +35,7 @@ async def health_check():
             if response.status_code == 200:
                 data = response.json()
                 available_models = [m["name"] for m in data.get("models", [])]
-                
+
                 # 檢查配置的模型是否可用
                 if OLLAMA_MODEL in available_models:
                     llm_status = "online"

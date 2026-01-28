@@ -10,6 +10,8 @@
 | 2025-11-22 | MVP 開發原則 | 優先實作核心功能,快速迭代交付,及早獲得回饋 |
 | 2025-11-22 | DDD (Domain-Driven Design) | 四層架構: Domain (模型/配置) → Application (用例) → Infrastructure (技術實作) → Interface (CLI) |
 | 2026-01-14 | Frontend DDD 架構 | 前端採用相同 DDD 分層：domain → application → infrastructure → presentation |
+| 2026-01-28 | PHI/masked_content 必須同步 | 當 hard rules 移除 entities 後必須重新產生 masked_content，確保資料一致性 |
+| 2026-01-28 | AGE 類型統一處理 | AGE, AGE_OVER_89, AGE_OVER_90 三種類型統一過濾: age < 89 則移除，避免 LLM 誤判 |
 
 ## Architecture Decisions | 架構決策
 

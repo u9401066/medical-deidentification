@@ -25,10 +25,10 @@ class TaskService:
     def __init__(self):
         self._tasks_db: dict[str, dict[str, Any]] = {}
         self._db_file = TASKS_DB_FILE
-        
+
         # 確保資料目錄存在
         DATA_DIR.mkdir(parents=True, exist_ok=True)
-        
+
         # 載入已存在的任務
         self._load_tasks()
 
@@ -39,12 +39,12 @@ class TaskService:
             "task_count": 0,
             "avg_chars_per_second": 50.0,
         }
-    
+
     def _load_tasks(self):
         """從檔案載入任務資料"""
         if self._db_file.exists():
             try:
-                with open(self._db_file, "r", encoding="utf-8") as f:
+                with open(self._db_file, encoding="utf-8") as f:
                     data = json.load(f)
                     # 轉換日期字串回 datetime
                     for task_id, task in data.items():
@@ -57,7 +57,7 @@ class TaskService:
             except Exception as e:
                 logger.error(f"Failed to load tasks: {e}")
                 self._tasks_db = {}
-    
+
     def _save_tasks(self):
         """儲存任務資料到檔案"""
         try:
@@ -70,7 +70,7 @@ class TaskService:
                 if isinstance(task_copy.get("updated_at"), datetime):
                     task_copy["updated_at"] = task_copy["updated_at"].isoformat()
                 data[task_id] = task_copy
-            
+
             with open(self._db_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False, default=str)
         except Exception as e:
@@ -96,7 +96,7 @@ class TaskService:
         """
         now = datetime.now()
         file_names = file_names or {}
-        
+
         # 初始化每個檔案的狀態（立即標記為 processing，讓 UI 立刻反應）
         file_results = {
             file_id: {
@@ -109,10 +109,10 @@ class TaskService:
             }
             for file_id in file_ids
         }
-        
+
         # 取得第一個檔案名稱作為 current_file
         first_filename = file_names.get(file_ids[0], file_ids[0]) if file_ids else None
-        
+
         task = {
             "task_id": task_id,
             "status": "processing",  # 任務也立即標記為處理中
@@ -259,7 +259,7 @@ class TaskService:
         count = len(self._tasks_db)
         self._tasks_db.clear()
         self._save_tasks()  # 持久化
-        
+
         # 重置統計
         self._processing_stats = {
             "total_chars_processed": 0,
@@ -267,7 +267,7 @@ class TaskService:
             "task_count": 0,
             "avg_chars_per_second": 50.0,
         }
-        
+
         logger.warning(f"🗑️ Cleared {count} tasks")
         return count
 

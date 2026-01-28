@@ -92,7 +92,7 @@ class FileService:
                     file_info = file_task_map[file_id]
                     task_id = file_info["task_id"]
                     file_status = file_info.get("file_status", "pending")
-                    
+
                     # 映射狀態
                     status_map = {
                         "completed": "completed",

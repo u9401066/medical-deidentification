@@ -334,6 +334,21 @@ export const downloadResult = async (
   return response.data;
 };
 
+/**
+ * 下載單一檔案的去識別化結果
+ */
+export const downloadSingleFileResult = async (
+  taskId: string,
+  fileId: string,
+  format: 'xlsx' | 'csv' | 'json' = 'xlsx'
+): Promise<Blob> => {
+  const response = await apiClient.get(`/download/${taskId}/file/${fileId}`, {
+    params: { format },
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
 // ============================================================
 // Preview APIs
 // ============================================================
@@ -509,6 +524,7 @@ const api = {
   listFiles,
   deleteFile,
   downloadResult,
+  downloadSingleFileResult,
   previewFile,
   startProcessing,
   listTasks,

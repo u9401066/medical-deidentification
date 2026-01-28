@@ -58,4 +58,4 @@ class TaskStatus(BaseModel):
     estimated_remaining_formatted: str | None = None
 
 
-__all__ = ["ProcessRequest", "TaskStatus", "FileResult"]
+__all__ = ["FileResult", "ProcessRequest", "TaskStatus"]

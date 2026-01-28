@@ -119,3 +119,4 @@ dmypy.json
 
 # pytype static type analyzer
 .pytype/
+web/backend/logs/

@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter
-from pydantic import BaseModel
 from loguru import logger
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/logs", tags=["logs"])
 
@@ -37,9 +37,9 @@ class FrontendErrorsRequest(BaseModel):
 async def receive_frontend_errors(request: FrontendErrorsRequest):
     """接收前端錯誤日誌"""
     FRONTEND_ERROR_LOG.parent.mkdir(parents=True, exist_ok=True)
-    
+
     received_at = datetime.now().isoformat()
-    
+
     with open(FRONTEND_ERROR_LOG, "a", encoding="utf-8") as f:
         for error in request.errors:
             log_entry = {
@@ -47,12 +47,12 @@ async def receive_frontend_errors(request: FrontendErrorsRequest):
                 **error.model_dump(),
             }
             f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
-            
+
             # 同時輸出到後端日誌
             logger.warning(
                 f"[Frontend {error.type}] {error.message} | URL: {error.url}"
             )
-    
+
     return {
         "status": "ok",
         "received": len(request.errors),
@@ -64,20 +64,20 @@ async def get_frontend_errors(limit: int = 50):
     """取得最近的前端錯誤（供 debug 用）"""
     if not FRONTEND_ERROR_LOG.exists():
         return {"errors": [], "total": 0}
-    
+
     errors = []
-    with open(FRONTEND_ERROR_LOG, "r", encoding="utf-8") as f:
+    with open(FRONTEND_ERROR_LOG, encoding="utf-8") as f:
         for line in f:
             if line.strip():
                 try:
                     errors.append(json.loads(line))
                 except json.JSONDecodeError:
                     pass
-    
+
     # 返回最新的 N 筆
     recent = errors[-limit:] if len(errors) > limit else errors
     recent.reverse()  # 最新的在前
-    
+
     return {
         "errors": recent,
         "total": len(errors),

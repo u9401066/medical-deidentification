@@ -12,6 +12,7 @@ if str(_backend_dir) not in sys.path:
 
 from fastapi import APIRouter
 
+from api.cleanup import router as cleanup_router
 from api.files import router as files_router
 from api.health import router as health_router
 from api.logs import router as logs_router
@@ -19,7 +20,6 @@ from api.preview import router as preview_router
 from api.processing import router as processing_router
 from api.results import router as results_router
 from api.settings import router as settings_router
-from api.cleanup import router as cleanup_router
 
 # 建立主路由
 api_router = APIRouter(prefix="/api")

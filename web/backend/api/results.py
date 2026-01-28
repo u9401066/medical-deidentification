@@ -76,11 +76,11 @@ async def list_reports():
                 report = json.load(f)
 
             task_id = report["task_id"]
-            
+
             # 更直觀的顯示名稱：檔案名稱 > job_name > task_id
             files_display = report.get("files_display", "")
             job_name = report.get("job_name", "")
-            
+
             # 優先顯示檔案名稱，其次是 job_name
             if files_display:
                 display_name = files_display

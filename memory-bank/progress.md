@@ -2,6 +2,13 @@
 
 ## Done
 
+- **Structured Logging + PHI 同步問題修復** (2026-01-28)
+  - ✅ 新增 `logging_config.py` - 結構化日誌系統
+  - ✅ 日誌輸出: `web/backend/logs/` (.log + .jsonl)
+  - ✅ 發現 PHI/masked_content 不同步問題根源
+  - ✅ 擴展 `_apply_hard_rules` 處理 AGE/AGE_OVER_89/AGE_OVER_90
+  - ✅ 新增 `_regenerate_masked_content` 同步機制
+  - ✅ 新增 `scripts/debug_phi_mismatch.py` 調試工具
 - **任務處理 UX 強化** (2026-01-28)
   - ✅ AGE_OVER_89 hard rule - 過濾 LLM 誤判 (age < 89 排除)
   - ✅ Task 記憶持久化 (`tasks_db.json`)

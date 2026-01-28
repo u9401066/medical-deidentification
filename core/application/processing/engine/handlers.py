@@ -27,10 +27,10 @@ class PipelineHandlers:
     """
     Pipeline handlers factory
     Pipeline 處理器工廠
-    
+
     Creates handler functions for each pipeline stage.
     為每個 pipeline 階段創建處理器函數。
-    
+
     This class encapsulates all the stage-specific logic and dependencies,
     making the main engine class cleaner and more maintainable.
     """
@@ -41,11 +41,11 @@ class PipelineHandlers:
         phi_chain: Optional["PHIIdentificationChain"] = None,
         masking_processor: MaskingProcessor | None = None,
         use_rag: bool = True,
-        output_manager: OutputManager | None = None
+        output_manager: OutputManager | None = None,
     ):
         """
         Initialize pipeline handlers
-        
+
         Args:
             regulation_chain: Regulation retrieval chain
             phi_chain: PHI identification chain
@@ -65,11 +65,9 @@ class PipelineHandlers:
         Create regulation retrieval stage handler
         創建法規檢索階段處理器
         """
+
         def handler(context: ProcessingContext) -> StageResult:
-            result = StageResult(
-                stage=PipelineStage.REGULATION_RETRIEVAL,
-                success=False
-            )
+            result = StageResult(stage=PipelineStage.REGULATION_RETRIEVAL, success=False)
 
             try:
                 if not self.use_rag or self.regulation_chain is None:
@@ -102,11 +100,9 @@ class PipelineHandlers:
         Create PHI identification stage handler
         創建 PHI 識別階段處理器
         """
+
         def handler(context: ProcessingContext) -> StageResult:
-            result = StageResult(
-                stage=PipelineStage.PHI_IDENTIFICATION,
-                success=False
-            )
+            result = StageResult(stage=PipelineStage.PHI_IDENTIFICATION, success=False)
 
             try:
                 total_phi = 0
@@ -126,11 +122,22 @@ class PipelineHandlers:
                         rag_response = self.phi_chain.identify_phi(
                             text=text,
                             language=language.value if language else None,
-                            return_entities=True  # Get structured PHIEntity list
+                            return_entities=True,  # Get structured PHIEntity list
                         )
 
                         # Get structured PHI entities (List[PHIEntity])
                         phi_entities: list[PHIEntity] = rag_response.get("entities", [])
+
+                        # 詳細日誌：記錄 LLM 識別的所有 PHI
+                        logger.debug(
+                            f"PHI identification result for {doc_context.document_id}: "
+                            f"{len(phi_entities)} entities"
+                        )
+                        for i, entity in enumerate(phi_entities[:20]):  # 最多顯示前 20 個
+                            logger.debug(
+                                f"  [{i}] {entity.type.value if hasattr(entity.type, 'value') else entity.type}: "
+                                f"'{entity.text[:50]}' @ pos {entity.start_pos}-{entity.end_pos}"
+                            )
 
                         # Add entities to document context
                         for entity in phi_entities:
@@ -139,8 +146,7 @@ class PipelineHandlers:
                         total_phi += len(phi_entities)
 
                         logger.info(
-                            f"Found {len(phi_entities)} PHI entities in "
-                            f"{doc_context.document_id}"
+                            f"Found {len(phi_entities)} PHI entities in {doc_context.document_id}"
                         )
 
                     else:
@@ -156,16 +162,11 @@ class PipelineHandlers:
                 result.output["documents_processed"] = len(context.documents)
                 result.mark_completed(success=True)
 
-                logger.success(
-                    f"PHI identification completed: {total_phi} entities found"
-                )
+                logger.success(f"PHI identification completed: {total_phi} entities found")
 
             except Exception as e:
                 logger.error(f"PHI identification failed: {e}")
-                result.set_error(
-                    message=str(e),
-                    details={"stage": "phi_identification"}
-                )
+                result.set_error(message=str(e), details={"stage": "phi_identification"})
 
             return result
 
@@ -176,11 +177,9 @@ class PipelineHandlers:
         Create masking application stage handler
         創建遮蔽應用階段處理器
         """
+
         def handler(context: ProcessingContext) -> StageResult:
-            result = StageResult(
-                stage=PipelineStage.MASKING_APPLICATION,
-                success=False
-            )
+            result = StageResult(stage=PipelineStage.MASKING_APPLICATION, success=False)
 
             if not self.masking_processor:
                 logger.error("Masking processor not initialized")
@@ -204,37 +203,47 @@ class PipelineHandlers:
                         f"in {doc_context.document_id}"
                     )
 
+                    # 詳細日誌：記錄即將被遮蔽的 entities
+                    for i, entity in enumerate(phi_entities[:10]):
+                        logger.debug(
+                            f"  Masking [{i}] {entity.type.value if hasattr(entity.type, 'value') else entity.type}: "
+                            f"'{entity.text[:30]}' @ {entity.start_pos}-{entity.end_pos}"
+                        )
+
                     # Apply masking using structured entities
                     masked_text = self.masking_processor.apply_masking(
-                        text=doc_context.document.content,
-                        phi_entities=phi_entities
+                        text=doc_context.document.content, phi_entities=phi_entities
                     )
+
+                    # 驗證：比較 entities 數量和實際替換數量
+                    original_text = doc_context.document.content
+                    redacted_count = masked_text.count("[REDACTED]")
+                    if redacted_count != len(phi_entities):
+                        logger.warning(
+                            f"Masking mismatch: {len(phi_entities)} entities but "
+                            f"{redacted_count} [REDACTED] markers in output"
+                        )
+                        # 顯示前 500 字符比較
+                        logger.debug(f"Original preview: {original_text[:500]}")
+                        logger.debug(f"Masked preview: {masked_text[:500]}")
 
                     doc_context.masked_content = masked_text
                     doc_context.mark_completed()
                     total_masked += len(phi_entities)
 
-                    logger.info(
-                        f"Masked {len(phi_entities)} entities in "
-                        f"{doc_context.document_id}"
-                    )
+                    logger.info(f"Masked {len(phi_entities)} entities in {doc_context.document_id}")
 
                 result.output["total_masked_entities"] = total_masked
-                result.output["documents_masked"] = len([
-                    d for d in context.documents if d.masked_content
-                ])
+                result.output["documents_masked"] = len(
+                    [d for d in context.documents if d.masked_content]
+                )
                 result.mark_completed(success=True)
 
-                logger.success(
-                    f"Masking completed: {total_masked} entities masked"
-                )
+                logger.success(f"Masking completed: {total_masked} entities masked")
 
             except Exception as e:
                 logger.error(f"Masking application failed: {e}")
-                result.set_error(
-                    message=str(e),
-                    details={"stage": "masking_application"}
-                )
+                result.set_error(message=str(e), details={"stage": "masking_application"})
 
             return result
 
@@ -245,17 +254,14 @@ class PipelineHandlers:
         Create output generation stage handler
         創建輸出生成階段處理器
         """
+
         def handler(context: ProcessingContext) -> StageResult:
-            result = StageResult(
-                stage=PipelineStage.OUTPUT_GENERATION,
-                success=False
-            )
+            result = StageResult(stage=PipelineStage.OUTPUT_GENERATION, success=False)
 
             try:
                 # Generate output paths based on job_id
                 result_path = self.output_manager.get_result_path(
-                    f"deidentified_{context.job_id}",
-                    "xlsx"
+                    f"deidentified_{context.job_id}", "xlsx"
                 )
 
                 # Store output path in context for engine to use

@@ -1,6 +1,8 @@
-import { RefreshCw, CheckCircle, XCircle, Clock, Timer } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, Progress, Badge } from '@/presentation/components/ui'
+import { RefreshCw, CheckCircle, XCircle, Clock, Timer, Download } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle, Progress, Badge, Button } from '@/presentation/components/ui'
 import { TaskStatus } from '@/infrastructure/api'
+import api from '@/infrastructure/api'
+import { toast } from 'sonner'
 
 // 格式化時間
 function formatTime(seconds?: number): string {
@@ -25,6 +27,25 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task }: TaskCardProps) {
+  // 下載單一檔案結果
+  const handleDownloadFile = async (fileId: string, filename: string) => {
+    try {
+      const blob = await api.downloadSingleFileResult(task.task_id, fileId, 'xlsx')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      // 使用原始檔名 + _deid
+      const baseName = filename.includes('.') ? filename.split('.').slice(0, -1).join('.') : filename
+      a.download = `${baseName}_deid.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success(`已下載 ${filename}`)
+    } catch (error) {
+      console.error('Download failed:', error)
+      toast.error(`下載失敗: ${filename}`)
+    }
+  }
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
@@ -71,21 +92,34 @@ export function TaskCard({ task }: TaskCardProps) {
       <CardContent className="space-y-3">
         {/* 處理的文件 */}
         {task.file_results && Object.keys(task.file_results).length > 0 ? (
-          <div className="text-sm space-y-1">
+          <div className="text-sm space-y-2">
             {Object.values(task.file_results).map((fr) => (
-              <div key={fr.file_id} className="flex items-center justify-between">
-                <span className="font-medium truncate max-w-[200px]">
+              <div key={fr.file_id} className="flex items-center justify-between gap-2">
+                <span className="font-medium truncate max-w-[160px]" title={fr.filename || fr.file_id}>
                   {fr.filename || fr.file_id}
                 </span>
-                <Badge variant={
-                  fr.status === 'completed' ? 'default' :
-                  fr.status === 'processing' ? 'secondary' :
-                  fr.status === 'error' ? 'destructive' : 'outline'
-                } className="text-xs">
-                  {fr.status === 'completed' ? `✓ ${fr.phi_found} PHI` :
-                   fr.status === 'processing' ? '處理中' :
-                   fr.status === 'error' ? '錯誤' : '等待'}
-                </Badge>
+                <div className="flex items-center gap-1">
+                  {fr.status === 'completed' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => handleDownloadFile(fr.file_id, fr.filename || fr.file_id)}
+                      title="下載去識別化結果"
+                    >
+                      <Download className="h-3 w-3" />
+                    </Button>
+                  )}
+                  <Badge variant={
+                    fr.status === 'completed' ? 'default' :
+                    fr.status === 'processing' ? 'secondary' :
+                    fr.status === 'error' ? 'destructive' : 'outline'
+                  } className="text-xs">
+                    {fr.status === 'completed' ? `✓ ${fr.phi_found} PHI` :
+                     fr.status === 'processing' ? '處理中' :
+                     fr.status === 'error' ? '錯誤' : '等待'}
+                  </Badge>
+                </div>
               </div>
             ))}
           </div>

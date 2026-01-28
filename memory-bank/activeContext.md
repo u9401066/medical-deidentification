@@ -8,35 +8,40 @@
 - ✅ **Backend 模組化重構完成** - 從單體拆分為 DDD 架構
 - ✅ **Web UI 系統維護功能** - 清除資料、重置設定
 - ✅ **任務處理 UX 強化** - 持久化、即時顯示、原始檔名
+- ✅ **Structured Logging + PHI 同步問題修復** - 日誌系統 + 資料一致性
 
 ## Current Session Focus (Jan 28, 2026)
 
-### 任務處理 UX 強化 ✅
+### Structured Logging + PHI 同步問題修復 ✅
 
-#### Hard Rules (LLM 後處理)
-- **AGE_OVER_89**: 過濾年齡 < 89 的誤判
-  - 位置: `web/backend/services/processing_service.py::_apply_hard_rules()`
-  - 原因: gemma3:27b 常常將任意數字誤判為年齡
+#### 問題根源
+- **現象**: `masked_content` 中有 10 個 `[REDACTED]`，但 `phi_entities` 只有 9 個
+- **原因**: 
+  1. LLM 識別出 "72" 並標記為 AGE 類型
+  2. Engine 層 MaskingProcessor 產生 `masked_content` (包含 72 的 [REDACTED])
+  3. `_apply_hard_rules` 過濾 age < 89 的 entities
+  4. `masked_content` 沒有同步更新，導致不一致
 
-#### Task 持久化
-- **檔案**: `web/backend/data/tasks_db.json`
-- **機制**: `task_service.py` 的 `_load_tasks()` / `_save_tasks()`
-- **效果**: 重新整理頁面後任務不會消失
+#### 修復方案
+1. **新增 structured logging** (`web/backend/logging_config.py`)
+   - 日誌輸出: `web/backend/logs/`
+   - 格式: `.log` (人類可讀) + `.jsonl` (機器可解析)
+   - 回轉: 10MB, 保留 7 天
 
-#### 即時 UI 更新
-- **問題**: invalidateQueries 需等待重新 fetch
-- **解決**: 使用 `queryClient.setQueryData` 立即更新快取
-- **位置**: `web/frontend/src/presentation/components/Sidebar.tsx`
+2. **擴展 `_apply_hard_rules`**
+   - 處理 `AGE`, `AGE_OVER_89`, `AGE_OVER_90` 三種類型
+   - 統一過濾邏輯: age < 89 則移除
 
-#### Tab 自動切換
-- **新狀態**: `uiStore.activeTab` (MainTab: 'tasks' | 'reports')
-- **行為**: 「開始處理」後自動切換到任務標籤
-- **位置**: `web/frontend/src/infrastructure/store/uiStore.ts`
+3. **重新產生 `masked_content`**
+   - 當 hard rules 移除 entities 後重新產生
+   - 確保 `masked_content` 和 `phi_entities` 數量一致
 
-#### 原始檔名顯示
-- **問題**: TaskCard 顯示 file_id 而非原始檔名
-- **解決**: 從 `file_service.get_file_metadata()` 取得原始檔名
-- **位置**: `web/backend/api/processing.py`
+#### 檔案變更
+- `web/backend/logging_config.py` - 新增
+- `web/backend/main.py` - 整合 logging
+- `web/backend/services/processing_service.py` - 修復主邏輯 + 詳細 logging
+- `core/application/processing/engine/handlers.py` - 增加 debug logging
+- `scripts/debug_phi_mismatch.py` - 調試腳本
 
 ### Web UI 系統維護功能 ✅
 

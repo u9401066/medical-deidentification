@@ -3,10 +3,8 @@ Cleanup API Router
 系統清理 API
 """
 
-import shutil
 import sys
 from pathlib import Path
-from typing import Literal
 
 from fastapi import APIRouter
 from loguru import logger

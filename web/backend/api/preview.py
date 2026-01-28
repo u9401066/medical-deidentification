@@ -145,7 +145,7 @@ async def _preview_document(file_path: Path, file_type: str, page: int, page_siz
     使用 core 模組的 loader 提取文字內容
     """
     content = ""
-    
+
     try:
         if file_type in {"docx", "doc"}:
             content = _load_word_content(file_path)
@@ -155,7 +155,7 @@ async def _preview_document(file_path: Path, file_type: str, page: int, page_siz
         logger.warning(f"Missing dependency for {file_type}: {e}")
         return {
             "type": "text",
-            "content": f"[無法預覽：缺少必要的套件]\n\n請安裝相關依賴：\n- DOCX: pip install python-docx\n- PDF: pip install pymupdf 或 pdfplumber",
+            "content": "[無法預覽：缺少必要的套件]\n\n請安裝相關依賴：\n- DOCX: pip install python-docx\n- PDF: pip install pymupdf 或 pdfplumber",
             "total_rows": 1,
             "error": str(e),
             "pagination": {"page": 1, "page_size": 1, "total_rows": 1, "total_pages": 1},
@@ -192,7 +192,7 @@ def _load_word_content(file_path: Path) -> str:
         from docx import Document
     except ImportError:
         raise ImportError("python-docx is required. Install with: pip install python-docx")
-    
+
     doc = Document(file_path)
     paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
     return "\n\n".join(paragraphs)
@@ -211,7 +211,7 @@ def _load_pdf_content(file_path: Path) -> str:
         return "\n".join(text_parts)
     except ImportError:
         pass
-    
+
     # 嘗試 pdfplumber
     try:
         import pdfplumber
@@ -224,7 +224,7 @@ def _load_pdf_content(file_path: Path) -> str:
             return "\n".join(text_parts)
     except ImportError:
         pass
-    
+
     raise ImportError("PDF reader required. Install with: pip install pymupdf or pip install pdfplumber")
 
 

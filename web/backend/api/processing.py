@@ -178,7 +178,7 @@ async def process_phi_task(task_id: str):
 
             except Exception as e:
                 logger.error(f"Error processing {file_id}: {e}")
-                
+
                 # 記錄單檔失敗
                 task_service.update_file_result(
                     task_id, file_id,
@@ -186,7 +186,7 @@ async def process_phi_task(task_id: str):
                     error=str(e),
                     processing_time=time.time() - file_start_time,
                 )
-                
+
                 results.append(
                     {
                         "file_id": file_id,

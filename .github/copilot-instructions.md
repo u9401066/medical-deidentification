@@ -51,6 +51,25 @@ cd web/backend
 ./scripts/start-web.sh
 ```
 
+### 單一指令啟動前後端
+
+```bash
+# 使用啟動腳本（同時啟動前後端，Ctrl+C 停止）
+./scripts/start-web.sh
+
+# 或分別啟動
+# 終端機 1: 後端
+cd web/backend && /project/.venv/bin/python -m uvicorn main:app --reload --port 8000
+
+# 終端機 2: 前端
+cd web/frontend && npm run dev
+```
+
+存取網址:
+- **Frontend**: http://localhost:5173
+- **Backend**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+
 ## Memory Bank 同步
 
 每次重要操作必須更新 Memory Bank：
@@ -223,6 +242,35 @@ TASKS_DB_FILE = DATA_DIR / "tasks_db.json"
 def _load_tasks() -> dict
 def _save_tasks() -> None
 ```
+
+---
+
+## 結果下載 API
+
+### 下載整個任務結果
+
+```
+GET /api/download/{task_id}?file_type=result&format=xlsx
+```
+
+| 參數 | 值 | 說明 |
+|------|------|------|
+| `file_type` | `result` / `report` | 結果或報告 |
+| `format` | `xlsx` / `csv` / `json` | 輸出格式 |
+
+### 下載單一檔案結果
+
+```
+GET /api/download/{task_id}/file/{file_id}?format=xlsx
+```
+
+| 參數 | 說明 |
+|------|------|
+| `task_id` | 任務 ID |
+| `file_id` | 檔案 ID |
+| `format` | `xlsx` / `csv` / `json` |
+
+輸出檔名: `{原始檔名}_deid.xlsx`
 
 ---
 

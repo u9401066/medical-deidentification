@@ -24,6 +24,10 @@ if str(_backend_dir) not in sys.path:
 
 from api import api_router
 from config import CORS_ORIGINS, ensure_directories
+from logging_config import configure_logging
+
+# 配置 structured logging
+configure_logging(log_level="DEBUG", json_output=True, console_output=True)
 
 
 @asynccontextmanager
