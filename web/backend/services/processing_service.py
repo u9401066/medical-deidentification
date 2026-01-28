@@ -4,6 +4,7 @@ PHI 處理服務
 """
 
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -162,6 +163,11 @@ class ProcessingService:
         display_filename = original_filename or file_path.name
         file_id = file_path.stem.split("_")[0] if "_" in file_path.stem else file_path.stem[:8]
 
+        # 套用 hard rules 後處理 (修正 LLM 常見錯誤)
+        phi_entities, corrections = self._apply_hard_rules(phi_entities)
+        if corrections:
+            logger.info(f"Hard rules applied: {corrections}")
+
         logger.info(f"Converted engine result: {len(phi_entities)} PHI entities found for {display_filename}")
 
         return {
@@ -190,6 +196,66 @@ class ProcessingService:
             return f"[{phi_type}]"
         else:  # redact (預設)
             return "[REDACTED]"
+
+    def _apply_hard_rules(
+        self, phi_entities: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """
+        套用 hard rules 後處理，修正 LLM 常見錯誤
+        
+        Returns:
+            (filtered_entities, corrections): 過濾後的實體列表和修正記錄
+        """
+        corrections: list[str] = []
+        filtered: list[dict[str, Any]] = []
+        
+        for entity in phi_entities:
+            phi_type = entity.get("type", "")
+            value = entity.get("value", "")
+            
+            # Rule 1: AGE_OVER_89 必須 >= 89
+            if phi_type == "AGE_OVER_89":
+                age = self._extract_age_number(value)
+                if age is not None and age < 89:
+                    corrections.append(f"Removed AGE_OVER_89 '{value}' (age={age} < 89)")
+                    continue  # 跳過這條記錄
+                elif age is not None and age >= 89:
+                    # 年齡正確，保留
+                    filtered.append(entity)
+                else:
+                    # 無法解析，保守保留
+                    filtered.append(entity)
+                    corrections.append(f"Kept AGE_OVER_89 '{value}' (unable to parse age)")
+            else:
+                # 其他類型直接保留
+                filtered.append(entity)
+        
+        return filtered, corrections
+    
+    def _extract_age_number(self, text: str) -> int | None:
+        """
+        從文字中提取年齡數值
+        
+        支援格式: "72歲", "92 歲", "85", "age 72", "年齡: 90"
+        """
+        if not text:
+            return None
+        
+        # 移除常見單位和標籤
+        clean_text = text.strip()
+        
+        # 嘗試直接匹配數字
+        # Pattern 1: 純數字或數字+歲
+        match = re.search(r'(\d+)\s*歲?', clean_text)
+        if match:
+            return int(match.group(1))
+        
+        # Pattern 2: age/年齡 + 數字
+        match = re.search(r'(?:age|年齡|歲數)[\s:：]*(\d+)', clean_text, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+        
+        return None
 
     def _simulate_processing(
         self, file_path: Path, original_filename: str | None = None

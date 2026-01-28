@@ -16,6 +16,7 @@ UPLOAD_DIR = DATA_DIR / "uploads"
 RESULTS_DIR = DATA_DIR / "results"
 REPORTS_DIR = DATA_DIR / "reports"
 REGULATIONS_DIR = DATA_DIR / "regulations"
+TASKS_DB_FILE = DATA_DIR / "tasks_db.json"  # 任務持久化檔案
 
 # 檔案限制
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
@@ -44,6 +45,7 @@ __all__ = [
     "REGULATIONS_DIR",
     "REPORTS_DIR",
     "RESULTS_DIR",
+    "TASKS_DB_FILE",
     "UPLOAD_DIR",
     "ensure_directories",
 ]

@@ -6,7 +6,7 @@ import { Upload, FileText, Trash2, Download, FileSpreadsheet, FileJson, Cpu, Che
 import { Button, ScrollArea, Badge, Checkbox } from '@/presentation/components/ui'
 import api, { UploadedFile, HealthStatus } from '@/infrastructure/api'
 import { formatBytes, formatDate } from '@/lib/utils'
-import { useSelectionStore } from '@/infrastructure/store'
+import { useSelectionStore, useUIStore } from '@/infrastructure/store'
 
 export function Sidebar() {
   const queryClient = useQueryClient()
@@ -20,6 +20,9 @@ export function Sidebar() {
     toggleCheckFile,
     clearCheckedFiles,
   } = useSelectionStore()
+
+  // 使用 UI store 切換頁面
+  const setActiveTab = useUIStore((state) => state.setActiveTab)
 
   // 取得系統健康狀態（含 LLM）
   const { data: health } = useQuery<HealthStatus>({
@@ -266,11 +269,19 @@ export function Sidebar() {
             setIsProcessing(true)
             toast.info(`開始處理 ${checkedFileIds.length} 個檔案...`)
             try {
-              await api.startProcessing({ file_ids: checkedFileIds })
-              queryClient.invalidateQueries({ queryKey: ['tasks'] })
+              const task = await api.startProcessing({ file_ids: checkedFileIds })
+              // 直接將新任務加入快取，確保立即顯示
+              queryClient.setQueryData(['tasks'], (oldTasks: typeof task[] | undefined) => {
+                const existing = oldTasks || []
+                // 避免重複加入
+                if (existing.some(t => t.task_id === task.task_id)) return existing
+                return [task, ...existing]
+              })
+              // 切換到 Tasks 頁面
+              setActiveTab('tasks')
+              // 背景 refetch 確保資料同步
               queryClient.invalidateQueries({ queryKey: ['files'] })
-              clearCheckedFiles()
-              toast.success('處理任務已建立')
+              toast.success(`處理任務已建立 (${task.task_id})`)
             } catch (err) {
               console.error('處理失敗:', err)
               toast.error('處理失敗，請稍後再試')

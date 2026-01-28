@@ -55,10 +55,15 @@ async def start_processing(request: ProcessRequest, background_tasks: Background
     file_service = get_file_service()
     task_service = get_task_service()
 
-    # 驗證檔案存在
+    # 驗證檔案存在並收集原始檔名
+    file_names: dict[str, str] = {}
     for file_id in request.file_ids:
-        if not file_service.get_file_path(file_id):
+        file_path = file_service.get_file_path(file_id)
+        if not file_path:
             raise HTTPException(404, f"檔案不存在: {file_id}")
+        # 取得原始檔名 (metadata 中儲存的 filename)
+        meta = file_service.get_file_metadata(file_id)
+        file_names[file_id] = meta["filename"] if meta else file_path.name
 
     # 建立任務
     task_id = str(uuid.uuid4())[:8]
@@ -67,20 +72,25 @@ async def start_processing(request: ProcessRequest, background_tasks: Background
         file_ids=request.file_ids,
         config=request.config.model_dump(),
         job_name=request.job_name,
+        file_names=file_names,
     )
 
     # 啟動背景處理
     background_tasks.add_task(process_phi_task, task_id)
 
-    now = datetime.now()
+    # 返回實際的任務狀態（已經是 processing）
     return TaskStatus(
         task_id=task_id,
-        status="pending",
-        progress=0.0,
-        message="任務已建立，等待處理...",
+        status=task["status"],
+        progress=task.get("progress", 0.0),
+        message=task.get("message", "準備處理中..."),
         file_ids=request.file_ids,
-        created_at=now,
-        updated_at=now,
+        created_at=task["created_at"],
+        updated_at=task["updated_at"],
+        file_results=_convert_file_results(task.get("file_results", {})),
+        current_file=task.get("current_file"),
+        files_completed=task.get("files_completed", 0),
+        total_files=task.get("total_files", 0),
     )
 
 

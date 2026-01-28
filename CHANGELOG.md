@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **AGE_OVER_89 Hard Rule** - 後處理過濾 LLM 誤判（年齡 < 89 排除）
+- **任務持久化** - 任務狀態保存到 `tasks_db.json`，重新整理不會遺失
+- **即時任務顯示** - 使用 `queryClient.setQueryData` 立即更新 UI
+- **Tab 自動切換** - 「開始處理」後自動切換到任務標籤
+- **原始檔名顯示** - TaskCard 顯示原始檔名（非 file_id）
+- **uiStore activeTab** - Zustand 管理主標籤狀態
 - **系統維護功能** - Settings 新增「系統維護」標籤頁
   - 清除 API: 上傳檔案/結果檔案/報告檔案/全部
   - 儲存空間統計 (檔案數量、大小)

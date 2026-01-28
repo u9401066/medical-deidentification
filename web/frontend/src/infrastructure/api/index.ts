@@ -84,6 +84,7 @@ export interface PHIConfig {
 
 export interface FileResult {
   file_id: string;
+  filename?: string | null;  // 檔案名稱
   status: 'pending' | 'processing' | 'completed' | 'error';
   phi_found: number;
   error?: string | null;

@@ -69,6 +69,33 @@ export function TaskCard({ task }: TaskCardProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* 處理的文件 */}
+        {task.file_results && Object.keys(task.file_results).length > 0 ? (
+          <div className="text-sm space-y-1">
+            {Object.values(task.file_results).map((fr) => (
+              <div key={fr.file_id} className="flex items-center justify-between">
+                <span className="font-medium truncate max-w-[200px]">
+                  {fr.filename || fr.file_id}
+                </span>
+                <Badge variant={
+                  fr.status === 'completed' ? 'default' :
+                  fr.status === 'processing' ? 'secondary' :
+                  fr.status === 'error' ? 'destructive' : 'outline'
+                } className="text-xs">
+                  {fr.status === 'completed' ? `✓ ${fr.phi_found} PHI` :
+                   fr.status === 'processing' ? '處理中' :
+                   fr.status === 'error' ? '錯誤' : '等待'}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        ) : task.current_file ? (
+          <div className="text-sm">
+            <span className="text-muted-foreground">文件: </span>
+            <span className="font-medium">{task.current_file}</span>
+          </div>
+        ) : null}
+
         {/* 進度條 */}
         {task.status === 'processing' && (
           <>

@@ -8,11 +8,15 @@ import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 
 export type Theme = 'light' | 'dark' | 'system';
+export type MainTab = 'preview' | 'tasks' | 'results' | 'reports' | 'settings';
 
 export interface UIState {
   // 側邊欄狀態
   sidebarOpen: boolean;
   sidebarWidth: number;
+
+  // 主頁面 Tab
+  activeTab: MainTab;
 
   // 主題
   theme: Theme;
@@ -23,6 +27,7 @@ export interface UIState {
   // Actions
   toggleSidebar: () => void;
   setSidebarWidth: (width: number) => void;
+  setActiveTab: (tab: MainTab) => void;
   setTheme: (theme: Theme) => void;
   addNotification: (notification: Omit<Notification, 'id' | 'timestamp'>) => void;
   removeNotification: (id: string) => void;
@@ -42,6 +47,7 @@ export interface Notification {
 const initialState = {
   sidebarOpen: true,
   sidebarWidth: 280,
+  activeTab: 'preview' as MainTab,
   theme: 'system' as Theme,
   notifications: [] as Notification[],
 };
@@ -60,6 +66,11 @@ export const useUIStore = create<UIState>()(
         setSidebarWidth: (width) =>
           set((state) => {
             state.sidebarWidth = Math.max(200, Math.min(400, width));
+          }),
+
+        setActiveTab: (tab) =>
+          set((state) => {
+            state.activeTab = tab;
           }),
 
         setTheme: (theme) =>
@@ -94,6 +105,7 @@ export const useUIStore = create<UIState>()(
         partialize: (state) => ({
           sidebarOpen: state.sidebarOpen,
           sidebarWidth: state.sidebarWidth,
+          activeTab: state.activeTab,
           theme: state.theme,
         }),
       }

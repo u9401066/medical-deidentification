@@ -2,8 +2,12 @@ import { FileSearch, Database, FileBarChart, Settings, ListTodo } from 'lucide-r
 import { Toaster } from 'sonner'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/presentation/components/ui'
 import { Sidebar, DataPreview, TasksPanel, ResultsPanel, Reports, SettingsPanel } from '@/presentation/components'
+import { useUIStore } from '@/infrastructure/store'
 
 function App() {
+  const activeTab = useUIStore((state) => state.activeTab)
+  const setActiveTab = useUIStore((state) => state.setActiveTab)
+
   return (
     <div className="flex h-screen bg-background">
       {/* Toast 通知 */}
@@ -14,7 +18,7 @@ function App() {
 
       {/* 主內容區 */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        <Tabs defaultValue="preview" className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 flex flex-col">
           {/* 標籤列 */}
           <div className="border-b px-4">
             <TabsList className="h-12">

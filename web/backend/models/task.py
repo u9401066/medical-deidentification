@@ -23,6 +23,7 @@ class FileResult(BaseModel):
     """單一檔案處理結果"""
 
     file_id: str
+    filename: str | None = None  # 檔案名稱
     status: str  # pending, processing, completed, error
     phi_found: int = 0
     error: str | None = None

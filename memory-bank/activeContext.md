@@ -7,8 +7,36 @@
 - ✅ Log 輸出可讀取 (終端機 + Agent 可追蹤)
 - ✅ **Backend 模組化重構完成** - 從單體拆分為 DDD 架構
 - ✅ **Web UI 系統維護功能** - 清除資料、重置設定
+- ✅ **任務處理 UX 強化** - 持久化、即時顯示、原始檔名
 
 ## Current Session Focus (Jan 28, 2026)
+
+### 任務處理 UX 強化 ✅
+
+#### Hard Rules (LLM 後處理)
+- **AGE_OVER_89**: 過濾年齡 < 89 的誤判
+  - 位置: `web/backend/services/processing_service.py::_apply_hard_rules()`
+  - 原因: gemma3:27b 常常將任意數字誤判為年齡
+
+#### Task 持久化
+- **檔案**: `web/backend/data/tasks_db.json`
+- **機制**: `task_service.py` 的 `_load_tasks()` / `_save_tasks()`
+- **效果**: 重新整理頁面後任務不會消失
+
+#### 即時 UI 更新
+- **問題**: invalidateQueries 需等待重新 fetch
+- **解決**: 使用 `queryClient.setQueryData` 立即更新快取
+- **位置**: `web/frontend/src/presentation/components/Sidebar.tsx`
+
+#### Tab 自動切換
+- **新狀態**: `uiStore.activeTab` (MainTab: 'tasks' | 'reports')
+- **行為**: 「開始處理」後自動切換到任務標籤
+- **位置**: `web/frontend/src/infrastructure/store/uiStore.ts`
+
+#### 原始檔名顯示
+- **問題**: TaskCard 顯示 file_id 而非原始檔名
+- **解決**: 從 `file_service.get_file_metadata()` 取得原始檔名
+- **位置**: `web/backend/api/processing.py`
 
 ### Web UI 系統維護功能 ✅
 

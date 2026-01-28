@@ -1,19 +1,36 @@
 """
 Task Service
-任務管理服務
+任務管理服務 - 支援持久化到檔案系統
 """
 
+import json
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from loguru import logger
 
+# 處理相對 import
+_backend_dir = Path(__file__).parent.parent
+if str(_backend_dir) not in sys.path:
+    sys.path.insert(0, str(_backend_dir))
+
+from config import DATA_DIR, TASKS_DB_FILE
+
 
 class TaskService:
-    """任務管理服務 - 管理 PHI 處理任務的生命週期"""
+    """任務管理服務 - 管理 PHI 處理任務的生命週期（支援持久化）"""
 
     def __init__(self):
         self._tasks_db: dict[str, dict[str, Any]] = {}
+        self._db_file = TASKS_DB_FILE
+        
+        # 確保資料目錄存在
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        
+        # 載入已存在的任務
+        self._load_tasks()
 
         # 處理速度統計
         self._processing_stats = {
@@ -22,6 +39,42 @@ class TaskService:
             "task_count": 0,
             "avg_chars_per_second": 50.0,
         }
+    
+    def _load_tasks(self):
+        """從檔案載入任務資料"""
+        if self._db_file.exists():
+            try:
+                with open(self._db_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    # 轉換日期字串回 datetime
+                    for task_id, task in data.items():
+                        if isinstance(task.get("created_at"), str):
+                            task["created_at"] = datetime.fromisoformat(task["created_at"])
+                        if isinstance(task.get("updated_at"), str):
+                            task["updated_at"] = datetime.fromisoformat(task["updated_at"])
+                    self._tasks_db = data
+                    logger.info(f"📋 Loaded {len(self._tasks_db)} tasks from {self._db_file}")
+            except Exception as e:
+                logger.error(f"Failed to load tasks: {e}")
+                self._tasks_db = {}
+    
+    def _save_tasks(self):
+        """儲存任務資料到檔案"""
+        try:
+            # 轉換 datetime 為 ISO 字串
+            data = {}
+            for task_id, task in self._tasks_db.items():
+                task_copy = task.copy()
+                if isinstance(task_copy.get("created_at"), datetime):
+                    task_copy["created_at"] = task_copy["created_at"].isoformat()
+                if isinstance(task_copy.get("updated_at"), datetime):
+                    task_copy["updated_at"] = task_copy["updated_at"].isoformat()
+                data[task_id] = task_copy
+            
+            with open(self._db_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False, default=str)
+        except Exception as e:
+            logger.error(f"Failed to save tasks: {e}")
 
     @property
     def tasks_db(self) -> dict[str, dict[str, Any]]:
@@ -29,16 +82,27 @@ class TaskService:
         return self._tasks_db
 
     def create_task(
-        self, task_id: str, file_ids: list[str], config: dict[str, Any], job_name: str | None = None
+        self, task_id: str, file_ids: list[str], config: dict[str, Any], job_name: str | None = None,
+        file_names: dict[str, str] | None = None
     ) -> dict[str, Any]:
-        """建立新任務"""
-        now = datetime.now()
+        """建立新任務
         
-        # 初始化每個檔案的狀態
+        Args:
+            task_id: 任務 ID
+            file_ids: 檔案 ID 列表
+            config: 處理設定
+            job_name: 任務名稱
+            file_names: 檔案 ID -> 檔名對應 (可選)
+        """
+        now = datetime.now()
+        file_names = file_names or {}
+        
+        # 初始化每個檔案的狀態（立即標記為 processing，讓 UI 立刻反應）
         file_results = {
             file_id: {
                 "file_id": file_id,
-                "status": "pending",
+                "filename": file_names.get(file_id, file_id),  # 優先用檔名，fallback 用 ID
+                "status": "processing",  # 立即標記為處理中
                 "phi_found": 0,
                 "error": None,
                 "processing_time": None,
@@ -46,19 +110,23 @@ class TaskService:
             for file_id in file_ids
         }
         
+        # 取得第一個檔案名稱作為 current_file
+        first_filename = file_names.get(file_ids[0], file_ids[0]) if file_ids else None
+        
         task = {
             "task_id": task_id,
-            "status": "pending",
+            "status": "processing",  # 任務也立即標記為處理中
             "progress": 0.0,
-            "message": "等待處理...",
+            "message": f"處理中: {first_filename}" if first_filename else "準備處理中...",
             "file_ids": file_ids,
+            "file_names": file_names,  # 儲存 ID -> 檔名對應
             "config": config,
             "job_name": job_name or f"job-{task_id}",
             "created_at": now,
             "updated_at": now,
             "result": None,
             "error": None,
-            "current_file": None,
+            "current_file": first_filename,
             "files_completed": 0,
             "total_files": len(file_ids),
             "elapsed_time": None,
@@ -66,6 +134,7 @@ class TaskService:
             "file_results": file_results,  # 新增：單檔狀態追蹤
         }
         self._tasks_db[task_id] = task
+        self._save_tasks()  # 持久化
         logger.info(f"📋 Created task: {task_id} with {len(file_ids)} files")
         return task
 
@@ -79,6 +148,7 @@ class TaskService:
         if task:
             task.update(updates)
             task["updated_at"] = datetime.now()
+            self._save_tasks()  # 持久化
             return task
         return None
 
@@ -97,7 +167,10 @@ class TaskService:
             return None
 
         file_results = task.get("file_results", {})
+        # 保留原有的欄位（如 filename），只更新狀態相關欄位
+        existing = file_results.get(file_id, {})
         file_results[file_id] = {
+            **existing,  # 保留原有欄位
             "file_id": file_id,
             "status": status,
             "phi_found": phi_found,
@@ -106,6 +179,7 @@ class TaskService:
         }
         task["file_results"] = file_results
         task["updated_at"] = datetime.now()
+        self._save_tasks()  # 持久化
 
         logger.debug(f"Updated file result: {task_id}/{file_id} -> {status}")
         return file_results[file_id]
@@ -184,6 +258,7 @@ class TaskService:
         """
         count = len(self._tasks_db)
         self._tasks_db.clear()
+        self._save_tasks()  # 持久化
         
         # 重置統計
         self._processing_stats = {

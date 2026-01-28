@@ -2,6 +2,13 @@
 
 ## Done
 
+- **任務處理 UX 強化** (2026-01-28)
+  - ✅ AGE_OVER_89 hard rule - 過濾 LLM 誤判 (age < 89 排除)
+  - ✅ Task 記憶持久化 (`tasks_db.json`)
+  - ✅ 任務建立後立即顯示 (queryClient.setQueryData)
+  - ✅ 自動切換到「任務」標籤頁
+  - ✅ TaskCard 顯示原始檔名 (非 file_id)
+  - ✅ uiStore 新增 activeTab 狀態管理
 - **Web UI 系統維護功能** (2026-01-28)
   - ✅ 新增「系統維護」設定標籤頁
   - ✅ 清除 API: 上傳檔案/結果檔案/報告檔案/全部

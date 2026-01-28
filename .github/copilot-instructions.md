@@ -132,12 +132,32 @@ export OLLAMA_MODEL=smollm2:360m
 ```typescript
 // 從 store 取得狀態
 import { useSelectedFileId, useSelectionActions } from '@/infrastructure/store'
+import { useActiveTab, useUIActions } from '@/infrastructure/store'
 
 function MyComponent() {
   const selectedFileId = useSelectedFileId()
   const { selectFile, toggleCheckFile, clearCheckedFiles } = useSelectionActions()
+  
+  // Tab 控制 (tasks | reports)
+  const activeTab = useActiveTab()
+  const { setActiveTab } = useUIActions()
   // ...
 }
+```
+
+### 即時 UI 更新
+
+使用 `queryClient.setQueryData` 實現立即更新（不等待 refetch）：
+```typescript
+import { useQueryClient } from '@tanstack/react-query'
+
+const queryClient = useQueryClient()
+
+// 立即更新任務列表快取
+queryClient.setQueryData<TaskStatus[]>(['tasks'], (old = []) => [newTask, ...old])
+
+// 然後才 invalidate
+queryClient.invalidateQueries({ queryKey: ['tasks'] })
 ```
 
 ### Toast 通知
@@ -168,6 +188,41 @@ onError: () => toast.error('操作失敗')
 - 使用 Vitest + RTL + MSW
 - Mock 檔案放在 `__mocks__/` 目錄
 - 執行測試：`npm run test:run`
+
+---
+
+## PHI 處理 Hard Rules
+
+### AGE_OVER_89 規則
+
+LLM (gemma3:27b) 常將任意數字誤判為年齡，需後處理過濾：
+
+```python
+# web/backend/services/processing_service.py
+
+def _apply_hard_rules(entities: list) -> list:
+    """過濾 LLM 誤判"""
+    filtered = []
+    for entity in entities:
+        if entity["phi_type"] == "AGE_OVER_89":
+            age = extract_age_value(entity["original_value"])
+            if age is None or age < 89:
+                continue  # 排除年齡 < 89 的誤判
+        filtered.append(entity)
+    return filtered
+```
+
+### Task 持久化
+
+任務狀態保存到 `web/backend/data/tasks_db.json`：
+```python
+# web/backend/config.py
+TASKS_DB_FILE = DATA_DIR / "tasks_db.json"
+
+# web/backend/services/task_service.py
+def _load_tasks() -> dict
+def _save_tasks() -> None
+```
 
 ---
 
