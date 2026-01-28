@@ -33,6 +33,19 @@ class TaskService:
     ) -> dict[str, Any]:
         """建立新任務"""
         now = datetime.now()
+        
+        # 初始化每個檔案的狀態
+        file_results = {
+            file_id: {
+                "file_id": file_id,
+                "status": "pending",
+                "phi_found": 0,
+                "error": None,
+                "processing_time": None,
+            }
+            for file_id in file_ids
+        }
+        
         task = {
             "task_id": task_id,
             "status": "pending",
@@ -50,6 +63,7 @@ class TaskService:
             "total_files": len(file_ids),
             "elapsed_time": None,
             "estimated_remaining": None,
+            "file_results": file_results,  # 新增：單檔狀態追蹤
         }
         self._tasks_db[task_id] = task
         logger.info(f"📋 Created task: {task_id} with {len(file_ids)} files")
@@ -68,21 +82,68 @@ class TaskService:
             return task
         return None
 
+    def update_file_result(
+        self,
+        task_id: str,
+        file_id: str,
+        status: str,
+        phi_found: int = 0,
+        error: str | None = None,
+        processing_time: float | None = None,
+    ) -> dict[str, Any] | None:
+        """更新單一檔案的處理結果"""
+        task = self._tasks_db.get(task_id)
+        if not task:
+            return None
+
+        file_results = task.get("file_results", {})
+        file_results[file_id] = {
+            "file_id": file_id,
+            "status": status,
+            "phi_found": phi_found,
+            "error": error,
+            "processing_time": processing_time,
+        }
+        task["file_results"] = file_results
+        task["updated_at"] = datetime.now()
+
+        logger.debug(f"Updated file result: {task_id}/{file_id} -> {status}")
+        return file_results[file_id]
+
+    def get_file_result(self, task_id: str, file_id: str) -> dict[str, Any] | None:
+        """取得單一檔案的處理結果"""
+        task = self._tasks_db.get(task_id)
+        if not task:
+            return None
+        return task.get("file_results", {}).get(file_id)
+
     def list_tasks(self) -> list[dict[str, Any]]:
         """列出所有任務 (按建立時間倒序)"""
         return sorted(self._tasks_db.values(), key=lambda x: x["created_at"], reverse=True)
 
     def get_file_task_map(self) -> dict[str, dict[str, Any]]:
-        """取得檔案 ID -> 任務的映射"""
+        """取得檔案 ID -> 任務+檔案狀態的映射
+        
+        返回每個檔案最新任務中的單檔狀態
+        """
         file_task_map: dict[str, dict[str, Any]] = {}
         for task in self._tasks_db.values():
             for file_id in task.get("file_ids", []):
                 # 取最新的任務
                 if (
                     file_id not in file_task_map
-                    or task["created_at"] > file_task_map[file_id]["created_at"]
+                    or task["created_at"] > file_task_map[file_id]["task"]["created_at"]
                 ):
-                    file_task_map[file_id] = task
+                    # 取得該檔案的單獨結果
+                    file_result = task.get("file_results", {}).get(file_id, {})
+                    file_task_map[file_id] = {
+                        "task": task,
+                        "task_id": task["task_id"],
+                        "file_status": file_result.get("status", "pending"),
+                        "phi_found": file_result.get("phi_found", 0),
+                        "error": file_result.get("error"),
+                        "processing_time": file_result.get("processing_time"),
+                    }
         return file_task_map
 
     def estimate_remaining_time(
@@ -114,6 +175,26 @@ class TaskService:
             "active_tasks": sum(1 for t in self._tasks_db.values() if t["status"] == "processing"),
             "total_tasks": len(self._tasks_db),
         }
+
+    def clear_all_tasks(self) -> int:
+        """清空所有任務記錄
+        
+        Returns:
+            刪除的任務數量
+        """
+        count = len(self._tasks_db)
+        self._tasks_db.clear()
+        
+        # 重置統計
+        self._processing_stats = {
+            "total_chars_processed": 0,
+            "total_time_seconds": 0.0,
+            "task_count": 0,
+            "avg_chars_per_second": 50.0,
+        }
+        
+        logger.warning(f"🗑️ Cleared {count} tasks")
+        return count
 
 
 # 單例模式

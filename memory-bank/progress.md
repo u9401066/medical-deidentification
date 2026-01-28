@@ -1,7 +1,21 @@
-# Progress (Updated: 2026-01-14)
+# Progress (Updated: 2026-01-28)
 
 ## Done
 
+- **Web UI 系統維護功能** (2026-01-28)
+  - ✅ 新增「系統維護」設定標籤頁
+  - ✅ 清除 API: 上傳檔案/結果檔案/報告檔案/全部
+  - ✅ 儲存空間統計顯示
+  - ✅ PHI 設定重置為預設值功能
+  - ✅ 確認刪除機制 (兩次點擊)
+- **Web UI 改進** (2026-01-28)
+  - ✅ 報告檔名顯示原始檔案名稱 (非 task_id)
+  - ✅ PHI 識別結果修正: masked_value 正確顯示 [REDACTED]
+  - ✅ Zustand + Immer 狀態管理 (uiStore, selectionStore)
+  - ✅ React 進階 Skills (form, animation, patterns, testing, state)
+  - ✅ ErrorBoundary 全域錯誤處理
+  - ✅ 後端 API 日誌端點 (/api/logs)
+  - ✅ Checkbox UI 元件
 - Refactor project structure: moved medical_deidentification to core
 - Update all internal references to use core package
 - Run ruff check --fix and ruff format for code quality
@@ -94,6 +108,7 @@
 
 ## Next
 
+- 檢查系統維護功能是否正常
 - 提升 Presentation 層測試覆蓋率到 70%
 - E2E testing with Playwright
 - Deployment documentation update

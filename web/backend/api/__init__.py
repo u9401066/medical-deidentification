@@ -14,10 +14,12 @@ from fastapi import APIRouter
 
 from api.files import router as files_router
 from api.health import router as health_router
+from api.logs import router as logs_router
 from api.preview import router as preview_router
 from api.processing import router as processing_router
 from api.results import router as results_router
 from api.settings import router as settings_router
+from api.cleanup import router as cleanup_router
 
 # 建立主路由
 api_router = APIRouter(prefix="/api")
@@ -28,6 +30,8 @@ api_router.include_router(preview_router, tags=["Preview"])
 api_router.include_router(processing_router, tags=["Processing"])
 api_router.include_router(results_router, tags=["Results"])
 api_router.include_router(settings_router, tags=["Settings"])
+api_router.include_router(cleanup_router, tags=["Cleanup"])
 api_router.include_router(health_router, tags=["Health"])
+api_router.include_router(logs_router, tags=["Logs"])
 
 __all__ = ["api_router"]

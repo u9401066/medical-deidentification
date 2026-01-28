@@ -6,8 +6,37 @@
 - ✅ 前端自動測試套件 (Vitest + React Testing Library)
 - ✅ Log 輸出可讀取 (終端機 + Agent 可追蹤)
 - ✅ **Backend 模組化重構完成** - 從單體拆分為 DDD 架構
+- ✅ **Web UI 系統維護功能** - 清除資料、重置設定
 
-## Current Session Focus (Jan 14, 2026)
+## Current Session Focus (Jan 28, 2026)
+
+### Web UI 系統維護功能 ✅
+
+#### 新增功能
+- **系統維護標籤頁** (Settings.tsx)
+  - 儲存空間統計 (檔案數量、大小)
+  - 清除上傳檔案 / 結果檔案 / 報告檔案
+  - 全部清除 (含確認機制)
+  - PHI 設定重置為預設值
+
+#### 新增 API 端點
+- `DELETE /api/cleanup/uploads` - 清除上傳檔案
+- `DELETE /api/cleanup/results` - 清除結果檔案
+- `DELETE /api/cleanup/reports` - 清除報告檔案
+- `DELETE /api/cleanup/all` - 清除全部
+- `GET /api/cleanup/stats` - 儲存空間統計
+- `POST /api/settings/reset` - 重置設定
+
+#### 新增檔案
+- `web/backend/api/cleanup.py` - Cleanup API
+- `web/backend/api/logs.py` - Logs API
+- `web/frontend/src/infrastructure/store/` - Zustand stores
+- `web/frontend/src/presentation/components/ErrorBoundary.tsx`
+- `.claude/skills/react-*` - React 進階 Skills
+
+---
+
+## Previous Session Focus (Jan 14, 2026)
 
 ### Backend 模組化重構完成 ✅
 

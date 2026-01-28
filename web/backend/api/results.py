@@ -76,12 +76,33 @@ async def list_reports():
                 report = json.load(f)
 
             task_id = report["task_id"]
+            
+            # 更直觀的顯示名稱：檔案名稱 > job_name > task_id
+            files_display = report.get("files_display", "")
+            job_name = report.get("job_name", "")
+            
+            # 優先顯示檔案名稱，其次是 job_name
+            if files_display:
+                display_name = files_display
+            elif job_name and not job_name.startswith("job-"):
+                display_name = job_name
+            else:
+                # 從 file_details 取得檔名
+                filenames = [f.get("filename", "") for f in report.get("file_details", [])]
+                filenames = [f for f in filenames if f]  # 過濾空值
+                if filenames:
+                    display_name = ", ".join(filenames[:2])
+                    if len(filenames) > 2:
+                        display_name += f" 等 {len(filenames)} 個"
+                else:
+                    display_name = f"報告-{task_id[:8]}"
+
             reports.append(
                 {
                     "id": task_id,  # 前端需要 id 欄位
                     "task_id": task_id,
-                    "filename": report.get("job_name", report_file.name),
-                    "job_name": report.get("job_name", ""),
+                    "filename": display_name,  # 顯示更直觀的名稱
+                    "job_name": job_name,
                     "files_processed": report["summary"]["files_processed"],
                     "total_phi_found": report["summary"]["total_phi_found"],
                     "created_at": report["generated_at"],  # 前端需要 created_at

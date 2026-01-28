@@ -149,6 +149,21 @@ class PHIConfigService:
         logger.info("✅ PHI config updated")
         return self._config
 
+    def reset_to_default(self) -> PHIConfig:
+        """重置為預設設定
+        
+        Returns:
+            預設的 PHIConfig
+        """
+        self._config = PHIConfig()
+        self._save_config()
+        logger.warning("🔄 PHI config reset to defaults")
+        return self._config
+
+    def get_default_config(self) -> PHIConfig:
+        """取得預設設定 (不影響目前設定)"""
+        return PHIConfig()
+
     def get_phi_type_config(self, phi_type: str) -> PHITypeConfig | None:
         """取得單一 PHI 類型的設定"""
         config = self.get_config()

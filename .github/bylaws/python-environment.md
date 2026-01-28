@@ -4,21 +4,26 @@
 
 ---
 
-## 第 1 條：套件管理器優先順序
+## 第 1 條：套件管理器規範
 
+### 1.1 uv 唯一原則
+1. **本專案只使用 uv** 作為套件管理器
+2. **禁止使用 pip**（包括 `pip install`, `pip freeze`）
+3. uv 速度比 pip 快 10-100 倍
+4. 原生支援 lockfile 和虛擬環境
+
+### 1.2 禁止事項
+```bash
+# ❌ 禁止
+pip install package
+pip freeze > requirements.txt
+python -m pip install ...
+
+# ✅ 正確
+uv add package
+uv pip install package
+uv pip freeze
 ```
-uv > pip-tools > pip
-```
-
-### 1.1 uv 優先原則
-1. **本專案使用 uv** 作為套件管理器
-2. uv 速度比 pip 快 10-100 倍
-3. 原生支援 lockfile 和虛擬環境
-
-### 1.2 降級條件
-僅在以下情況可使用 pip：
-- CI 環境不支援 uv
-- 特殊依賴衝突
 
 ---
 
@@ -35,13 +40,17 @@ source .venv/bin/activate  # Linux/macOS
 pip install package  # 在系統 Python 中
 ```
 
-### 2.2 虛擬環境位置
+### 2.2 虛擬環境位置（共用原則）
 ```
 medical-deidentification/
-├── .venv/           # 虛擬環境（gitignore）
+├── .venv/           # 唯一虛擬環境（全專案共用）
 ├── pyproject.toml   # 專案配置
-└── uv.lock          # 依賴鎖定（可選，不納入版控）
+├── uv.lock          # 依賴鎖定
+└── web/
+    └── backend/     # 使用根目錄 .venv，不建立獨立 venv
 ```
+
+> ⚠️ **重要**：`web/backend/` 不應有獨立的 `.venv`，應使用專案根目錄的虛擬環境。
 
 ### 2.3 Python 版本
 - 本專案使用 Python 3.10+
@@ -109,7 +118,21 @@ uv pip install -e ".[dev]"
 uv run pytest tests/unit/ -v
 ```
 
-### 4.2 PyTorch 特殊安裝
+### 4.2 Web 後端啟動
+```bash
+# 方法 1：使用啟動腳本（推薦）
+./scripts/start-web.sh
+
+# 方法 2：手動啟動（必須使用根目錄 venv）
+cd web/backend
+/path/to/project/.venv/bin/python -m uvicorn main:app --reload --port 8000
+
+# ❌ 錯誤做法：在 web/backend 建立獨立 venv
+cd web/backend
+uv venv  # 不要這樣做！
+```
+
+### 4.3 PyTorch 特殊安裝
 由於 torch 需要特殊索引，請執行：
 ```bash
 # CPU 版本
@@ -190,4 +213,4 @@ uvx ruff@0.8.0 check .
 
 ---
 
-*本子法版本：v1.0.0*
+*本子法版本：v1.1.0*

@@ -6,8 +6,8 @@ Web Backend Configuration
 import os
 from pathlib import Path
 
-# LLM 配置 (支援遠端 Ollama API)
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+# LLM 配置 (連線到 GPU 伺服器的 Ollama)
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://192.168.1.2:30133")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:27b")
 
 # 資料目錄

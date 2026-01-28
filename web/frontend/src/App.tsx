@@ -1,10 +1,14 @@
 import { FileSearch, Database, FileBarChart, Settings, ListTodo } from 'lucide-react'
+import { Toaster } from 'sonner'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/presentation/components/ui'
 import { Sidebar, DataPreview, TasksPanel, ResultsPanel, Reports, SettingsPanel } from '@/presentation/components'
 
 function App() {
   return (
     <div className="flex h-screen bg-background">
+      {/* Toast 通知 */}
+      <Toaster position="top-right" richColors closeButton />
+
       {/* 側邊欄 */}
       <Sidebar />
 

@@ -82,12 +82,22 @@ export interface PHIConfig {
   custom_patterns?: Record<string, string>;
 }
 
+export interface FileResult {
+  file_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  phi_found: number;
+  error?: string | null;
+  processing_time?: number | null;
+}
+
 export interface TaskStatus {
   task_id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress: number;
   message: string;
+  file_ids?: string[];
   created_at: string;
+  updated_at?: string;
   completed_at?: string;
   result_file?: string;
   report_file?: string;
@@ -97,6 +107,14 @@ export interface TaskStatus {
   processing_speed?: number;
   total_chars?: number;
   processed_chars?: number;
+  // 單檔處理狀態
+  file_results?: Record<string, FileResult>;
+  current_file?: string;
+  files_completed?: number;
+  total_files?: number;
+  elapsed_time?: number;
+  elapsed_time_formatted?: string;
+  estimated_remaining_formatted?: string;
 }
 
 export interface ProcessRequest {
@@ -106,9 +124,10 @@ export interface ProcessRequest {
 }
 
 export interface PreviewData {
-  type: 'tabular' | 'text' | 'json';
+  type: 'tabular' | 'text' | 'json' | 'markdown';
   columns?: string[];
   data?: Record<string, unknown>[];
+  source_format?: string;
   content?: string;
   lines?: string[];
   total_rows: number;
@@ -236,14 +255,43 @@ export interface ResultDetail {
 
 export interface HealthStatus {
   status: string;
-  timestamp: string;
-  version: string;
+  timestamp?: string;
+  version?: string;
   llm?: {
-    status: 'online' | 'offline';
+    status: 'online' | 'offline' | 'model_not_found' | 'timeout';
     model: string | null;
     provider: string;
+    endpoint?: string;
+    available_models?: string[];
   };
   engine_available?: boolean;
+}
+
+export interface CleanupResult {
+  success: boolean;
+  message: string;
+  files_deleted: number;
+  bytes_freed: number;
+}
+
+export interface CleanupAllResult {
+  uploads: CleanupResult;
+  results: CleanupResult;
+  reports: CleanupResult;
+  tasks_cleared: number;
+  total_bytes_freed: number;
+}
+
+export interface DirectoryStats {
+  files_count: number;
+  total_size: number;
+}
+
+export interface CleanupStats {
+  uploads: DirectoryStats;
+  results: DirectoryStats;
+  reports: DirectoryStats;
+  tasks: { count: number };
 }
 
 // ============================================================
@@ -409,6 +457,49 @@ export const healthCheck = async (): Promise<HealthStatus> => {
 };
 
 // ============================================================
+// Cleanup APIs (系統維護)
+// ============================================================
+
+export const cleanupUploads = async (): Promise<CleanupResult> => {
+  const response = await apiClient.delete('/cleanup/uploads');
+  return response.data;
+};
+
+export const cleanupResults = async (): Promise<CleanupResult> => {
+  const response = await apiClient.delete('/cleanup/results');
+  return response.data;
+};
+
+export const cleanupReports = async (): Promise<CleanupResult> => {
+  const response = await apiClient.delete('/cleanup/reports');
+  return response.data;
+};
+
+export const cleanupAll = async (): Promise<CleanupAllResult> => {
+  const response = await apiClient.delete('/cleanup/all');
+  return response.data;
+};
+
+export const getCleanupStats = async (): Promise<CleanupStats> => {
+  const response = await apiClient.get('/cleanup/stats');
+  return response.data;
+};
+
+// ============================================================
+// Settings Reset API
+// ============================================================
+
+export const resetConfig = async (): Promise<{ message: string; config: PHIConfig }> => {
+  const response = await apiClient.post('/settings/reset');
+  return response.data;
+};
+
+export const getDefaultConfig = async (): Promise<PHIConfig> => {
+  const response = await apiClient.get('/settings/default');
+  return response.data;
+};
+
+// ============================================================
 // Export all as a single object for convenience
 // ============================================================
 
@@ -433,6 +524,14 @@ const api = {
   uploadRegulation,
   updateRegulation,
   healthCheck,
+  // Cleanup & Reset
+  cleanupUploads,
+  cleanupResults,
+  cleanupReports,
+  cleanupAll,
+  getCleanupStats,
+  resetConfig,
+  getDefaultConfig,
 };
 
 export default api;

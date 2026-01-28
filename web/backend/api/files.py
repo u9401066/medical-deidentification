@@ -30,10 +30,21 @@ async def upload_file(file: UploadFile = File(...)):
     """上傳檔案"""
     file_service = get_file_service()
 
-    allowed_extensions = {".xlsx", ".xls", ".csv", ".json", ".txt"}
+    # 支援的檔案類型
+    allowed_extensions = {
+        # 表格
+        ".xlsx", ".xls", ".csv",
+        # 結構化
+        ".json",
+        # 文字
+        ".txt", ".md", ".markdown",
+        # 文件
+        ".docx", ".doc", ".pdf",
+    }
     file_ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
     if f".{file_ext}" not in allowed_extensions:
-        raise HTTPException(400, f"不支援的檔案類型: {file_ext}。支援: xlsx, xls, csv, json, txt")
+        supported = ", ".join(ext.lstrip(".") for ext in sorted(allowed_extensions))
+        raise HTTPException(400, f"不支援的檔案類型: {file_ext}。支援: {supported}")
 
     content = await file.read()
 

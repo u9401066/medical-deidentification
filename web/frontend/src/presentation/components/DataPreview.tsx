@@ -1,13 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Badge } from '@/presentation/components/ui'
 import api, { UploadedFile } from '@/infrastructure/api'
+import { useSelectedFileId, useSelectionActions } from '@/infrastructure/store'
 
 export function DataPreview() {
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
+  const selectedFileId = useSelectedFileId()
+  const { selectFile } = useSelectionActions()
   const [page, setPage] = useState(1)
   const pageSize = 50
+  const hasAutoSelected = useRef(false)
 
   // 取得檔案列表
   const { data: files = [] } = useQuery({
@@ -25,12 +28,13 @@ export function DataPreview() {
     enabled: !!selectedFileId,
   })
 
-  // 當檔案列表變化時，自動選擇第一個檔案
+  // 當檔案列表變化時，如果尚未選擇則自動選擇第一個檔案
   useEffect(() => {
-    if (files.length > 0 && !selectedFileId) {
-      setSelectedFileId(files[0].id)
+    if (files.length > 0 && !selectedFileId && !hasAutoSelected.current) {
+      hasAutoSelected.current = true
+      selectFile(files[0].id)
     }
-  }, [files, selectedFileId])
+  }, [files, selectedFileId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalPages = preview ? Math.ceil(preview.total_rows / pageSize) : 0
 
@@ -43,7 +47,7 @@ export function DataPreview() {
           <Select
             value={selectedFileId || ''}
             onValueChange={(value: string) => {
-              setSelectedFileId(value)
+              selectFile(value)
               setPage(1)
             }}
           >
@@ -128,7 +132,7 @@ export function DataPreview() {
                     </tbody>
                   </table>
                 </div>
-              ) : preview.type === 'text' ? (
+              ) : preview.type === 'text' || preview.type === 'markdown' ? (
                 <pre className="whitespace-pre-wrap font-mono text-sm bg-muted p-4 rounded-lg overflow-auto max-h-[600px]">
                   {preview.content}
                 </pre>

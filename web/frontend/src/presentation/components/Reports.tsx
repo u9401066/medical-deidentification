@@ -4,9 +4,11 @@ import { FileText, Download, Eye, Calendar, BarChart3 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Badge, ScrollArea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui'
 import api, { Report } from '@/infrastructure/api'
 import { formatDate } from '@/lib/utils'
+import { toast } from 'sonner'
 
 export function Reports() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
 
   // 取得報告列表
   const { data: reports = [], isLoading: reportsLoading } = useQuery({
@@ -21,6 +23,37 @@ export function Reports() {
       selectedReportId ? api.getReport(selectedReportId) : Promise.resolve(null),
     enabled: !!selectedReportId,
   })
+
+  // 匯出報告
+  const handleExportReport = async () => {
+    if (!selectedReportId || !reportDetail) return
+    setIsExporting(true)
+    try {
+      // 建立 JSON 格式的報告資料
+      const exportData = {
+        task_id: reportDetail.task_id,
+        job_name: reportDetail.job_name,
+        generated_at: reportDetail.generated_at,
+        summary: reportDetail.summary,
+        file_details: reportDetail.file_details,
+      }
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: 'application/json',
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `report_${reportDetail.task_id || 'export'}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('報告匯出成功')
+    } catch (error) {
+      console.error('匯出失敗:', error)
+      toast.error('報告匯出失敗')
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -46,9 +79,14 @@ export function Reports() {
         </div>
 
         {selectedReportId && (
-          <Button variant="outline" className="ml-auto">
+          <Button
+            variant="outline"
+            className="ml-auto"
+            disabled={isExporting || !reportDetail}
+            onClick={handleExportReport}
+          >
             <Download className="h-4 w-4 mr-2" />
-            匯出報告
+            {isExporting ? '匯出中...' : '匯出報告'}
           </Button>
         )}
       </div>

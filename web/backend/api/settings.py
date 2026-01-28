@@ -203,6 +203,25 @@ async def import_config_json(data: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(400, str(e)) from e
 
 
+@router.post("/settings/reset")
+async def reset_config() -> dict[str, Any]:
+    """重置 PHI 設定為預設值"""
+    phi_config_service = get_phi_config_service()
+    reset_config = phi_config_service.reset_to_default()
+    return {
+        "message": "設定已重置為預設值",
+        "config": reset_config.model_dump(),
+    }
+
+
+@router.get("/settings/default")
+async def get_default_config() -> dict[str, Any]:
+    """取得預設 PHI 設定 (不影響目前設定)"""
+    phi_config_service = get_phi_config_service()
+    default = phi_config_service.get_default_config()
+    return default.model_dump()
+
+
 # === Preset 管理 ===
 
 

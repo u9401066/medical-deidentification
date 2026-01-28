@@ -18,7 +18,8 @@ interface FileResponse {
 }
 
 export interface PreviewData {
-  type: 'tabular' | 'text' | 'json';
+  type: 'tabular' | 'text' | 'json' | 'markdown';
+  source_format?: string;
   columns?: string[];
   data?: Record<string, unknown>[];
   content?: string;

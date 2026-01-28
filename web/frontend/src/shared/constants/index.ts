@@ -39,6 +39,8 @@ export const SUPPORTED_FILE_TYPES = {
   CSV: ['csv'],
   JSON: ['json'],
   TEXT: ['txt'],
+  MARKDOWN: ['md', 'markdown'],
+  DOCUMENT: ['docx', 'doc', 'pdf'],
 } as const;
 
 export const ALL_SUPPORTED_EXTENSIONS = [
@@ -46,4 +48,21 @@ export const ALL_SUPPORTED_EXTENSIONS = [
   ...SUPPORTED_FILE_TYPES.CSV,
   ...SUPPORTED_FILE_TYPES.JSON,
   ...SUPPORTED_FILE_TYPES.TEXT,
+  ...SUPPORTED_FILE_TYPES.MARKDOWN,
+  ...SUPPORTED_FILE_TYPES.DOCUMENT,
 ];
+
+/**
+ * MIME 類型對應
+ */
+export const MIME_TYPES: Record<string, string[]> = {
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
+  'application/vnd.ms-excel': ['xls'],
+  'text/csv': ['csv'],
+  'application/json': ['json'],
+  'text/plain': ['txt'],
+  'text/markdown': ['md', 'markdown'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+  'application/msword': ['doc'],
+  'application/pdf': ['pdf'],
+};

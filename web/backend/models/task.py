@@ -19,6 +19,16 @@ class ProcessRequest(BaseModel):
     job_name: str | None = Field(default=None, description="任務名稱")
 
 
+class FileResult(BaseModel):
+    """單一檔案處理結果"""
+
+    file_id: str
+    status: str  # pending, processing, completed, error
+    phi_found: int = 0
+    error: str | None = None
+    processing_time: float | None = None  # 秒
+
+
 class TaskStatus(BaseModel):
     """任務狀態"""
 
@@ -32,6 +42,9 @@ class TaskStatus(BaseModel):
     result: dict[str, Any] | None = None
     error: str | None = None
 
+    # 單檔處理狀態
+    file_results: dict[str, FileResult] = Field(default_factory=dict)
+
     # 進度相關
     current_file: str | None = None
     files_completed: int = 0
@@ -44,4 +57,4 @@ class TaskStatus(BaseModel):
     estimated_remaining_formatted: str | None = None
 
 
-__all__ = ["ProcessRequest", "TaskStatus"]
+__all__ = ["ProcessRequest", "TaskStatus", "FileResult"]

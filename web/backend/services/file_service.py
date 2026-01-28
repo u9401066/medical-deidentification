@@ -85,19 +85,22 @@ class FileService:
                 meta = json.load(f)
                 file_id = meta["file_id"]
 
-                # 判斷檔案狀態
+                # 使用單檔狀態（而非整體任務狀態）
                 status = "pending"
                 task_id = None
                 if file_id in file_task_map:
-                    task = file_task_map[file_id]
-                    task_id = task["task_id"]
-                    task_status = task.get("status", "pending")
-                    if task_status == "completed":
-                        status = "completed"
-                    elif task_status == "processing":
-                        status = "processing"
-                    elif task_status == "failed":
-                        status = "error"
+                    file_info = file_task_map[file_id]
+                    task_id = file_info["task_id"]
+                    file_status = file_info.get("file_status", "pending")
+                    
+                    # 映射狀態
+                    status_map = {
+                        "completed": "completed",
+                        "processing": "processing",
+                        "error": "error",
+                        "pending": "pending",
+                    }
+                    status = status_map.get(file_status, "pending")
 
                 files.append(
                     UploadedFile(

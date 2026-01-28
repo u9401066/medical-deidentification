@@ -47,10 +47,21 @@ class ProcessingService:
     def engine_available(self) -> bool:
         return self._engine_available
 
-    def process_file(self, file_path: Path, config: dict[str, Any]) -> dict[str, Any]:
-        """處理單一檔案"""
+    def process_file(
+        self,
+        file_path: Path,
+        config: dict[str, Any],
+        original_filename: str | None = None,
+    ) -> dict[str, Any]:
+        """處理單一檔案
+        
+        Args:
+            file_path: 檔案路徑
+            config: 處理配置
+            original_filename: 原始檔名 (用於報告顯示)
+        """
         if not self._engine_available:
-            return self._simulate_processing(file_path)
+            return self._simulate_processing(file_path, original_filename)
 
         try:
             from core.application.processing.engine import (
@@ -67,47 +78,95 @@ class ProcessingService:
             engine = DeidentificationEngine(engine_config)
             result = engine.process_file(file_path)
 
-            return self._convert_engine_result(result, file_path)
+            masking_type = config.get("masking_type", "redact")
+            return self._convert_engine_result(
+                result, file_path, original_filename, masking_type
+            )
 
         except Exception as e:
             logger.error(f"Processing error: {e}")
             raise
 
-    def _convert_engine_result(self, result: Any, file_path: Path) -> dict[str, Any]:
-        """轉換引擎結果為標準格式"""
+    def _convert_engine_result(
+        self,
+        result: Any,
+        file_path: Path,
+        original_filename: str | None = None,
+        masking_type: str = "redact",
+    ) -> dict[str, Any]:
+        """轉換引擎結果為標準格式
+        
+        Args:
+            result: 引擎處理結果
+            file_path: 檔案路徑 (含 file_id)
+            original_filename: 原始檔名 (用於報告顯示)
+            masking_type: 遮罩類型 (redact/hash/generalize)
+        """
         # 從 ProcessingResult 提取資料
         phi_entities = []
         original_content = ""
         masked_content = ""
 
-        if hasattr(result, "document_results"):
-            for doc_result in result.document_results:
-                if hasattr(doc_result, "phi_entities"):
-                    for entity in doc_result.phi_entities:
+        # ProcessingResult 使用 documents 屬性 (不是 document_results)
+        documents = getattr(result, "documents", [])
+        if documents:
+            for doc in documents:
+                # doc 是 dict，包含 phi_entities, masked_content, original_content
+                if isinstance(doc, dict):
+                    for entity in doc.get("phi_entities", []):
+                        original_text = entity.get("text", "")
+                        # 計算 masked_value 基於遮罩類型
+                        masked_value = self._compute_masked_value(
+                            original_text,
+                            entity.get("type", "UNKNOWN"),
+                            masking_type,
+                        )
                         phi_entities.append(
                             {
-                                "type": entity.phi_type.value
-                                if hasattr(entity.phi_type, "value")
-                                else str(entity.phi_type),
-                                "value": entity.original_text,
-                                "masked_value": entity.masked_text,
-                                "confidence": entity.confidence,
-                                "start_pos": entity.start_pos,
-                                "end_pos": entity.end_pos,
-                                "reason": "Identified as PHI",
+                                "type": entity.get("type", "UNKNOWN"),
+                                "value": original_text,
+                                "masked_value": masked_value,
+                                "confidence": entity.get("confidence", 0.0),
+                                "start_pos": entity.get("start_pos"),
+                                "end_pos": entity.get("end_pos"),
+                                "reason": entity.get("reason", "Identified as PHI"),
                             }
                         )
+                    original_content = doc.get("original_content", "") or ""
+                    masked_content = doc.get("masked_content", "") or ""
 
-                if hasattr(doc_result, "original_content"):
-                    original_content = doc_result.original_content
-                if hasattr(doc_result, "masked_content"):
-                    masked_content = doc_result.masked_content
+        # 若 documents 為空，嘗試從 summary.phi_entities 取得
+        if not phi_entities and hasattr(result, "summary"):
+            summary = result.summary
+            if isinstance(summary, dict):
+                for entity in summary.get("phi_entities", []):
+                    original_text = entity.get("text", "")
+                    masked_value = self._compute_masked_value(
+                        original_text,
+                        entity.get("type", "UNKNOWN"),
+                        masking_type,
+                    )
+                    phi_entities.append(
+                        {
+                            "type": entity.get("type", "UNKNOWN"),
+                            "value": original_text,
+                            "masked_value": masked_value,
+                            "confidence": entity.get("confidence", 0.0),
+                            "start_pos": entity.get("start_pos"),
+                            "end_pos": entity.get("end_pos"),
+                            "reason": entity.get("reason", ""),
+                        }
+                    )
+
+        # 使用原始檔名 (若提供) 或檔案路徑名稱
+        display_filename = original_filename or file_path.name
+        file_id = file_path.stem.split("_")[0] if "_" in file_path.stem else file_path.stem[:8]
+
+        logger.info(f"Converted engine result: {len(phi_entities)} PHI entities found for {display_filename}")
 
         return {
-            "file_id": file_path.stem.split("_")[0]
-            if "_" in file_path.stem
-            else file_path.stem[:8],
-            "filename": file_path.name,
+            "file_id": file_id,
+            "filename": display_filename,
             "phi_found": len(phi_entities),
             "phi_entities": phi_entities,
             "original_content": original_content[:5000] if original_content else None,
@@ -115,15 +174,36 @@ class ProcessingService:
             "status": "completed",
         }
 
-    def _simulate_processing(self, file_path: Path) -> dict[str, Any]:
+    def _compute_masked_value(
+        self, original_text: str, phi_type: str, masking_type: str
+    ) -> str:
+        """計算遮罩後的值"""
+        if not original_text:
+            return "[REDACTED]"
+
+        if masking_type == "hash":
+            import hashlib
+            hash_val = hashlib.sha256(original_text.encode()).hexdigest()[:8]
+            return f"[{phi_type}_{hash_val}]"
+        elif masking_type == "generalize":
+            # 泛化: 保留類型標籤
+            return f"[{phi_type}]"
+        else:  # redact (預設)
+            return "[REDACTED]"
+
+    def _simulate_processing(
+        self, file_path: Path, original_filename: str | None = None
+    ) -> dict[str, Any]:
         """模擬處理（當引擎不可用時）"""
         import time
 
         time.sleep(1)  # 模擬處理時間
 
+        display_filename = original_filename or file_path.name
+
         return {
             "file_id": file_path.stem[:8],
-            "filename": file_path.name,
+            "filename": display_filename,
             "phi_found": 0,
             "phi_entities": [],
             "original_content": "[Simulated - Engine not available]",
@@ -148,7 +228,13 @@ class ProcessingService:
     ) -> Path:
         """生成並儲存報告"""
         total_phi = sum(r.get("phi_found", 0) for r in file_results)
-        total_chars = sum(len(r.get("original_content", "")) for r in file_results)
+        total_chars = sum(len(r.get("original_content") or "") for r in file_results)
+
+        # 建立檔案名稱清單 (用於顯示)
+        filenames = [r.get("filename", "") for r in file_results if r.get("filename")]
+        files_display = ", ".join(filenames[:3])  # 最多顯示 3 個
+        if len(filenames) > 3:
+            files_display += f" ... 等 {len(filenames)} 個檔案"
 
         # 聚合 PHI 類型統計
         phi_by_type: dict[str, int] = {}
@@ -160,6 +246,7 @@ class ProcessingService:
         report = {
             "task_id": task_id,
             "job_name": job_name,
+            "files_display": files_display,  # 新增：檔案名稱顯示
             "generated_at": datetime.now().isoformat(),
             "summary": {
                 "files_processed": len(file_results),
@@ -169,6 +256,7 @@ class ProcessingService:
                 "processing_speed_chars_per_sec": total_chars / processing_time
                 if processing_time > 0
                 else 0,
+                "filenames": filenames,  # 新增：完整檔案名稱列表
             },
             "file_details": [
                 {
