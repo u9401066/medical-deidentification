@@ -1,6 +1,7 @@
 /**
  * Presentation Components - 呈現層元件匯出
  */
+export { Guide } from './Guide';
 export { Sidebar } from './Sidebar';
 export { DataPreview } from './DataPreview';
 export { ResultsPreview } from './ResultsPreview';

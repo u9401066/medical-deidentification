@@ -103,6 +103,7 @@ cd web/frontend && npm run dev
 | `react-patterns` | 進階元件模式 | pattern, compound, HOC, render props |
 | `react-testing` | RTL + MSW + Vitest 測試 | testing, msw, mock, 單元測試 |
 | `self-update` | 自主審計更新 Skills/Hooks/Instructions | self-update, 自主更新, 審計 |
+| `workflow-checker` | 排查完整使用流程 8 步驟（`scripts/check_workflow.py`） | workflow, 流程, 排查, check, 驗證 |
 
 ## 回應風格
 

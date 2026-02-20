@@ -143,7 +143,7 @@ known-first-party = ["core"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "ARG", "PLR2004"]
-"scripts/**/*.py" = ["S101", "T201"]  # allow print in scripts
+"scripts/**/*.py" = ["S101", "T201", "ARG001", "PLR2004", "PLR0915", "RUF001", "RUF002", "RUF003", "S113", "F401", "F541"]  # allow print, Chinese strings, magic values in scripts
 # LLM factory uses lazy imports for optional dependencies
 "core/infrastructure/llm/factory.py" = ["PLC0415"]
 # web/backend uses sys.path hacks (E402), lazy imports (PLC0415),

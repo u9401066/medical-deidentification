@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { FileSearch, Database, FileBarChart, Settings, ListTodo } from 'lucide-react'
+import { FileSearch, Database, FileBarChart, Settings, ListTodo, BookOpen } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/presentation/components/ui'
-import { Sidebar, DataPreview, TasksPanel, ResultsPanel, Reports, SettingsPanel } from '@/presentation/components'
+import { Guide, Sidebar, DataPreview, TasksPanel, ResultsPanel, Reports, SettingsPanel } from '@/presentation/components'
 
 function App() {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState('preview')
+  const [activeTab, setActiveTab] = useState('guide')
 
   // 當 sidebar 選擇檔案時，切換到資料預覽
   const handleFileSelect = (fileId: string) => {
@@ -24,6 +24,10 @@ function App() {
           {/* 標籤列 */}
           <div className="border-b px-4">
             <TabsList className="h-12">
+              <TabsTrigger value="guide" className="gap-2">
+                <BookOpen className="h-4 w-4" />
+                使用說明
+              </TabsTrigger>
               <TabsTrigger value="preview" className="gap-2">
                 <FileSearch className="h-4 w-4" />
                 資料預覽
@@ -48,6 +52,9 @@ function App() {
           </div>
 
           {/* 標籤內容 */}
+          <TabsContent value="guide" className="flex-1 m-0">
+            <Guide />
+          </TabsContent>
           <TabsContent value="preview" className="flex-1 m-0">
             <DataPreview selectedFileId={selectedFileId} onFileSelect={setSelectedFileId} />
           </TabsContent>

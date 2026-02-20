@@ -2054,5 +2054,215 @@
       }
     },
     "elapsed_time_formatted": "42 秒"
+  },
+  "40028187": {
+    "task_id": "40028187",
+    "status": "completed",
+    "progress": 1.0,
+    "message": "處理完成！發現 15 個 PHI",
+    "file_ids": [
+      "859a1014"
+    ],
+    "file_names": {},
+    "config": {
+      "masking_type": "redact",
+      "phi_types": [
+        "NAME",
+        "DATE",
+        "PHONE",
+        "EMAIL",
+        "ADDRESS",
+        "ID_NUMBER",
+        "MEDICAL_RECORD"
+      ],
+      "preserve_format": true,
+      "custom_patterns": null
+    },
+    "job_name": "workflow-check-test",
+    "created_at": "2026-02-20T11:29:03.396023",
+    "updated_at": "2026-02-20T11:29:41.625372",
+    "result": {
+      "task_id": "40028187",
+      "job_name": "workflow-check-test",
+      "config": {
+        "masking_type": "redact",
+        "phi_types": [
+          "NAME",
+          "DATE",
+          "PHONE",
+          "EMAIL",
+          "ADDRESS",
+          "ID_NUMBER",
+          "MEDICAL_RECORD"
+        ],
+        "preserve_format": true,
+        "custom_patterns": null
+      },
+      "results": [
+        {
+          "file_id": "859a1014",
+          "filename": "859a1014.csv",
+          "phi_found": 15,
+          "phi_entities": [
+            {
+              "type": "NAME",
+              "value": "王小明",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 6,
+              "end_pos": 9,
+              "reason": "Patient name, directly identifies individual."
+            },
+            {
+              "type": "DATE",
+              "value": "1980/03/15",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 16,
+              "end_pos": 26,
+              "reason": "Date of birth, directly identifies individual."
+            },
+            {
+              "type": "PHONE",
+              "value": "0912-345-678",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 33,
+              "end_pos": 44,
+              "reason": "Phone number, directly identifies individual."
+            },
+            {
+              "type": "MEDICAL_RECORD_NUMBER",
+              "value": "MR001234",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 51,
+              "end_pos": 59,
+              "reason": "Medical record number, directly identifies individual."
+            },
+            {
+              "type": "DATE",
+              "value": "2024/01/15",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 73,
+              "end_pos": 83,
+              "reason": "Date of service, could potentially identify individual in combination with other data."
+            },
+            {
+              "type": "NAME",
+              "value": "李美華",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 88,
+              "end_pos": 91,
+              "reason": "Patient name, directly identifies individual."
+            },
+            {
+              "type": "DATE",
+              "value": "1975/08/22",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 98,
+              "end_pos": 108,
+              "reason": "Date of birth, directly identifies individual."
+            },
+            {
+              "type": "PHONE",
+              "value": "02-2345-6789",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 115,
+              "end_pos": 126,
+              "reason": "Phone number, directly identifies individual."
+            },
+            {
+              "type": "MEDICAL_RECORD_NUMBER",
+              "value": "MR005678",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 133,
+              "end_pos": 141,
+              "reason": "Medical record number, directly identifies individual."
+            },
+            {
+              "type": "EMAIL",
+              "value": "user@example.com",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 150,
+              "end_pos": 165,
+              "reason": "Email address, directly identifies individual."
+            },
+            {
+              "type": "NAME",
+              "value": "陳大偉",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 171,
+              "end_pos": 174,
+              "reason": "Patient name, directly identifies individual."
+            },
+            {
+              "type": "DATE",
+              "value": "1990/12/01",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 179,
+              "end_pos": 189,
+              "reason": "Date of birth, directly identifies individual."
+            },
+            {
+              "type": "PHONE",
+              "value": "0987-654-321",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 196,
+              "end_pos": 207,
+              "reason": "Phone number, directly identifies individual."
+            },
+            {
+              "type": "MEDICAL_RECORD_NUMBER",
+              "value": "MR009999",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 214,
+              "end_pos": 222,
+              "reason": "Medical record number, directly identifies individual."
+            },
+            {
+              "type": "GENETIC_INFO",
+              "value": "台北市信義區忠孝路1號",
+              "masked_value": "[REDACTED]",
+              "confidence": 1.0,
+              "start_pos": 231,
+              "end_pos": 243,
+              "reason": "Address, smaller than state, directly identifies individual."
+            }
+          ],
+          "original_content": "姓名: 王小明, 出生日期: 1980/03/15, 電話: 0912-345-678, 病歷號: MR001234, 備註: 患者於 2024/01/15 回診\n姓名: 李美華, 出生日期: 1975/08/22, 電話: 02-2345-6789, 病歷號: MR005678, 備註: 請電 user@example.com 確認\n姓名: 陳大偉, 出生日期: 1990/12/01, 電話: 0987-654-321, 病歷號: MR009999, 備註: 地址：台北市信義區忠孝路1號",
+          "masked_content": "姓名: 王小[REDACTED]出生日期: 1[REDACTED] 電話: 09[REDACTED] 病歷號: M[REDACTED] 備註: 患者於 2024/[REDACTED]名: 李美[REDACTED]出生日期: 1[REDACTED] 電話: 02[REDACTED] 病歷號: M[REDACTED] 備註: 請電 u[REDACTED] 確認\n姓名[REDACTED]大偉, 出[REDACTED]12/01, [REDACTED]4-321, [REDACTED]09999, 備註[REDACTED]孝路1號",
+          "status": "completed"
+        }
+      ],
+      "processed_at": "2026-02-20T11:29:41.624917"
+    },
+    "error": null,
+    "current_file": "859a1014.csv",
+    "files_completed": 1,
+    "total_files": 1,
+    "elapsed_time": 38.2271363735199,
+    "estimated_remaining": null,
+    "file_results": {
+      "859a1014": {
+        "file_id": "859a1014",
+        "filename": "859a1014",
+        "status": "processing",
+        "phi_found": 0,
+        "error": null,
+        "processing_time": null
+      }
+    },
+    "elapsed_time_formatted": "38 秒"
   }
 }
