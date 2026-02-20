@@ -17,20 +17,12 @@ _backend_dir = Path(__file__).parent.parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
-from models.task import FileResult, ProcessRequest, TaskStatus
+from models.task import ProcessRequest, TaskStatus
 from services.file_service import get_file_service
 from services.processing_service import get_processing_service
 from services.task_service import get_task_service
 
 router = APIRouter()
-
-
-def _convert_file_results(file_results_dict: dict) -> dict[str, FileResult]:
-    """轉換 file_results 字典為 FileResult 模型"""
-    return {
-        file_id: FileResult(**data)
-        for file_id, data in file_results_dict.items()
-    }
 
 
 def format_time(seconds: float | None) -> str:
@@ -55,15 +47,10 @@ async def start_processing(request: ProcessRequest, background_tasks: Background
     file_service = get_file_service()
     task_service = get_task_service()
 
-    # 驗證檔案存在並收集原始檔名
-    file_names: dict[str, str] = {}
+    # 驗證檔案存在
     for file_id in request.file_ids:
-        file_path = file_service.get_file_path(file_id)
-        if not file_path:
+        if not file_service.get_file_path(file_id):
             raise HTTPException(404, f"檔案不存在: {file_id}")
-        # 取得原始檔名 (metadata 中儲存的 filename)
-        meta = file_service.get_file_metadata(file_id)
-        file_names[file_id] = meta["filename"] if meta else file_path.name
 
     # 建立任務
     task_id = str(uuid.uuid4())[:8]
@@ -72,25 +59,20 @@ async def start_processing(request: ProcessRequest, background_tasks: Background
         file_ids=request.file_ids,
         config=request.config.model_dump(),
         job_name=request.job_name,
-        file_names=file_names,
     )
 
     # 啟動背景處理
     background_tasks.add_task(process_phi_task, task_id)
 
-    # 返回實際的任務狀態（已經是 processing）
+    now = datetime.now()
     return TaskStatus(
         task_id=task_id,
-        status=task["status"],
-        progress=task.get("progress", 0.0),
-        message=task.get("message", "準備處理中..."),
+        status="pending",
+        progress=0.0,
+        message="任務已建立，等待處理...",
         file_ids=request.file_ids,
-        created_at=task["created_at"],
-        updated_at=task["updated_at"],
-        file_results=_convert_file_results(task.get("file_results", {})),
-        current_file=task.get("current_file"),
-        files_completed=task.get("files_completed", 0),
-        total_files=task.get("total_files", 0),
+        created_at=now,
+        updated_at=now,
     )
 
 
@@ -126,17 +108,11 @@ async def process_phi_task(task_id: str):
             file_path = file_service.get_file_path(file_id)
             if not file_path:
                 logger.warning(f"File not found: {file_id}")
-                task_service.update_file_result(
-                    task_id, file_id, status="error", error="檔案不存在"
-                )
                 continue
 
             # 更新進度
             progress = idx / len(file_ids)
             elapsed = time.time() - start_time
-
-            # 標記該檔案為處理中
-            task_service.update_file_result(task_id, file_id, status="processing")
 
             task_service.update_task(
                 task_id,
@@ -148,45 +124,20 @@ async def process_phi_task(task_id: str):
                 elapsed_time_formatted=format_time(elapsed),
             )
 
-            # 取得原始檔名
-            file_metadata = file_service.get_file_metadata(file_id)
-            original_filename = file_metadata.get("filename") if file_metadata else file_path.name
-
             # 處理檔案
-            file_start_time = time.time()
             try:
-                result = processing_service.process_file(
-                    file_path, config, original_filename=original_filename
-                )
+                result = processing_service.process_file(file_path, config)
                 result["file_id"] = file_id
                 results.append(result)
 
                 # 更新字數統計
-                content_len = len(result.get("original_content") or "")
+                original_content = result.get("original_content") or ""
+                content_len = len(original_content)
                 total_chars += content_len
                 processed_chars += content_len
 
-                # 記錄單檔成功
-                phi_found = result.get("phi_found", 0)
-                file_time = time.time() - file_start_time
-                task_service.update_file_result(
-                    task_id, file_id,
-                    status="completed",
-                    phi_found=phi_found,
-                    processing_time=file_time,
-                )
-
             except Exception as e:
                 logger.error(f"Error processing {file_id}: {e}")
-
-                # 記錄單檔失敗
-                task_service.update_file_result(
-                    task_id, file_id,
-                    status="error",
-                    error=str(e),
-                    processing_time=time.time() - file_start_time,
-                )
-
                 results.append(
                     {
                         "file_id": file_id,
@@ -214,34 +165,20 @@ async def process_phi_task(task_id: str):
         # 更新統計
         task_service.update_processing_stats(total_chars, processing_time)
 
-        # 計算成功/失敗數量
+        # 完成任務
         total_phi = sum(r.get("phi_found", 0) for r in results)
-        success_count = sum(1 for r in results if r.get("status") == "completed")
-        error_count = sum(1 for r in results if r.get("status") == "error")
-
-        # 決定任務整體狀態
-        if error_count == len(file_ids):
-            final_status = "failed"
-            final_message = f"所有檔案處理失敗 ({error_count} 個錯誤)"
-        elif error_count > 0:
-            final_status = "completed"  # 部分成功也算完成
-            final_message = f"處理完成：{success_count} 成功 / {error_count} 失敗，共發現 {total_phi} 個 PHI"
-        else:
-            final_status = "completed"
-            final_message = f"處理完成！發現 {total_phi} 個 PHI"
-
         task_service.update_task(
             task_id,
-            status=final_status,
+            status="completed",
             progress=1.0,
-            message=final_message,
+            message=f"處理完成！發現 {total_phi} 個 PHI",
             files_completed=len(file_ids),
             elapsed_time=processing_time,
             elapsed_time_formatted=format_time(processing_time),
             result=full_result,
         )
 
-        logger.info(f"✅ Task {task_id} completed: {success_count}/{len(file_ids)} files, {total_phi} PHI found")
+        logger.info(f"✅ Task {task_id} completed: {len(results)} files, {total_phi} PHI found")
 
     except Exception as e:
         logger.error(f"❌ Task {task_id} failed: {e}")
@@ -268,7 +205,6 @@ async def list_tasks():
             file_ids=t.get("file_ids", []),
             created_at=t["created_at"],
             updated_at=t["updated_at"],
-            file_results=_convert_file_results(t.get("file_results", {})),
             current_file=t.get("current_file"),
             files_completed=t.get("files_completed", 0),
             total_files=t.get("total_files", 0),
@@ -298,7 +234,6 @@ async def get_task(task_id: str):
         file_ids=task.get("file_ids", []),
         created_at=task["created_at"],
         updated_at=task["updated_at"],
-        file_results=_convert_file_results(task.get("file_results", {})),
         current_file=task.get("current_file"),
         files_completed=task.get("files_completed", 0),
         total_files=task.get("total_files", 0),

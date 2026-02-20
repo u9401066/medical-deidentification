@@ -1,4 +1,4 @@
-# Progress (Updated: 2026-01-28)
+# Progress (Updated: 2026-02-20)
 
 ## Done
 
@@ -67,54 +67,24 @@
   - ✅ 刪除舊的 `api/` 和 `components/` 目錄
   - ✅ 遷移測試檔案到 DDD 層對應位置
   - ✅ **68 個測試全部通過**
-  - 📊 最終目錄結構：
-    ```
-    src/
-    ├── domain/          # 領域層 (100% 覆蓋)
-    ├── application/     # 應用層
-    ├── infrastructure/  # 基礎設施層 (89% 覆蓋)
-    ├── presentation/    # 呈現層 (33% 覆蓋)
-    ├── shared/          # 共享工具
-    └── lib/             # 向後兼容 (90% 覆蓋)
-    ```
 - **Backend 模組化重構完成** (2026-01-14)
   - ✅ 從單體 main.py (1258 行) 拆分為模組化架構
-  - ✅ 目錄結構:
-    ```
-    web/backend/
-    ├── main.py          # 60 行 (入口)
-    ├── config.py        # 配置
-    ├── models/          # Pydantic 模型
-    │   ├── config.py    # PHIConfig, PHITypeConfig
-    │   ├── task.py      # TaskStatus, ProcessRequest
-    │   ├── file.py      # UploadedFile
-    │   └── regulation.py
-    ├── services/        # 業務邏輯 (Singleton)
-    │   ├── task_service.py
-    │   ├── file_service.py
-    │   ├── processing_service.py
-    │   └── regulation_service.py
-    └── api/             # FastAPI Routers
-        ├── files.py, preview.py, processing.py
-        ├── results.py, settings.py, health.py
-        └── __init__.py (api_router 聚合器)
-    ```
   - ✅ 所有 21 個 API 端點正常運作
   - ✅ 原始程式碼保留為 `main_legacy.py`
-  - 📊 程式碼精簡: 1258 行 → 60 行 (入口), 總體更好維護
 - **PHI 設定獨立服務** (2026-01-14)
   - ✅ 建立 `services/phi_config_service.py` - 獨立管理 PHI 設定
   - ✅ 設定持久化到 `data/phi_configs/current_config.json`
   - ✅ 支援設定導入/導出 (JSON 格式)
   - ✅ 內建 3 個預設範本 (HIPAA 標準、最小化、研究安全模式)
-  - ✅ 新增 API 端點:
-    - `GET/PUT /api/settings/config` - 取得/更新設定
-    - `GET/PUT /api/settings/phi-types/{type}` - 個別類型設定
-    - `GET /api/settings/export` - 導出設定 JSON
-    - `GET /api/settings/export/download` - 下載設定檔
-    - `POST /api/settings/import` - 上傳導入設定
-    - `POST /api/settings/import/json` - JSON 導入設定
-    - `GET/POST/DELETE /api/settings/presets/*` - 預設範本管理
+- **Web 功能完善 + E2E 測試** (2026-02-20)
+  - ✅ Backend: LLM 設定 API (`api/llm.py` + `services/llm_config_service.py`)
+  - ✅ Backend: 結果/報告詳情 API (`api/results.py` 擴充)
+  - ✅ Frontend: Settings 三分頁 (PHI設定/法規管理/LLM設定)
+  - ✅ Frontend: Reports 選擇 + 詳情、Results 列表 + 詳情
+  - ✅ Frontend: DataPreview、Sidebar LLM 狀態、TasksPanel 進度
+  - ✅ **Playwright E2E 測試** - 58 個測試全部通過 (7 spec files)
+  - ✅ Git pre-commit hook - 前端變更自動跑 Vitest + Playwright
+  - ✅ Systemd 服務部署腳本 (`scripts/services/`)
 
 ## Doing
 
@@ -124,5 +94,5 @@
 
 - 檢查系統維護功能是否正常
 - 提升 Presentation 層測試覆蓋率到 70%
-- E2E testing with Playwright
 - Deployment documentation update
+- Production deployment testing

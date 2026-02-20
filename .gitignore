@@ -120,3 +120,7 @@ dmypy.json
 # pytype static type analyzer
 .pytype/
 web/backend/logs/
+
+# Playwright
+web/frontend/playwright-report/
+web/frontend/test-results/

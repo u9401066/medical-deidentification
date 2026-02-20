@@ -6,7 +6,8 @@ Web Backend Configuration
 import os
 from pathlib import Path
 
-# LLM 配置 (連線到 GPU 伺服器的 Ollama)
+# LLM 配置 (支援遠端 Ollama API)
+# 預設使用外部 Ollama 服務
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://192.168.1.2:30133")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:27b")
 
@@ -16,7 +17,6 @@ UPLOAD_DIR = DATA_DIR / "uploads"
 RESULTS_DIR = DATA_DIR / "results"
 REPORTS_DIR = DATA_DIR / "reports"
 REGULATIONS_DIR = DATA_DIR / "regulations"
-TASKS_DB_FILE = DATA_DIR / "tasks_db.json"  # 任務持久化檔案
 
 # 檔案限制
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
@@ -45,7 +45,6 @@ __all__ = [
     "REGULATIONS_DIR",
     "REPORTS_DIR",
     "RESULTS_DIR",
-    "TASKS_DB_FILE",
     "UPLOAD_DIR",
     "ensure_directories",
 ]

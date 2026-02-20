@@ -32,7 +32,10 @@ async def list_results():
 
             # 聚合 PHI 類型
             phi_by_type: dict[str, int] = {}
-            for file_result in data.get("results", []):
+            file_results = data.get("results", [])
+            filenames = []
+            for file_result in file_results:
+                filenames.append(file_result.get("filename", "unknown"))
                 for entity in file_result.get("phi_entities", []):
                     phi_type = entity.get("type", "UNKNOWN")
                     phi_by_type[phi_type] = phi_by_type.get(phi_type, 0) + 1
@@ -41,8 +44,9 @@ async def list_results():
                 {
                     "task_id": data["task_id"],
                     "job_name": data.get("job_name", ""),
-                    "files_count": len(data.get("results", [])),
-                    "total_phi_found": sum(r.get("phi_found", 0) for r in data.get("results", [])),
+                    "files_count": len(file_results),
+                    "filenames": filenames,  # 處理的檔案名稱列表
+                    "total_phi_found": sum(r.get("phi_found", 0) for r in file_results),
                     "phi_by_type": phi_by_type,
                     "processed_at": data.get("processed_at", ""),
                 }
@@ -125,3 +129,101 @@ async def get_report(task_id: str):
 
     with open(report_file, encoding="utf-8") as f:
         return json.load(f)
+
+
+@router.get("/reports/{task_id}/export")
+async def export_report(task_id: str, format: str = "json"):
+    """導出報告 (支援 json, csv, markdown 格式)"""
+    from fastapi.responses import Response
+
+    report_file = REPORTS_DIR / f"{task_id}_report.json"
+
+    if not report_file.exists():
+        raise HTTPException(404, "報告不存在")
+
+    with open(report_file, encoding="utf-8") as f:
+        report = json.load(f)
+
+    if format == "json":
+        # 直接返回 JSON 供下載
+        content = json.dumps(report, ensure_ascii=False, indent=2)
+        return Response(
+            content=content,
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="report_{task_id}.json"'},
+        )
+    elif format == "csv":
+        # 導出為 CSV
+        import csv
+        import io
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # 寫入概要
+        writer.writerow(["去識別化處理報告"])
+        writer.writerow([])
+        writer.writerow(["任務 ID", task_id])
+        writer.writerow(["產生時間", report.get("generated_at", "")])
+        writer.writerow(["處理檔案數", report.get("summary", {}).get("files_processed", 0)])
+        writer.writerow(["發現 PHI 數量", report.get("summary", {}).get("total_phi_found", 0)])
+        writer.writerow([])
+
+        # 寫入檔案詳情
+        writer.writerow(["檔案詳情"])
+        writer.writerow(["檔案名稱", "PHI 數量", "狀態"])
+        for file_detail in report.get("file_details", []):
+            writer.writerow([
+                file_detail.get("filename", ""),
+                file_detail.get("phi_found", 0),
+                file_detail.get("status", ""),
+            ])
+
+        content = output.getvalue()
+        return Response(
+            content=content,
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="report_{task_id}.csv"'},
+        )
+    elif format == "markdown" or format == "md":
+        # 導出為 Markdown
+        summary = report.get("summary", {})
+        lines = [
+            "# 去識別化處理報告",
+            "",
+            f"**任務 ID:** `{task_id}`",
+            f"**產生時間:** {report.get('generated_at', '')}",
+            "",
+            "## 概要",
+            "",
+            "| 項目 | 數值 |",
+            "|------|------|",
+            f"| 處理檔案數 | {summary.get('files_processed', 0)} |",
+            f"| 發現 PHI 數量 | {summary.get('total_phi_found', 0)} |",
+            f"| 總字元數 | {summary.get('total_chars', 0):,} |",
+            f"| 處理時間 | {summary.get('processing_time_seconds', 0):.2f} 秒 |",
+            "",
+            "## 檔案詳情",
+            "",
+        ]
+
+        for file_detail in report.get("file_details", []):
+            lines.append(f"### {file_detail.get('filename', '未知檔案')}")
+            lines.append("")
+            lines.append(f"- **狀態:** {file_detail.get('status', 'unknown')}")
+            lines.append(f"- **發現 PHI:** {file_detail.get('phi_found', 0)}")
+
+            phi_by_type = file_detail.get("phi_by_type", {})
+            if phi_by_type:
+                lines.append("- **PHI 類型分佈:**")
+                for phi_type, count in phi_by_type.items():
+                    lines.append(f"  - {phi_type}: {count}")
+
+            lines.append("")
+
+        content = "\n".join(lines)
+        return Response(
+            content=content,
+            media_type="text/markdown",
+            headers={"Content-Disposition": f'attachment; filename="report_{task_id}.md"'},
+        )

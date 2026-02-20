@@ -201,8 +201,17 @@ medical-deidentification/
 │       ├── llm/                # LLM 配置
 │       ├── rag/                # RAG 鏈
 │       └── loader/             # 文件載入器
+├── web/
+│   ├── backend/                # 🖥️ FastAPI 後端 (DDD)
+│   │   ├── api/                # Routers (files, results, settings, llm, health)
+│   │   ├── services/           # 業務邏輯 (Singleton pattern)
+│   │   └── models/             # Pydantic 模型
+│   └── frontend/               # 🎨 React + Vite (DDD)
+│       ├── src/                # domain/, application/, infrastructure/, presentation/
+│       └── e2e/                # 🎭 Playwright E2E 測試 (58 tests)
+├── scripts/
+│   └── services/               # 🚀 Systemd 部署腳本
 ├── docs/                       # 📖 文檔
-├── scripts/                    # 🔧 工具腳本
 └── data/                       # 測試資料
 ```
 
@@ -258,9 +267,33 @@ uv sync --dev
 # 執行測試
 pytest tests/
 
+# 前端單元測試
+cd web/frontend && npm run test:run
+
+# 前端 E2E 測試 (Playwright, 58 tests)
+cd web/frontend && npm run test:e2e
+
 # 程式碼格式化
 ruff format .
 ruff check . --fix
+```
+
+---
+
+## 🚀 Deployment | 部署
+
+### Systemd 服務（一鍵安裝）
+
+```bash
+# 安裝前後端為系統服務
+sudo ./scripts/services/install-services.sh
+
+# 啟動服務
+sudo systemctl start medical-deid-backend
+sudo systemctl start medical-deid-frontend
+
+# 卸載服務
+sudo ./scripts/services/uninstall-services.sh
 ```
 
 ---

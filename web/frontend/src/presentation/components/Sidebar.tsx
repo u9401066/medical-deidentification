@@ -1,28 +1,20 @@
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { Upload, FileText, Trash2, Download, FileSpreadsheet, FileJson, Cpu, CheckCircle, XCircle, RefreshCw, Eye, FileType } from 'lucide-react'
-import { Button, ScrollArea, Badge, Checkbox } from '@/presentation/components/ui'
+import { Upload, FileText, Trash2, Download, FileSpreadsheet, FileJson, Cpu, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
+import { Button, ScrollArea, Badge } from '@/presentation/components/ui'
 import api, { UploadedFile, HealthStatus } from '@/infrastructure/api'
 import { formatBytes, formatDate } from '@/lib/utils'
-import { useSelectionStore, useUIStore } from '@/infrastructure/store'
 
-export function Sidebar() {
+interface SidebarProps {
+  onFileSelect?: (fileId: string) => void
+  selectedFileId?: string | null
+}
+
+export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
   const queryClient = useQueryClient()
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
-
-  // 使用全域 selection store
-  const {
-    selectedFileId,
-    checkedFileIds,
-    selectFile,
-    toggleCheckFile,
-    clearCheckedFiles,
-  } = useSelectionStore()
-
-  // 使用 UI store 切換頁面
-  const setActiveTab = useUIStore((state) => state.setActiveTab)
 
   // 取得系統健康狀態（含 LLM）
   const { data: health } = useQuery<HealthStatus>({
@@ -31,21 +23,18 @@ export function Sidebar() {
     refetchInterval: 10000, // 每 10 秒檢查一次
   })
 
-  // 取得已上傳檔案列表
+  // 取得已上傳檔案列表 - 處理中時每 2 秒刷新
   const { data: files = [], isLoading } = useQuery({
     queryKey: ['files'],
     queryFn: api.listFiles,
+    refetchInterval: isProcessing ? 2000 : 5000, // 處理中時更頻繁刷新
   })
 
   // 上傳檔案 mutation
   const uploadMutation = useMutation({
     mutationFn: api.uploadFile,
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] })
-      toast.success(`已上傳：${data.filename}`)
-    },
-    onError: (error: Error) => {
-      toast.error(`上傳失敗：${error.message}`)
     },
   })
 
@@ -54,19 +43,12 @@ export function Sidebar() {
     mutationFn: api.deleteFile,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] })
-      clearCheckedFiles()
-      toast.success('檔案已刪除')
-    },
-    onError: (error: Error) => {
-      toast.error(`刪除失敗：${error.message}`)
+      setSelectedFiles([])
     },
   })
 
   // Dropzone 配置
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      toast.info(`正在上傳 ${acceptedFiles.length} 個檔案...`)
-    }
     acceptedFiles.forEach((file) => {
       uploadMutation.mutate(file)
     })
@@ -80,12 +62,34 @@ export function Sidebar() {
       'text/csv': ['.csv'],
       'application/json': ['.json'],
       'text/plain': ['.txt'],
-      'text/markdown': ['.md', '.markdown'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/msword': ['.doc'],
-      'application/pdf': ['.pdf'],
     },
   })
+
+  // 選取/取消選取檔案（用於批次處理）
+  const toggleFileSelection = (fileId: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation() // 防止觸發檔案預覽
+    }
+    setSelectedFiles((prev) =>
+      prev.includes(fileId)
+        ? prev.filter((id) => id !== fileId)
+        : [...prev, fileId]
+    )
+  }
+
+  // 點擊檔案：預覽 + 切換選取
+  const handleFileClick = (fileId: string) => {
+    // 切換選取狀態
+    setSelectedFiles((prev) =>
+      prev.includes(fileId)
+        ? prev.filter((id) => id !== fileId)
+        : [...prev, fileId]
+    )
+    // 切換到預覽
+    if (onFileSelect) {
+      onFileSelect(fileId)
+    }
+  }
 
   // 取得檔案圖示
   const getIcon = (filename: string) => {
@@ -94,10 +98,6 @@ export function Sidebar() {
       return <FileSpreadsheet className="h-4 w-4" />
     } else if (ext === 'json') {
       return <FileJson className="h-4 w-4" />
-    } else if (ext === 'pdf' || ext === 'docx' || ext === 'doc') {
-      return <FileType className="h-4 w-4" />
-    } else if (ext === 'md' || ext === 'markdown') {
-      return <FileText className="h-4 w-4 text-blue-500" />
     }
     return <FileText className="h-4 w-4" />
   }
@@ -118,11 +118,6 @@ export function Sidebar() {
               <CheckCircle className="h-3 w-3" />
               在線 ({health.llm.model || 'ollama'})
             </span>
-          ) : health?.llm?.status === 'model_not_found' ? (
-            <span className="flex items-center gap-1 text-yellow-600">
-              <XCircle className="h-3 w-3" />
-              模型未找到 ({health.llm.model})
-            </span>
           ) : (
             <span className="flex items-center gap-1 text-red-500">
               <XCircle className="h-3 w-3" />
@@ -130,11 +125,6 @@ export function Sidebar() {
             </span>
           )}
         </div>
-        {health?.llm?.status === 'model_not_found' && (
-          <div className="mt-1 text-xs text-yellow-600">
-            ⚠️ 請執行: ollama pull {health.llm.model}
-          </div>
-        )}
         {health && !health.engine_available && (
           <div className="mt-1 text-xs text-yellow-600">
             ⚠️ PHI 引擎未載入（使用模擬處理）
@@ -178,16 +168,16 @@ export function Sidebar() {
           <span className="text-sm font-medium">
             已上傳檔案 ({files.length})
           </span>
-          {checkedFileIds.length > 0 && (
+          {selectedFiles.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => {
-                checkedFileIds.forEach((id) => deleteMutation.mutate(id))
+                selectedFiles.forEach((id) => deleteMutation.mutate(id))
               }}
             >
               <Trash2 className="h-4 w-4 mr-1" />
-              刪除 ({checkedFileIds.length})
+              刪除 ({selectedFiles.length})
             </Button>
           )}
         </div>
@@ -206,32 +196,32 @@ export function Sidebar() {
               {files.map((file: UploadedFile) => (
                 <div
                   key={file.id}
-                  className={`flex items-center gap-2 p-2 rounded-md transition-colors ${
+                  className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors ${
                     selectedFileId === file.id
+                      ? 'bg-primary/20 border border-primary/50'
+                      : selectedFiles.includes(file.id)
                       ? 'bg-primary/10 border border-primary/30'
                       : 'hover:bg-muted'
                   }`}
+                  onClick={() => handleFileClick(file.id)}
                 >
-                  {/* 勾選框（用於批次處理） */}
-                  <Checkbox
-                    checked={checkedFileIds.includes(file.id)}
-                    onCheckedChange={() => toggleCheckFile(file.id)}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  {/* 檔案資訊（點擊連動預覽/結果） */}
+                  {/* Checkbox 區域 - 用於選取批次處理 */}
                   <div
-                    className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
-                    onClick={() => selectFile(file.id)}
+                    className="flex items-center justify-center w-5 h-5 rounded border cursor-pointer hover:bg-muted"
+                    onClick={(e) => toggleFileSelection(file.id, e)}
                   >
-                    {getIcon(file.filename)}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {file.filename}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatBytes(file.size)} • {formatDate(file.upload_time)}
-                      </p>
-                    </div>
+                    {selectedFiles.includes(file.id) && (
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                    )}
+                  </div>
+                  {getIcon(file.filename)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {file.filename}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatBytes(file.size)} • {formatDate(file.upload_time)}
+                    </p>
                   </div>
                   <Badge
                     variant={
@@ -263,29 +253,20 @@ export function Sidebar() {
       <div className="p-4 border-t space-y-2">
         <Button
           className="w-full"
-          disabled={checkedFileIds.length === 0 || isProcessing || health?.llm?.status !== 'online'}
+          disabled={selectedFiles.length === 0 || isProcessing || health?.llm?.status !== 'online'}
           onClick={async () => {
-            if (checkedFileIds.length === 0) return
+            if (selectedFiles.length === 0) return
             setIsProcessing(true)
-            toast.info(`開始處理 ${checkedFileIds.length} 個檔案...`)
             try {
-              const task = await api.startProcessing({ file_ids: checkedFileIds })
-              // 直接將新任務加入快取，確保立即顯示
-              queryClient.setQueryData(['tasks'], (oldTasks: typeof task[] | undefined) => {
-                const existing = oldTasks || []
-                // 避免重複加入
-                if (existing.some(t => t.task_id === task.task_id)) return existing
-                return [task, ...existing]
-              })
-              // 切換到 Tasks 頁面
-              setActiveTab('tasks')
-              // 背景 refetch 確保資料同步
-              queryClient.invalidateQueries({ queryKey: ['files'] })
-              toast.success(`處理任務已建立 (${task.task_id})`)
+              await api.startProcessing({ file_ids: selectedFiles })
+              // 立即刷新任務和檔案列表
+              await queryClient.invalidateQueries({ queryKey: ['tasks'] })
+              await queryClient.invalidateQueries({ queryKey: ['files'] })
+              setSelectedFiles([])
+              // 延遲一點再關閉 isProcessing，讓 UI 能看到狀態更新
+              setTimeout(() => setIsProcessing(false), 1000)
             } catch (err) {
               console.error('處理失敗:', err)
-              toast.error('處理失敗，請稍後再試')
-            } finally {
               setIsProcessing(false)
             }
           }}
@@ -293,30 +274,25 @@ export function Sidebar() {
           {isProcessing ? (
             <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />處理中...</>
           ) : (
-            <>開始處理 ({checkedFileIds.length})</>
+            <>開始處理 ({selectedFiles.length})</>
           )}
         </Button>
         <Button
           variant="outline"
           className="w-full"
           disabled={
-            checkedFileIds.length === 0 ||
+            selectedFiles.length === 0 ||
             !files.some(
               (f: UploadedFile) =>
-                checkedFileIds.includes(f.id) && f.status === 'completed' && f.task_id
+                selectedFiles.includes(f.id) && f.status === 'completed' && f.task_id
             )
           }
           onClick={async () => {
-            let downloadCount = 0
-            for (const fileId of checkedFileIds) {
+            for (const fileId of selectedFiles) {
               const file = files.find((f: UploadedFile) => f.id === fileId)
               if (file?.status === 'completed' && file.task_id) {
                 await api.downloadResult(file.task_id)
-                downloadCount++
               }
-            }
-            if (downloadCount > 0) {
-              toast.success(`已下載 ${downloadCount} 個結果檔案`)
             }
           }}
         >

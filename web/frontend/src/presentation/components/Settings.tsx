@@ -1,13 +1,12 @@
 import { useState, useRef, useEffect, ChangeEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Settings2, Upload, Shield, FileText, Save, Plus, ChevronUp, Eye, Trash2, RotateCcw, HardDrive, AlertTriangle } from 'lucide-react'
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge, ScrollArea, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui'
-import api, { PHIType, MaskingType, PHIConfig, RegulationRule } from '@/infrastructure/api'
-import { toast } from 'sonner'
+import { Settings2, Upload, Shield, FileText, Save, Plus, ChevronUp, Eye, Cpu, RefreshCw, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { Button, Card, CardContent, CardHeader, CardTitle, Badge, ScrollArea, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Input } from '@/presentation/components/ui'
+import api, { PHIType, MaskingType, PHIConfig, RegulationRule, getLLMStatus, getLLMConfig, updateLLMConfig, setLLMModel, testLLMConnection, getLLMProviders } from '@/infrastructure/api'
 
 export function SettingsPanel() {
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'phi' | 'regulations' | 'maintenance'>('phi')
+  const [activeTab, setActiveTab] = useState<'phi' | 'regulations' | 'llm'>('phi')
 
   // 取得 PHI 類型
   const { data: phiTypes = [] } = useQuery({
@@ -32,10 +31,6 @@ export function SettingsPanel() {
     mutationFn: api.updateConfig,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['config'] })
-      toast.success('設定已儲存')
-    },
-    onError: () => {
-      toast.error('儲存設定失敗')
     },
   })
 
@@ -44,23 +39,6 @@ export function SettingsPanel() {
     mutationFn: (file: File) => api.uploadRegulation(file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['regulations'] })
-      toast.success('法規上傳成功')
-    },
-    onError: () => {
-      toast.error('法規上傳失敗')
-    },
-  })
-
-  // 更新法規啟用狀態 mutation
-  const updateRegulationMutation = useMutation({
-    mutationFn: ({ ruleId, enabled }: { ruleId: string; enabled: boolean }) =>
-      api.updateRegulation(ruleId, enabled),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['regulations'] })
-      toast.success('法規設定已更新')
-    },
-    onError: () => {
-      toast.error('更新法規設定失敗')
     },
   })
 
@@ -92,14 +70,14 @@ export function SettingsPanel() {
         </button>
         <button
           className={`px-6 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'maintenance'
+            activeTab === 'llm'
               ? 'border-b-2 border-primary text-primary'
               : 'text-muted-foreground hover:text-foreground'
           }`}
-          onClick={() => setActiveTab('maintenance')}
+          onClick={() => setActiveTab('llm')}
         >
-          <HardDrive className="h-4 w-4 inline mr-2" />
-          系統維護
+          <Cpu className="h-4 w-4 inline mr-2" />
+          LLM 設定
         </button>
       </div>
 
@@ -117,13 +95,9 @@ export function SettingsPanel() {
             regulations={regulations}
             onUpload={(file) => uploadRegulationMutation.mutate(file)}
             isUploading={uploadRegulationMutation.isPending}
-            onToggleEnabled={(ruleId, enabled) =>
-              updateRegulationMutation.mutate({ ruleId, enabled })
-            }
-            isUpdatingRegulation={updateRegulationMutation.isPending}
           />
         ) : (
-          <MaintenanceSettings queryClient={queryClient} />
+          <LLMSettings />
         )}
       </div>
     </div>
@@ -359,14 +333,10 @@ function RegulationsSettings({
   regulations,
   onUpload,
   isUploading,
-  onToggleEnabled,
-  isUpdatingRegulation,
 }: {
   regulations: RegulationRule[]
   onUpload: (file: File) => void
   isUploading: boolean
-  onToggleEnabled: (ruleId: string, enabled: boolean) => void
-  isUpdatingRegulation: boolean
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [expandedRule, setExpandedRule] = useState<string | null>(null)
@@ -513,9 +483,8 @@ function RegulationsSettings({
                     <div className="flex items-center gap-2 mt-2">
                       <Switch
                         checked={reg.enabled}
-                        disabled={isUpdatingRegulation}
-                        onCheckedChange={(checked) => {
-                          onToggleEnabled(reg.id, checked)
+                        onCheckedChange={() => {
+                          // TODO: 更新法規啟用狀態
                         }}
                       />
                       <span className="text-sm">
@@ -533,278 +502,328 @@ function RegulationsSettings({
   )
 }
 
-// 格式化檔案大小
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
+// LLM 設定子元件
+function LLMSettings() {
+  const queryClient = useQueryClient()
+  const [isTesting, setIsTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
 
-// 系統維護子元件
-function MaintenanceSettings({
-  queryClient,
-}: {
-  queryClient: ReturnType<typeof useQueryClient>
-}) {
-  const [confirmAction, setConfirmAction] = useState<string | null>(null)
-
-  // 取得清理統計
-  const { data: stats, refetch: refetchStats, isLoading: isLoadingStats } = useQuery({
-    queryKey: ['cleanup-stats'],
-    queryFn: api.getCleanupStats,
-    refetchInterval: false,
+  // 取得 LLM 狀態
+  const { data: llmStatus, isLoading: statusLoading, isFetching: statusFetching, refetch: refetchStatus } = useQuery({
+    queryKey: ['llm-status'],
+    queryFn: getLLMStatus,
+    refetchInterval: 30000, // 每 30 秒更新一次
+    staleTime: 10000, // 10 秒內視為新鮮資料
+    retry: 2,
   })
 
-  // 清除上傳檔案
-  const cleanupUploadsMutation = useMutation({
-    mutationFn: api.cleanupUploads,
-    onSuccess: (data) => {
-      toast.success(`已清除 ${data.files_deleted} 個上傳檔案 (${formatBytes(data.bytes_freed)})`)
-      refetchStats()
-      queryClient.invalidateQueries({ queryKey: ['files'] })
-    },
-    onError: () => toast.error('清除上傳檔案失敗'),
+  // 取得 LLM 設定
+  const { data: llmConfig } = useQuery({
+    queryKey: ['llm-config'],
+    queryFn: getLLMConfig,
+    staleTime: 10000,
   })
 
-  // 清除結果檔案
-  const cleanupResultsMutation = useMutation({
-    mutationFn: api.cleanupResults,
-    onSuccess: (data) => {
-      toast.success(`已清除 ${data.files_deleted} 個結果檔案 (${formatBytes(data.bytes_freed)})`)
-      refetchStats()
-      queryClient.invalidateQueries({ queryKey: ['results'] })
-    },
-    onError: () => toast.error('清除結果檔案失敗'),
+  // 取得支援的提供者
+  const { data: providers = [] } = useQuery({
+    queryKey: ['llm-providers'],
+    queryFn: getLLMProviders,
   })
 
-  // 清除報告檔案
-  const cleanupReportsMutation = useMutation({
-    mutationFn: api.cleanupReports,
-    onSuccess: (data) => {
-      toast.success(`已清除 ${data.files_deleted} 個報告檔案 (${formatBytes(data.bytes_freed)})`)
-      refetchStats()
-      queryClient.invalidateQueries({ queryKey: ['reports'] })
-    },
-    onError: () => toast.error('清除報告檔案失敗'),
-  })
-
-  // 清除全部
-  const cleanupAllMutation = useMutation({
-    mutationFn: api.cleanupAll,
-    onSuccess: (data) => {
-      toast.success(`已清除所有資料 (${formatBytes(data.total_bytes_freed)})，${data.tasks_cleared} 個任務`)
-      refetchStats()
-      queryClient.invalidateQueries()
-    },
-    onError: () => toast.error('清除全部資料失敗'),
-  })
-
-  // 重置設定
-  const resetConfigMutation = useMutation({
-    mutationFn: api.resetConfig,
+  // 更新設定
+  const updateMutation = useMutation({
+    mutationFn: updateLLMConfig,
     onSuccess: () => {
-      toast.success('設定已重置為預設值')
-      queryClient.invalidateQueries({ queryKey: ['config'] })
+      queryClient.invalidateQueries({ queryKey: ['llm-config'] })
+      queryClient.invalidateQueries({ queryKey: ['llm-status'] })
     },
-    onError: () => toast.error('重置設定失敗'),
   })
 
-  const handleAction = (action: string) => {
-    if (confirmAction === action) {
-      // 第二次點擊，執行操作
-      switch (action) {
-        case 'uploads':
-          cleanupUploadsMutation.mutate()
-          break
-        case 'results':
-          cleanupResultsMutation.mutate()
-          break
-        case 'reports':
-          cleanupReportsMutation.mutate()
-          break
-        case 'all':
-          cleanupAllMutation.mutate()
-          break
-        case 'reset':
-          resetConfigMutation.mutate()
-          break
-      }
-      setConfirmAction(null)
-    } else {
-      // 第一次點擊，顯示確認
-      setConfirmAction(action)
-      // 3 秒後自動取消確認狀態
-      setTimeout(() => setConfirmAction(null), 3000)
+  // 切換模型
+  const setModelMutation = useMutation({
+    mutationFn: setLLMModel,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['llm-config'] })
+      queryClient.invalidateQueries({ queryKey: ['llm-status'] })
+    },
+  })
+
+  // 測試連線
+  const handleTestConnection = async () => {
+    setIsTesting(true)
+    setTestResult(null)
+    try {
+      const result = await testLLMConnection()
+      setTestResult({
+        success: result.success,
+        message: result.success
+          ? `連線成功！模型: ${result.model}`
+          : result.error || '連線失敗',
+      })
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: '測試連線時發生錯誤',
+      })
+    } finally {
+      setIsTesting(false)
     }
   }
 
-  const isAnyPending = cleanupUploadsMutation.isPending || 
-                       cleanupResultsMutation.isPending || 
-                       cleanupReportsMutation.isPending || 
-                       cleanupAllMutation.isPending ||
-                       resetConfigMutation.isPending
+  const currentProvider = providers.find(p => p.id === llmConfig?.provider)
 
   return (
     <div className="space-y-6">
-      {/* 儲存空間統計 */}
+      {/* 連線狀態 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <HardDrive className="h-5 w-5" />
-            儲存空間統計
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoadingStats ? (
-            <div className="flex items-center justify-center py-4">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-              <span className="ml-2 text-sm text-muted-foreground">載入中...</span>
-            </div>
-          ) : stats ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="border rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-primary">{stats.uploads.files_count}</div>
-                <div className="text-sm text-muted-foreground">上傳檔案</div>
-                <div className="text-xs text-muted-foreground">{formatBytes(stats.uploads.total_size)}</div>
-              </div>
-              <div className="border rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-primary">{stats.results.files_count}</div>
-                <div className="text-sm text-muted-foreground">結果檔案</div>
-                <div className="text-xs text-muted-foreground">{formatBytes(stats.results.total_size)}</div>
-              </div>
-              <div className="border rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-primary">{stats.reports.files_count}</div>
-                <div className="text-sm text-muted-foreground">報告檔案</div>
-                <div className="text-xs text-muted-foreground">{formatBytes(stats.reports.total_size)}</div>
-              </div>
-              <div className="border rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-primary">{stats.tasks.count}</div>
-                <div className="text-sm text-muted-foreground">處理任務</div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-center py-4">無法載入統計資料</p>
-          )}
-          <div className="mt-4 flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => refetchStats()} disabled={isLoadingStats}>
-              <RotateCcw className="h-4 w-4 mr-2" />
-              重新整理
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 清除資料 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Trash2 className="h-5 w-5" />
-            清除資料
+            <Cpu className="h-5 w-5" />
+            LLM 連線狀態
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between border rounded-lg p-4">
-            <div>
-              <p className="font-medium">清除上傳檔案</p>
-              <p className="text-sm text-muted-foreground">刪除所有已上傳的原始檔案</p>
-            </div>
-            <Button
-              variant={confirmAction === 'uploads' ? 'destructive' : 'outline'}
-              onClick={() => handleAction('uploads')}
-              disabled={isAnyPending}
-            >
-              {confirmAction === 'uploads' ? (
-                <><AlertTriangle className="h-4 w-4 mr-2" />確認刪除</>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              {statusLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              ) : llmStatus?.online ? (
+                <CheckCircle className="h-5 w-5 text-green-500" />
               ) : (
-                <><Trash2 className="h-4 w-4 mr-2" />清除</>
+                <XCircle className="h-5 w-5 text-red-500" />
               )}
+              <span className="font-medium">
+                {statusLoading ? '檢查中...' : llmStatus?.online ? '線上' : '離線'}
+              </span>
+              {statusFetching && !statusLoading && (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+            </div>
+            {llmStatus?.current_model && (
+              <Badge variant="outline">{llmStatus.current_model}</Badge>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetchStatus()}
+              className="ml-auto"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              重新檢查
             </Button>
           </div>
 
-          <div className="flex items-center justify-between border rounded-lg p-4">
-            <div>
-              <p className="font-medium">清除結果檔案</p>
-              <p className="text-sm text-muted-foreground">刪除所有處理後的結果檔案</p>
+          {llmStatus?.error && (
+            <div className="text-sm text-red-500 bg-red-50 dark:bg-red-950 p-3 rounded-lg">
+              錯誤: {llmStatus.error}
             </div>
-            <Button
-              variant={confirmAction === 'results' ? 'destructive' : 'outline'}
-              onClick={() => handleAction('results')}
-              disabled={isAnyPending}
-            >
-              {confirmAction === 'results' ? (
-                <><AlertTriangle className="h-4 w-4 mr-2" />確認刪除</>
-              ) : (
-                <><Trash2 className="h-4 w-4 mr-2" />清除</>
-              )}
-            </Button>
+          )}
+
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-muted-foreground">提供者:</span>{' '}
+              <span className="font-medium">{currentProvider?.name || llmConfig?.provider}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">端點:</span>{' '}
+              <span className="font-medium">{llmStatus?.endpoint || llmConfig?.base_url}</span>
+            </div>
           </div>
 
-          <div className="flex items-center justify-between border rounded-lg p-4">
-            <div>
-              <p className="font-medium">清除報告檔案</p>
-              <p className="text-sm text-muted-foreground">刪除所有處理報告</p>
-            </div>
+          <div className="flex items-center gap-2">
             <Button
-              variant={confirmAction === 'reports' ? 'destructive' : 'outline'}
-              onClick={() => handleAction('reports')}
-              disabled={isAnyPending}
+              onClick={handleTestConnection}
+              disabled={isTesting}
             >
-              {confirmAction === 'reports' ? (
-                <><AlertTriangle className="h-4 w-4 mr-2" />確認刪除</>
+              {isTesting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  測試中...
+                </>
               ) : (
-                <><Trash2 className="h-4 w-4 mr-2" />清除</>
+                '測試連線'
               )}
             </Button>
-          </div>
-
-          <div className="flex items-center justify-between border rounded-lg p-4 bg-destructive/5 border-destructive/30">
-            <div>
-              <p className="font-medium text-destructive">清除全部資料</p>
-              <p className="text-sm text-muted-foreground">刪除所有上傳檔案、結果和報告</p>
-            </div>
-            <Button
-              variant="destructive"
-              onClick={() => handleAction('all')}
-              disabled={isAnyPending}
-            >
-              {confirmAction === 'all' ? (
-                <><AlertTriangle className="h-4 w-4 mr-2" />確認清除全部</>
-              ) : (
-                <><Trash2 className="h-4 w-4 mr-2" />全部清除</>
-              )}
-            </Button>
+            {testResult && (
+              <span className={`text-sm ${testResult.success ? 'text-green-600' : 'text-red-600'}`}>
+                {testResult.message}
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* 重置設定 */}
+      {/* 模型選擇 */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <RotateCcw className="h-5 w-5" />
-            重置設定
-          </CardTitle>
+          <CardTitle>模型選擇</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between border rounded-lg p-4">
-            <div>
-              <p className="font-medium">重置 PHI 設定為預設值</p>
-              <p className="text-sm text-muted-foreground">將遮蔽設定還原為系統預設值</p>
+        <CardContent className="space-y-4">
+          {llmStatus?.available_models && llmStatus.available_models.length > 0 ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">目前模型:</span>
+                <Select
+                  value={llmConfig?.model || ''}
+                  onValueChange={(model) => setModelMutation.mutate(model)}
+                  disabled={setModelMutation.isPending}
+                >
+                  <SelectTrigger className="w-64">
+                    <SelectValue placeholder="選擇模型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {llmStatus.available_models.map((model) => (
+                      <SelectItem key={model.name} value={model.name}>
+                        <div className="flex items-center gap-2">
+                          <span>{model.name}</span>
+                          {model.size && (
+                            <span className="text-xs text-muted-foreground">({model.size})</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                共 {llmStatus.available_models.length} 個可用模型
+              </p>
             </div>
-            <Button
-              variant={confirmAction === 'reset' ? 'destructive' : 'outline'}
-              onClick={() => handleAction('reset')}
-              disabled={isAnyPending}
-            >
-              {confirmAction === 'reset' ? (
-                <><AlertTriangle className="h-4 w-4 mr-2" />確認重置</>
-              ) : (
-                <><RotateCcw className="h-4 w-4 mr-2" />重置</>
-              )}
-            </Button>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">
+              <p>無可用模型</p>
+              <p className="text-xs mt-1">請確認 LLM 服務已啟動並下載模型</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 連線設定 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>連線設定</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">服務提供者</label>
+              <Select
+                value={llmConfig?.provider || 'ollama'}
+                onValueChange={(provider) => {
+                  const selectedProvider = providers.find(p => p.id === provider)
+                  updateMutation.mutate({
+                    provider,
+                    base_url: selectedProvider?.default_url || llmConfig?.base_url,
+                  })
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers.map((provider) => (
+                    <SelectItem key={provider.id} value={provider.id}>
+                      {provider.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">API 端點</label>
+              <Input
+                value={llmConfig?.base_url || ''}
+                onChange={() => {
+                  // 使用 onBlur 更新
+                }}
+                onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                  if (e.target.value !== llmConfig?.base_url) {
+                    updateMutation.mutate({ base_url: e.target.value })
+                  }
+                }}
+                placeholder="http://localhost:11434"
+              />
+            </div>
           </div>
+
+          {currentProvider?.requires_api_key && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">API Key</label>
+              <Input
+                type="password"
+                value={llmConfig?.api_key || ''}
+                onChange={() => {}}
+                onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                  if (e.target.value && e.target.value !== llmConfig?.api_key) {
+                    updateMutation.mutate({ api_key: e.target.value })
+                  }
+                }}
+                placeholder="輸入 API Key"
+              />
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Temperature</label>
+              <Input
+                type="number"
+                step="0.1"
+                min="0"
+                max="2"
+                value={llmConfig?.temperature ?? 0.1}
+                onChange={() => {}}
+                onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                  const value = parseFloat(e.target.value)
+                  if (!isNaN(value) && value !== llmConfig?.temperature) {
+                    updateMutation.mutate({ temperature: value })
+                  }
+                }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Max Tokens</label>
+              <Input
+                type="number"
+                min="1"
+                max="32000"
+                value={llmConfig?.max_tokens ?? 4096}
+                onChange={() => {}}
+                onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                  const value = parseInt(e.target.value)
+                  if (!isNaN(value) && value !== llmConfig?.max_tokens) {
+                    updateMutation.mutate({ max_tokens: value })
+                  }
+                }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Timeout (秒)</label>
+              <Input
+                type="number"
+                min="10"
+                max="600"
+                value={llmConfig?.timeout ?? 120}
+                onChange={() => {}}
+                onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                  const value = parseInt(e.target.value)
+                  if (!isNaN(value) && value !== llmConfig?.timeout) {
+                    updateMutation.mutate({ timeout: value })
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          {updateMutation.isPending && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              儲存中...
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -24,6 +24,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ErrorBoundary** - 全域錯誤處理元件
 - **後端日誌 API** - `/api/logs` 端點
 - **Checkbox UI 元件** - 新增 checkbox.tsx
+- **Web 功能完善**
+  - Backend: LLM 設定 API (`api/llm.py`) — 連線狀態、設定管理、模型列表、Provider 切換
+  - Backend: LLM 配置服務 (`services/llm_config_service.py`) — Ollama/OpenAI/Azure
+  - Backend: 結果/報告詳情 API (`api/results.py` 擴充) — PHI 統計、詳情檢視
+  - Backend: 健康檢查改進 — 新增 LLM 連線狀態
+  - Frontend: Settings 面板大幅擴充 (PHI 設定 / 法規管理 / LLM 設定 三分頁)
+  - Frontend: Reports 報告選擇 + 詳情顯示
+  - Frontend: ResultsPanel 結果列表 + 點擊查看詳情
+  - Frontend: DataPreview 檔案預覽 + 欄位顯示
+  - Frontend: Sidebar LLM 狀態指示器、檔案選取互動
+  - Frontend: TasksPanel 進度條、耗時顯示
+- **Playwright E2E 測試** — 58 個測試涵蓋所有前端頁面
+  - 測試範疇: 主佈局、側邊欄、任務面板、結果面板、報告面板、設定面板、資料預覽
+  - Mock API 攔截 (`e2e/fixtures.ts`) 保證測試穩定性
+  - Git pre-commit hook: 前端變更自動跑 Vitest + Playwright
+- **Systemd 部署腳本** (`scripts/services/`)
+  - 一鍵安裝/卸載前後端系統服務
+  - Backend: uvicorn :8000 | Frontend: npm dev :5173
 
 ### Fixed
 - 報告檔名顯示原始檔案名稱 (非 task_id)

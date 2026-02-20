@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { FileText, Download, Eye, Calendar, BarChart3 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Badge, ScrollArea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui'
-import api, { Report } from '@/infrastructure/api'
+import api, { Report, ReportExportFormat, exportReport } from '@/infrastructure/api'
 import { formatDate } from '@/lib/utils'
-import { toast } from 'sonner'
 
 export function Reports() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
   const [isExporting, setIsExporting] = useState(false)
+  const [exportFormat, setExportFormat] = useState<ReportExportFormat>('json')
 
   // 取得報告列表
   const { data: reports = [], isLoading: reportsLoading } = useQuery({
@@ -24,32 +24,33 @@ export function Reports() {
     enabled: !!selectedReportId,
   })
 
-  // 匯出報告
+  // 匯出報告功能
   const handleExportReport = async () => {
-    if (!selectedReportId || !reportDetail) return
+    if (!selectedReportId) return
+    
     setIsExporting(true)
     try {
-      // 建立 JSON 格式的報告資料
-      const exportData = {
-        task_id: reportDetail.task_id,
-        job_name: reportDetail.job_name,
-        generated_at: reportDetail.generated_at,
-        summary: reportDetail.summary,
-        file_details: reportDetail.file_details,
+      const blob = await exportReport(selectedReportId, exportFormat)
+      
+      // 根據格式設定檔名
+      const extensions: Record<ReportExportFormat, string> = {
+        json: 'json',
+        csv: 'csv',
+        markdown: 'md',
       }
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-        type: 'application/json',
-      })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `report_${reportDetail.task_id || 'export'}.json`
-      a.click()
-      URL.revokeObjectURL(url)
-      toast.success('報告匯出成功')
+      const filename = `report_${selectedReportId}.${extensions[exportFormat]}`
+      
+      // 建立下載連結
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
     } catch (error) {
-      console.error('匯出失敗:', error)
-      toast.error('報告匯出失敗')
+      console.error('匯出報告失敗:', error)
     } finally {
       setIsExporting(false)
     }
@@ -79,15 +80,26 @@ export function Reports() {
         </div>
 
         {selectedReportId && (
-          <Button
-            variant="outline"
-            className="ml-auto"
-            disabled={isExporting || !reportDetail}
-            onClick={handleExportReport}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            {isExporting ? '匯出中...' : '匯出報告'}
-          </Button>
+          <div className="flex items-center gap-2 ml-auto">
+            <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as ReportExportFormat)}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="json">JSON</SelectItem>
+                <SelectItem value="csv">CSV</SelectItem>
+                <SelectItem value="markdown">Markdown</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button 
+              variant="outline" 
+              onClick={handleExportReport}
+              disabled={isExporting}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {isExporting ? '匯出中...' : '匯出報告'}
+            </Button>
+          </div>
         )}
       </div>
 

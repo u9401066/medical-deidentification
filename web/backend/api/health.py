@@ -3,10 +3,10 @@ Health API Router
 健康檢查 API
 """
 
+import subprocess
 import sys
 from pathlib import Path
 
-import httpx
 from fastapi import APIRouter
 
 # 處理相對 import
@@ -14,7 +14,8 @@ _backend_dir = Path(__file__).parent.parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
-from config import OLLAMA_BASE_URL, OLLAMA_MODEL
+from config import OLLAMA_BASE_URL
+from services.llm_config_service import get_llm_config_service
 from services.processing_service import get_processing_service
 
 router = APIRouter()
@@ -23,25 +24,32 @@ router = APIRouter()
 @router.get("/health")
 async def health_check():
     """健康檢查，包含 LLM 狀態"""
-    # 檢查 Ollama LLM 狀態 (支援遠端 API) - 使用 async HTTP
+    # 取得 LLM 設定
+    llm_config_service = get_llm_config_service()
+    llm_config = llm_config_service.get_config()
+    
+    # 檢查 Ollama LLM 狀態 (支援遠端 API)
     llm_status = "offline"
-    llm_model = OLLAMA_MODEL  # 使用配置的模型
-    ollama_url = OLLAMA_BASE_URL.rstrip("/")
-    available_models: list[str] = []
+    ollama_url = llm_config.base_url.rstrip("/")
 
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(f"{ollama_url}/api/tags")
-            if response.status_code == 200:
-                data = response.json()
-                available_models = [m["name"] for m in data.get("models", [])]
+        result = subprocess.run(
+            ["curl", "-s", f"{ollama_url}/api/tags"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            import json
 
-                # 檢查配置的模型是否可用
-                if OLLAMA_MODEL in available_models:
+            try:
+                data = json.loads(result.stdout)
+                if data.get("models"):
                     llm_status = "online"
-                elif available_models:
-                    llm_status = "model_not_found"
-    except httpx.TimeoutException:
+            except json.JSONDecodeError:
+                pass
+    except subprocess.TimeoutExpired:
         llm_status = "timeout"
     except Exception:
         pass
@@ -54,10 +62,9 @@ async def health_check():
         "status": "healthy",
         "llm": {
             "status": llm_status,
-            "model": llm_model,
-            "provider": "ollama",
+            "model": llm_config.model,  # 使用設定中的模型
+            "provider": llm_config.provider,
             "endpoint": ollama_url,
-            "available_models": available_models[:5] if available_models else [],  # 最多顯示 5 個
         },
         "engine_available": engine_available,
     }

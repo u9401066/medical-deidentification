@@ -82,23 +82,13 @@ export interface PHIConfig {
   custom_patterns?: Record<string, string>;
 }
 
-export interface FileResult {
-  file_id: string;
-  filename?: string | null;  // 檔案名稱
-  status: 'pending' | 'processing' | 'completed' | 'error';
-  phi_found: number;
-  error?: string | null;
-  processing_time?: number | null;
-}
-
 export interface TaskStatus {
   task_id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress: number;
   message: string;
-  file_ids?: string[];
+  file_ids: string[];  // 處理的檔案 ID 列表
   created_at: string;
-  updated_at?: string;
   completed_at?: string;
   result_file?: string;
   report_file?: string;
@@ -108,14 +98,6 @@ export interface TaskStatus {
   processing_speed?: number;
   total_chars?: number;
   processed_chars?: number;
-  // 單檔處理狀態
-  file_results?: Record<string, FileResult>;
-  current_file?: string;
-  files_completed?: number;
-  total_files?: number;
-  elapsed_time?: number;
-  elapsed_time_formatted?: string;
-  estimated_remaining_formatted?: string;
 }
 
 export interface ProcessRequest {
@@ -125,10 +107,9 @@ export interface ProcessRequest {
 }
 
 export interface PreviewData {
-  type: 'tabular' | 'text' | 'json' | 'markdown';
+  type: 'tabular' | 'table' | 'text' | 'json';
   columns?: string[];
   data?: Record<string, unknown>[];
-  source_format?: string;
   content?: string;
   lines?: string[];
   total_rows: number;
@@ -217,17 +198,12 @@ export interface ReportDetail {
 
 export interface ResultItem {
   task_id: string;
-  filename: string;
-  phi_count: number;
-  status: string;
-  created_at: string;
-  results?: Array<{
-    file_id: string;
-    filename: string;
-    phi_found: number;
-    rows_processed?: number;
-    status: string;
-  }>;
+  job_name: string;
+  files_count: number;
+  filenames: string[];  // 處理的檔案名稱列表
+  total_phi_found: number;
+  phi_by_type: Record<string, number>;
+  processed_at: string;
 }
 
 export interface ResultDetail {
@@ -256,43 +232,48 @@ export interface ResultDetail {
 
 export interface HealthStatus {
   status: string;
-  timestamp?: string;
-  version?: string;
   llm?: {
-    status: 'online' | 'offline' | 'model_not_found' | 'timeout';
+    status: 'online' | 'offline' | 'timeout';
     model: string | null;
     provider: string;
     endpoint?: string;
-    available_models?: string[];
   };
   engine_available?: boolean;
 }
 
-export interface CleanupResult {
-  success: boolean;
-  message: string;
-  files_deleted: number;
-  bytes_freed: number;
+// LLM 設定類型
+export interface LLMConfig {
+  provider: string;
+  base_url: string;
+  model: string;
+  api_key?: string;
+  temperature: number;
+  max_tokens: number;
+  timeout: number;
 }
 
-export interface CleanupAllResult {
-  uploads: CleanupResult;
-  results: CleanupResult;
-  reports: CleanupResult;
-  tasks_cleared: number;
-  total_bytes_freed: number;
+export interface LLMModel {
+  name: string;
+  size?: string;
+  modified_at?: string;
+  quantization?: string;
 }
 
-export interface DirectoryStats {
-  files_count: number;
-  total_size: number;
+export interface LLMStatus {
+  online: boolean;
+  provider: string;
+  endpoint: string;
+  current_model?: string;
+  available_models: LLMModel[];
+  error?: string;
 }
 
-export interface CleanupStats {
-  uploads: DirectoryStats;
-  results: DirectoryStats;
-  reports: DirectoryStats;
-  tasks: { count: number };
+export interface LLMProvider {
+  id: string;
+  name: string;
+  description: string;
+  requires_api_key: boolean;
+  default_url: string;
 }
 
 // ============================================================
@@ -329,21 +310,6 @@ export const downloadResult = async (
 ): Promise<Blob> => {
   const response = await apiClient.get(`/download/${fileId}`, {
     params: { file_type: fileType, format },
-    responseType: 'blob',
-  });
-  return response.data;
-};
-
-/**
- * 下載單一檔案的去識別化結果
- */
-export const downloadSingleFileResult = async (
-  taskId: string,
-  fileId: string,
-  format: 'xlsx' | 'csv' | 'json' = 'xlsx'
-): Promise<Blob> => {
-  const response = await apiClient.get(`/download/${taskId}/file/${fileId}`, {
-    params: { format },
     responseType: 'blob',
   });
   return response.data;
@@ -404,6 +370,19 @@ export const getResultDetail = async (taskId: string): Promise<ResultDetail> => 
 
 export const listReports = async (): Promise<Report[]> => {
   const response = await apiClient.get('/reports');
+  return response.data;
+};
+
+export type ReportExportFormat = 'json' | 'csv' | 'markdown';
+
+export const exportReport = async (
+  taskId: string,
+  format: ReportExportFormat = 'json'
+): Promise<Blob> => {
+  const response = await apiClient.get(`/reports/${taskId}/export`, {
+    params: { format },
+    responseType: 'blob',
+  });
   return response.data;
 };
 
@@ -473,45 +452,50 @@ export const healthCheck = async (): Promise<HealthStatus> => {
 };
 
 // ============================================================
-// Cleanup APIs (系統維護)
+// LLM APIs
 // ============================================================
 
-export const cleanupUploads = async (): Promise<CleanupResult> => {
-  const response = await apiClient.delete('/cleanup/uploads');
+export const getLLMStatus = async (): Promise<LLMStatus> => {
+  const response = await apiClient.get('/llm/status');
   return response.data;
 };
 
-export const cleanupResults = async (): Promise<CleanupResult> => {
-  const response = await apiClient.delete('/cleanup/results');
+export const getLLMModels = async (): Promise<LLMModel[]> => {
+  const response = await apiClient.get('/llm/models');
   return response.data;
 };
 
-export const cleanupReports = async (): Promise<CleanupResult> => {
-  const response = await apiClient.delete('/cleanup/reports');
+export const getLLMConfig = async (): Promise<LLMConfig> => {
+  const response = await apiClient.get('/llm/config');
   return response.data;
 };
 
-export const cleanupAll = async (): Promise<CleanupAllResult> => {
-  const response = await apiClient.delete('/cleanup/all');
+export const updateLLMConfig = async (
+  config: Partial<LLMConfig>
+): Promise<{ message: string; config: LLMConfig }> => {
+  const response = await apiClient.put('/llm/config', config);
   return response.data;
 };
 
-export const getCleanupStats = async (): Promise<CleanupStats> => {
-  const response = await apiClient.get('/cleanup/stats');
+export const setLLMModel = async (
+  model: string
+): Promise<{ message: string; config: LLMConfig }> => {
+  const response = await apiClient.post('/llm/model', { model });
   return response.data;
 };
 
-// ============================================================
-// Settings Reset API
-// ============================================================
-
-export const resetConfig = async (): Promise<{ message: string; config: PHIConfig }> => {
-  const response = await apiClient.post('/settings/reset');
+export const testLLMConnection = async (): Promise<{
+  success: boolean;
+  error?: string;
+  provider?: string;
+  model?: string;
+}> => {
+  const response = await apiClient.post('/llm/test');
   return response.data;
 };
 
-export const getDefaultConfig = async (): Promise<PHIConfig> => {
-  const response = await apiClient.get('/settings/default');
+export const getLLMProviders = async (): Promise<LLMProvider[]> => {
+  const response = await apiClient.get('/llm/providers');
   return response.data;
 };
 
@@ -524,7 +508,6 @@ const api = {
   listFiles,
   deleteFile,
   downloadResult,
-  downloadSingleFileResult,
   previewFile,
   startProcessing,
   listTasks,
@@ -533,6 +516,7 @@ const api = {
   getResultDetail,
   getReport,
   listReports,
+  exportReport,
   getPHITypes,
   getConfig,
   updateConfig,
@@ -541,14 +525,14 @@ const api = {
   uploadRegulation,
   updateRegulation,
   healthCheck,
-  // Cleanup & Reset
-  cleanupUploads,
-  cleanupResults,
-  cleanupReports,
-  cleanupAll,
-  getCleanupStats,
-  resetConfig,
-  getDefaultConfig,
+  // LLM APIs
+  getLLMStatus,
+  getLLMModels,
+  getLLMConfig,
+  updateLLMConfig,
+  setLLMModel,
+  testLLMConnection,
+  getLLMProviders,
 };
 
 export default api;

@@ -1,24 +1,26 @@
+import { useState } from 'react'
 import { FileSearch, Database, FileBarChart, Settings, ListTodo } from 'lucide-react'
-import { Toaster } from 'sonner'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/presentation/components/ui'
 import { Sidebar, DataPreview, TasksPanel, ResultsPanel, Reports, SettingsPanel } from '@/presentation/components'
-import { useUIStore } from '@/infrastructure/store'
 
 function App() {
-  const activeTab = useUIStore((state) => state.activeTab)
-  const setActiveTab = useUIStore((state) => state.setActiveTab)
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('preview')
+
+  // 當 sidebar 選擇檔案時，切換到資料預覽
+  const handleFileSelect = (fileId: string) => {
+    setSelectedFileId(fileId)
+    setActiveTab('preview')
+  }
 
   return (
     <div className="flex h-screen bg-background">
-      {/* Toast 通知 */}
-      <Toaster position="top-right" richColors closeButton />
-
       {/* 側邊欄 */}
-      <Sidebar />
+      <Sidebar onFileSelect={handleFileSelect} selectedFileId={selectedFileId} />
 
       {/* 主內容區 */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
           {/* 標籤列 */}
           <div className="border-b px-4">
             <TabsList className="h-12">
@@ -47,7 +49,7 @@ function App() {
 
           {/* 標籤內容 */}
           <TabsContent value="preview" className="flex-1 m-0">
-            <DataPreview />
+            <DataPreview selectedFileId={selectedFileId} onFileSelect={setSelectedFileId} />
           </TabsContent>
           <TabsContent value="tasks" className="flex-1 m-0">
             <TasksPanel />

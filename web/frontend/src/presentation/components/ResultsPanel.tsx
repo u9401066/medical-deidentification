@@ -6,7 +6,6 @@ import {
   Eye, 
   Download,
   CheckCircle,
-  AlertTriangle,
   ArrowLeftRight
 } from 'lucide-react'
 import { 
@@ -189,21 +188,21 @@ export function ResultsPanel() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {result.status === 'completed' ? (
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                    )}
+                    <CheckCircle className="h-5 w-5 text-green-500" />
                     <div>
-                      <p className="font-medium">{result.filename || result.task_id}</p>
+                      <p className="font-medium">
+                        {result.filenames?.length > 0 
+                          ? result.filenames.join(', ') 
+                          : result.job_name || result.task_id}
+                      </p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(result.created_at).toLocaleString()}
+                        {result.files_count} 個檔案 • {result.processed_at ? new Date(result.processed_at).toLocaleString('zh-TW') : '未知時間'}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <Badge variant={result.phi_count > 0 ? 'destructive' : 'secondary'}>
-                      {result.phi_count} PHI
+                    <Badge variant={result.total_phi_found > 0 ? 'destructive' : 'secondary'}>
+                      {result.total_phi_found} PHI
                     </Badge>
                     <Button 
                       variant="ghost" 

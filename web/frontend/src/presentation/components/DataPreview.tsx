@@ -1,16 +1,21 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Badge } from '@/presentation/components/ui'
 import api, { UploadedFile } from '@/infrastructure/api'
-import { useSelectedFileId, useSelectionActions } from '@/infrastructure/store'
 
-export function DataPreview() {
-  const selectedFileId = useSelectedFileId()
-  const { selectFile } = useSelectionActions()
+interface DataPreviewProps {
+  selectedFileId?: string | null
+  onFileSelect?: (fileId: string) => void
+}
+
+export function DataPreview({ selectedFileId: externalFileId, onFileSelect }: DataPreviewProps) {
+  const [internalFileId, setInternalFileId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const pageSize = 50
-  const hasAutoSelected = useRef(false)
+
+  // 使用外部傳入的 fileId，或內部狀態
+  const selectedFileId = externalFileId ?? internalFileId
 
   // 取得檔案列表
   const { data: files = [] } = useQuery({
@@ -28,13 +33,30 @@ export function DataPreview() {
     enabled: !!selectedFileId,
   })
 
-  // 當檔案列表變化時，如果尚未選擇則自動選擇第一個檔案
+  // 當檔案列表變化時，自動選擇第一個檔案（如果沒有外部選擇）
   useEffect(() => {
-    if (files.length > 0 && !selectedFileId && !hasAutoSelected.current) {
-      hasAutoSelected.current = true
-      selectFile(files[0].id)
+    if (files.length > 0 && !selectedFileId) {
+      const firstFileId = files[0].id
+      if (onFileSelect) {
+        onFileSelect(firstFileId)
+      } else {
+        setInternalFileId(firstFileId)
+      }
     }
-  }, [files, selectedFileId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [files, selectedFileId, onFileSelect])
+
+  // 檔案選擇改變時重置頁碼
+  useEffect(() => {
+    setPage(1)
+  }, [selectedFileId])
+
+  const handleFileChange = (fileId: string) => {
+    if (onFileSelect) {
+      onFileSelect(fileId)
+    } else {
+      setInternalFileId(fileId)
+    }
+  }
 
   const totalPages = preview ? Math.ceil(preview.total_rows / pageSize) : 0
 
@@ -46,10 +68,7 @@ export function DataPreview() {
           <span className="text-sm font-medium">選擇檔案:</span>
           <Select
             value={selectedFileId || ''}
-            onValueChange={(value: string) => {
-              selectFile(value)
-              setPage(1)
-            }}
+            onValueChange={handleFileChange}
           >
             <SelectTrigger className="w-64">
               <SelectValue placeholder="選擇檔案" />
@@ -97,7 +116,7 @@ export function DataPreview() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {preview.type === 'tabular' && preview.columns && preview.data ? (
+              {(preview.type === 'table' || preview.type === 'tabular') && preview.columns && preview.data ? (
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-sm">
                     <thead>
@@ -132,7 +151,7 @@ export function DataPreview() {
                     </tbody>
                   </table>
                 </div>
-              ) : preview.type === 'text' || preview.type === 'markdown' ? (
+              ) : preview.type === 'text' ? (
                 <pre className="whitespace-pre-wrap font-mono text-sm bg-muted p-4 rounded-lg overflow-auto max-h-[600px]">
                   {preview.content}
                 </pre>

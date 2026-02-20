@@ -18,13 +18,13 @@ interface FileResponse {
 }
 
 export interface PreviewData {
-  type: 'tabular' | 'text' | 'json' | 'markdown';
-  source_format?: string;
+  type: 'tabular' | 'table' | 'text' | 'json';
   columns?: string[];
   data?: Record<string, unknown>[];
   content?: string;
   lines?: string[];
   totalRows: number;
+  total_rows?: number; // 後端使用 snake_case
   totalLines?: number;
   totalItems?: number;
   page: number;

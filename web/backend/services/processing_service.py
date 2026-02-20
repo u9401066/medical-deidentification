@@ -228,8 +228,8 @@ class ProcessingService:
             "filename": display_filename,
             "phi_found": len(phi_entities),
             "phi_entities": phi_entities,
-            "original_content": original_content[:5000] if original_content else None,
-            "masked_content": masked_content[:5000] if masked_content else None,
+            "original_content": original_content[:5000] if original_content else "",
+            "masked_content": masked_content[:5000] if masked_content else "",
             "status": "completed",
         }
 

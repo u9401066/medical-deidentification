@@ -1167,6 +1167,21 @@ pytest tests/integration/test_tool_chain.py -v
 
 ---
 
-**Last Updated**: 2025-12-06
-**Status**: 📋 Planning Phase
+**Last Updated**: 2026-02-20
+**Status**: 📋 Planning Phase (Core) | ✅ Web UI Complete
 **Owner**: Medical Deidentification Team
+
+---
+
+## ✅ Completed Milestones | 已完成里程碑
+
+### Web 應用平台 (2026-01 ~ 2026-02)
+
+- ✅ Frontend DDD 架構 (React + Vite + TanStack Query)
+- ✅ Backend 模組化 (FastAPI + DDD services)
+- ✅ PHI 設定獨立服務 (導入/導出/預設範本)
+- ✅ LLM 設定管理 (Ollama/OpenAI/Azure provider)
+- ✅ 完整 Web 功能 (Settings/Reports/Results/DataPreview/Tasks)
+- ✅ 單元測試 68 個 (Vitest + RTL)
+- ✅ E2E 測試 58 個 (Playwright)
+- ✅ Systemd 部署腳本

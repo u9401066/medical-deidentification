@@ -1,0 +1,19 @@
+[Unit]
+Description=Medical De-identification Frontend (Production)
+After=network.target medical-deid-backend.service
+Wants=medical-deid-backend.service
+
+[Service]
+Type=simple
+User=eric
+Group=eric
+WorkingDirectory=/home/eric/workspace260113/medical-deidentification/web/frontend
+Environment="PATH=/home/eric/.nvm/versions/node/v20.19.6/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/eric/.nvm/versions/node/v20.19.6/bin/serve -s dist -l 5173
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
