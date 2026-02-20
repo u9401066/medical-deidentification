@@ -9,6 +9,7 @@ const mockProcessingTask: TaskStatus = {
   status: 'processing',
   progress: 50,
   message: '處理中...',
+  file_ids: ['file-1'],
   created_at: new Date().toISOString(),
   elapsed_seconds: 30,
   estimated_remaining_seconds: 25,
@@ -20,6 +21,7 @@ const mockCompletedTask: TaskStatus = {
   status: 'completed',
   progress: 100,
   message: '處理完成',
+  file_ids: ['file-2'],
   created_at: new Date().toISOString(),
   elapsed_seconds: 60,
   processing_speed: 150.0,
@@ -30,6 +32,7 @@ const mockFailedTask: TaskStatus = {
   status: 'failed',
   progress: 30,
   message: 'API 連線失敗',
+  file_ids: [],
   created_at: new Date().toISOString(),
 };
 

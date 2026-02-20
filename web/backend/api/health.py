@@ -14,7 +14,6 @@ _backend_dir = Path(__file__).parent.parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
-from config import OLLAMA_BASE_URL
 from services.llm_config_service import get_llm_config_service
 from services.processing_service import get_processing_service
 

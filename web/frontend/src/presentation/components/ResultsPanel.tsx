@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { 
   ChevronLeft, 
   FileText, 
@@ -23,7 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/presentation/components/ui'
-import api, { ResultItem, ResultDetail, PHIEntity } from '@/infrastructure/api'
+import { useResults, useResultDetail, useDownloadResult } from '@/application/hooks'
+import type { ResultItem, PHIEntity } from '@/infrastructure/api'
 
 // PHI 類型顏色映射
 const PHI_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -124,17 +124,12 @@ export function ResultsPanel() {
   const [viewMode, setViewMode] = useState<'list' | 'diff'>('list')
 
   // 取得結果列表
-  const { data: results = [], isLoading } = useQuery<ResultItem[]>({
-    queryKey: ['results'],
-    queryFn: api.getResults,
-  })
+  const { results, isLoading } = useResults()
 
   // 取得選中結果的詳情
-  const { data: resultDetail } = useQuery<ResultDetail>({
-    queryKey: ['result-detail', selectedResult],
-    queryFn: () => api.getResultDetail(selectedResult!),
-    enabled: !!selectedResult,
-  })
+  const { data: resultDetail } = useResultDetail(selectedResult)
+
+  const downloadResult = useDownloadResult()
 
   // 返回列表
   const handleBack = () => {
@@ -145,7 +140,7 @@ export function ResultsPanel() {
   // 下載結果
   const handleDownload = async (taskId: string) => {
     try {
-      const blob = await api.downloadResult(taskId, 'result')
+      const blob = await downloadResult.mutateAsync({ taskId, fileType: 'result' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url

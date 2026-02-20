@@ -82,6 +82,13 @@ export interface PHIConfig {
   custom_patterns?: Record<string, string>;
 }
 
+export interface FileResult {
+  file_id: string;
+  filename?: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  phi_found?: number;
+}
+
 export interface TaskStatus {
   task_id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -98,6 +105,8 @@ export interface TaskStatus {
   processing_speed?: number;
   total_chars?: number;
   processed_chars?: number;
+  file_results?: Record<string, FileResult>;
+  current_file?: string;
 }
 
 export interface ProcessRequest {
@@ -315,6 +324,18 @@ export const downloadResult = async (
   return response.data;
 };
 
+export const downloadSingleFileResult = async (
+  taskId: string,
+  fileId: string,
+  format: 'xlsx' | 'csv' | 'json' = 'xlsx'
+): Promise<Blob> => {
+  const response = await apiClient.get(`/download/${taskId}/file/${fileId}`, {
+    params: { format },
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
 // ============================================================
 // Preview APIs
 // ============================================================
@@ -508,6 +529,7 @@ const api = {
   listFiles,
   deleteFile,
   downloadResult,
+  downloadSingleFileResult,
   previewFile,
   startProcessing,
   listTasks,

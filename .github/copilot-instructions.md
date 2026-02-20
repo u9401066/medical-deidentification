@@ -102,6 +102,7 @@ cd web/frontend && npm run dev
 | `react-animation` | Framer Motion 動畫 | animation, 動畫, framer, motion |
 | `react-patterns` | 進階元件模式 | pattern, compound, HOC, render props |
 | `react-testing` | RTL + MSW + Vitest 測試 | testing, msw, mock, 單元測試 |
+| `self-update` | 自主審計更新 Skills/Hooks/Instructions | self-update, 自主更新, 審計 |
 
 ## 回應風格
 
@@ -145,6 +146,33 @@ export OLLAMA_MODEL=smollm2:360m
 2. **Client State**: 使用 Zustand + Immer（見 `infrastructure/store/`）
    - `uiStore`: UI 狀態（activeTab, sidebar, preferences）
    - `selectionStore`: 選擇狀態（selectedFileId, checkedFileIds）
+
+### Application Hooks（DDD 必要）
+
+Presentation 元件**禁止**直接引用 `@/infrastructure/api`。所有 API 互動必須透過 Application Hooks：
+
+```text
+presentation/components/  →  application/hooks/  →  infrastructure/api/
+                              （useXxx hooks）        （API 函數）
+```
+
+**現有 Hooks 清單：**
+
+| Hook | 用途 | 檔案 |
+|------|------|------|
+| `useTasks` | 任務列表 + computed 狀態 | `hooks/useTasks.ts` |
+| `useFiles` / `useUploadFile` / `useDeleteFile` | 檔案 CRUD | `hooks/useFiles.ts` |
+| `useFilePreview` | 檔案預覽（分頁） | `hooks/useFiles.ts` |
+| `useResults` / `useResultDetail` | 結果查詢 | `hooks/useResults.ts` |
+| `useReports` / `useReportDetail` / `useExportReport` | 報告查詢 + 匯出 | `hooks/useReports.ts` |
+| `useHealth` | 健康檢查 + LLM 狀態 | `hooks/useHealth.ts` |
+| `useDownloadResult` / `useDownloadSingleFile` | 下載 mutations | `hooks/useDownload.ts` |
+
+**新增 API 後的 checklist：**
+1. 在 `infrastructure/api/` 新增 API 函數
+2. 在 `application/hooks/` 建立對應 Hook
+3. 在 `hooks/index.ts` 匯出
+4. Presentation 元件透過 hook 使用
 
 ### Store 使用範例
 

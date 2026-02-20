@@ -1,10 +1,12 @@
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { Upload, FileText, Trash2, Download, FileSpreadsheet, FileJson, Cpu, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
 import { Button, ScrollArea, Badge } from '@/presentation/components/ui'
-import api, { UploadedFile, HealthStatus } from '@/infrastructure/api'
+import { useFiles, useUploadFile, useDeleteFile, useHealth } from '@/application/hooks'
+import { TASKS_QUERY_KEY } from '@/application/hooks'
 import { formatBytes, formatDate } from '@/lib/utils'
+import { startProcessing, downloadResult } from '@/infrastructure/api'
 
 interface SidebarProps {
   onFileSelect?: (fileId: string) => void
@@ -17,35 +19,16 @@ export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
   const [isProcessing, setIsProcessing] = useState(false)
 
   // 取得系統健康狀態（含 LLM）
-  const { data: health } = useQuery<HealthStatus>({
-    queryKey: ['health'],
-    queryFn: api.healthCheck,
-    refetchInterval: 10000, // 每 10 秒檢查一次
-  })
+  const { health } = useHealth({ refetchInterval: 10000 })
 
   // 取得已上傳檔案列表 - 處理中時每 2 秒刷新
-  const { data: files = [], isLoading } = useQuery({
-    queryKey: ['files'],
-    queryFn: api.listFiles,
-    refetchInterval: isProcessing ? 2000 : 5000, // 處理中時更頻繁刷新
-  })
+  const { files, isLoading } = useFiles()
 
   // 上傳檔案 mutation
-  const uploadMutation = useMutation({
-    mutationFn: api.uploadFile,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['files'] })
-    },
-  })
+  const uploadMutation = useUploadFile()
 
   // 刪除檔案 mutation
-  const deleteMutation = useMutation({
-    mutationFn: api.deleteFile,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['files'] })
-      setSelectedFiles([])
-    },
-  })
+  const deleteMutation = useDeleteFile()
 
   // Dropzone 配置
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -193,7 +176,7 @@ export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
             </div>
           ) : (
             <div className="p-2 space-y-1">
-              {files.map((file: UploadedFile) => (
+              {files.map((file) => (
                 <div
                   key={file.id}
                   className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors ${
@@ -220,7 +203,7 @@ export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
                       {file.filename}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {formatBytes(file.size)} • {formatDate(file.upload_time)}
+                      {formatBytes(file.size)} • {formatDate(file.uploadTime)}
                     </p>
                   </div>
                   <Badge
@@ -258,9 +241,9 @@ export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
             if (selectedFiles.length === 0) return
             setIsProcessing(true)
             try {
-              await api.startProcessing({ file_ids: selectedFiles })
+              await startProcessing({ file_ids: selectedFiles })
               // 立即刷新任務和檔案列表
-              await queryClient.invalidateQueries({ queryKey: ['tasks'] })
+              await queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY })
               await queryClient.invalidateQueries({ queryKey: ['files'] })
               setSelectedFiles([])
               // 延遲一點再關閉 isProcessing，讓 UI 能看到狀態更新
@@ -283,15 +266,15 @@ export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
           disabled={
             selectedFiles.length === 0 ||
             !files.some(
-              (f: UploadedFile) =>
-                selectedFiles.includes(f.id) && f.status === 'completed' && f.task_id
+              (f) =>
+                selectedFiles.includes(f.id) && f.status === 'completed'
             )
           }
           onClick={async () => {
             for (const fileId of selectedFiles) {
-              const file = files.find((f: UploadedFile) => f.id === fileId)
-              if (file?.status === 'completed' && file.task_id) {
-                await api.downloadResult(file.task_id)
+              const file = files.find((f) => f.id === fileId)
+              if (file?.status === 'completed') {
+                await downloadResult(fileId)
               }
             }
           }}

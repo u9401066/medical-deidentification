@@ -17,8 +17,8 @@ import {
 
 // Query Keys
 export const FILES_QUERY_KEY = ['files'] as const;
-export const FILE_PREVIEW_QUERY_KEY = (fileId: string) =>
-  ['files', fileId, 'preview'] as const;
+export const FILE_PREVIEW_QUERY_KEY = (fileId: string, page?: number, pageSize?: number) =>
+  ['files', fileId, 'preview', page ?? 1, pageSize ?? 20] as const;
 
 /**
  * 取得檔案列表
@@ -104,7 +104,7 @@ export function useFilePreview(
   options?: { page?: number; pageSize?: number }
 ) {
   return useQuery({
-    queryKey: FILE_PREVIEW_QUERY_KEY(fileId ?? ''),
+    queryKey: FILE_PREVIEW_QUERY_KEY(fileId ?? '', options?.page, options?.pageSize),
     queryFn: async (): Promise<PreviewData> => {
       if (!fileId) throw new Error('File ID is required');
       logger.debug('Fetching file preview', { fileId, ...options });

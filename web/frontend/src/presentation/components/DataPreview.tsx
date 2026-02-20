@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Badge } from '@/presentation/components/ui'
-import api, { UploadedFile } from '@/infrastructure/api'
+import { useFiles, useFilePreview } from '@/application/hooks'
 
 interface DataPreviewProps {
   selectedFileId?: string | null
@@ -18,20 +17,13 @@ export function DataPreview({ selectedFileId: externalFileId, onFileSelect }: Da
   const selectedFileId = externalFileId ?? internalFileId
 
   // 取得檔案列表
-  const { data: files = [] } = useQuery({
-    queryKey: ['files'],
-    queryFn: api.listFiles,
-  })
+  const { files } = useFiles()
 
   // 取得預覽資料
-  const { data: preview, isLoading: previewLoading } = useQuery({
-    queryKey: ['preview', selectedFileId, page, pageSize],
-    queryFn: () =>
-      selectedFileId
-        ? api.previewFile(selectedFileId, page, pageSize)
-        : Promise.resolve(null),
-    enabled: !!selectedFileId,
-  })
+  const { data: preview, isLoading: previewLoading } = useFilePreview(
+    selectedFileId ?? null,
+    { page, pageSize }
+  )
 
   // 當檔案列表變化時，自動選擇第一個檔案（如果沒有外部選擇）
   useEffect(() => {
@@ -58,7 +50,7 @@ export function DataPreview({ selectedFileId: externalFileId, onFileSelect }: Da
     }
   }
 
-  const totalPages = preview ? Math.ceil(preview.total_rows / pageSize) : 0
+  const totalPages = preview ? Math.ceil((preview.totalRows || preview.total_rows || 0) / pageSize) : 0
 
   return (
     <div className="flex flex-col h-full">
@@ -74,7 +66,7 @@ export function DataPreview({ selectedFileId: externalFileId, onFileSelect }: Da
               <SelectValue placeholder="選擇檔案" />
             </SelectTrigger>
             <SelectContent>
-              {files.map((file: UploadedFile) => (
+              {files.map((file) => (
                 <SelectItem key={file.id} value={file.id}>
                   {file.filename}
                 </SelectItem>
@@ -86,7 +78,7 @@ export function DataPreview({ selectedFileId: externalFileId, onFileSelect }: Da
         {preview && (
           <div className="flex items-center gap-2 ml-auto">
             <Badge variant="outline">
-              {preview.total_rows} 筆資料
+              {preview.totalRows || preview.total_rows || 0} 筆資料
             </Badge>
             {preview.columns && (
               <Badge variant="secondary">
@@ -112,7 +104,7 @@ export function DataPreview({ selectedFileId: externalFileId, onFileSelect }: Da
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">
-                {files.find((f: UploadedFile) => f.id === selectedFileId)?.filename}
+                {files.find((f) => f.id === selectedFileId)?.filename}
               </CardTitle>
             </CardHeader>
             <CardContent>

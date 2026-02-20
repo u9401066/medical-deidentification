@@ -85,6 +85,15 @@
   - ✅ **Playwright E2E 測試** - 58 個測試全部通過 (7 spec files)
   - ✅ Git pre-commit hook - 前端變更自動跑 Vitest + Playwright
   - ✅ Systemd 服務部署腳本 (`scripts/services/`)
+- **DDD Hooks 遷移 + 自動化基礎設施** (2026-02-20)
+  - ✅ 建立 4 個新 Application Hooks (useResults, useReports, useHealth, useDownload)
+  - ✅ 遷移 6 個 Presentation 元件到 hooks 模式 (TasksPanel, TaskCard, DataPreview, ResultsPanel, Reports, Sidebar)
+  - ✅ 修正 Domain UploadedFile camelCase 適配 (upload_time → uploadTime)
+  - ✅ 建立 `self-update` skill — 自主審計 Skills/Hooks/Instructions
+  - ✅ 擴充 pre-commit hook — 新增 Python ruff + pytest
+  - ✅ 更新 copilot-instructions — 新增 self-update skill + hooks 清單
+  - ✅ 清理 Memory Bank — productContext/systemPatterns 去重精簡
+  - 📊 測試: 89 unit + 58 E2E + 122 backend 全通過
 
 ## Doing
 
@@ -92,7 +101,6 @@
 
 ## Next
 
-- 檢查系統維護功能是否正常
 - 提升 Presentation 層測試覆蓋率到 70%
-- Deployment documentation update
+- 完成 DataPreview / Sidebar 型別完全對齊（domain vs flat API UploadedFile）
 - Production deployment testing

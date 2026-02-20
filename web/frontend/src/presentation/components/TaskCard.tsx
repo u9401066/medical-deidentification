@@ -1,7 +1,7 @@
 import { RefreshCw, CheckCircle, XCircle, Clock, Timer, Download } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Progress, Badge, Button } from '@/presentation/components/ui'
-import { TaskStatus } from '@/infrastructure/api'
-import api from '@/infrastructure/api'
+import { useDownloadSingleFile } from '@/application/hooks'
+import type { TaskStatus } from '@/infrastructure/api'
 import { toast } from 'sonner'
 
 // 格式化時間
@@ -27,10 +27,16 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task }: TaskCardProps) {
+  const downloadMutation = useDownloadSingleFile()
+
   // 下載單一檔案結果
   const handleDownloadFile = async (fileId: string, filename: string) => {
     try {
-      const blob = await api.downloadSingleFileResult(task.task_id, fileId, 'xlsx')
+      const blob = await downloadMutation.mutateAsync({
+        taskId: task.task_id,
+        fileId,
+        format: 'xlsx',
+      })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url

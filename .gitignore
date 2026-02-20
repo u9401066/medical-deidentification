@@ -79,6 +79,7 @@ logs/*
 test_batch_*.log
 test_results_*.xlsx
 test_phi_model_fix.py
+test_import_result.txt
 
 # Medical data (never commit real PHI!)
 data/raw/*
@@ -101,6 +102,9 @@ web/backend/data/tasks.json
 tmp/
 temp/
 *.tmp
+*.bak
+result_*.xlsx
+.ccm/
 
 # Documentation builds
 docs/_build/

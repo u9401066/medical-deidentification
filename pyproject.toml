@@ -146,6 +146,13 @@ known-first-party = ["core"]
 "scripts/**/*.py" = ["S101", "T201"]  # allow print in scripts
 # LLM factory uses lazy imports for optional dependencies
 "core/infrastructure/llm/factory.py" = ["PLC0415"]
+# web/backend uses sys.path hacks (E402), lazy imports (PLC0415),
+# Chinese comments/strings (RUF001-003), subprocess for health check (S603/S607),
+# and various backend patterns (PLR2004, PLW0603, PTH123, S110, W293)
+"web/backend/**/*.py" = [
+    "E402", "PLC0415", "RUF001", "RUF002", "RUF003",
+    "S603", "S607", "S110", "PLR2004", "PLW0603", "PTH123", "W293",
+]
 
 # === ty (Type Checker - Astral, 超快！) ===
 # ty 是 Astral 團隊（uv/ruff 作者）的新型別檢查器

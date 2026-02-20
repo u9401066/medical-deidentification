@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, CheckCircle, XCircle, Clock, AlertCircle, Timer } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Progress, Badge, ScrollArea } from '@/presentation/components/ui'
-import api, { TaskStatus } from '@/infrastructure/api'
+import { useTasks, TASKS_QUERY_KEY } from '@/application/hooks'
 
 // 格式化時間
 function formatTime(seconds?: number): string {
@@ -24,23 +24,16 @@ function formatTime(seconds?: number): string {
 
 export function TasksPanel() {
   const queryClient = useQueryClient()
-
-  // 取得任務列表
-  const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: api.listTasks,
-    refetchInterval: 2000, // 每 2 秒更新
-  })
+  const { tasks, isLoading, processingTasks, completedTasks, failedTasks, refresh } = useTasks({ refetchInterval: 2000 })
 
   // 監控任務狀態變化 - 當有任務完成時刷新結果和報告
   useEffect(() => {
-    const completed = tasks.filter((t: TaskStatus) => t.status === 'completed')
-    if (completed.length > 0) {
+    if (completedTasks.length > 0) {
       queryClient.invalidateQueries({ queryKey: ['results'] })
       queryClient.invalidateQueries({ queryKey: ['reports'] })
       queryClient.invalidateQueries({ queryKey: ['files'] })
     }
-  }, [tasks, queryClient])
+  }, [completedTasks.length, queryClient])
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -68,10 +61,6 @@ export function TasksPanel() {
     }
   }
 
-  const processingTasks = tasks.filter((t: TaskStatus) => t.status === 'processing')
-  const completedTasks = tasks.filter((t: TaskStatus) => t.status === 'completed')
-  const failedTasks = tasks.filter((t: TaskStatus) => t.status === 'failed')
-
   return (
     <div className="flex flex-col h-full p-4">
       {/* 標題列 */}
@@ -98,7 +87,7 @@ export function TasksPanel() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
+          onClick={refresh}
         >
           <RefreshCw className="h-4 w-4 mr-2" />
           重新整理
@@ -117,7 +106,7 @@ export function TasksPanel() {
           </div>
         ) : (
           <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-            {tasks.map((task: TaskStatus) => (
+            {tasks.map((task) => (
               <Card key={task.task_id} className={`
                 ${task.status === 'processing' ? 'border-blue-500 border-2' : ''}
                 ${task.status === 'completed' ? 'border-green-500/50' : ''}

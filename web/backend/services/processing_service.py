@@ -40,7 +40,8 @@ class ProcessingService:
             if str(project_root) not in sys.path:
                 sys.path.insert(0, str(project_root))
 
-            from core.application.processing.engine import DeidentificationEngine
+            import importlib
+            importlib.import_module('core.application.processing.engine')
 
             self._engine_available = True
         except ImportError as e:

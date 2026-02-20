@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { FileText, Download, Eye, Calendar, BarChart3 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Badge, ScrollArea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui'
-import api, { Report, ReportExportFormat, exportReport } from '@/infrastructure/api'
+import { useReports, useReportDetail, useExportReport } from '@/application/hooks'
+import type { Report, ReportExportFormat } from '@/infrastructure/api'
 import { formatDate } from '@/lib/utils'
 
 export function Reports() {
@@ -11,26 +11,19 @@ export function Reports() {
   const [exportFormat, setExportFormat] = useState<ReportExportFormat>('json')
 
   // 取得報告列表
-  const { data: reports = [], isLoading: reportsLoading } = useQuery({
-    queryKey: ['reports'],
-    queryFn: api.listReports,
-  })
+  const { reports, isLoading: reportsLoading } = useReports()
 
   // 取得報告詳情
-  const { data: reportDetail, isLoading: detailLoading } = useQuery({
-    queryKey: ['report', selectedReportId],
-    queryFn: () =>
-      selectedReportId ? api.getReport(selectedReportId) : Promise.resolve(null),
-    enabled: !!selectedReportId,
-  })
+  const { data: reportDetail, isLoading: detailLoading } = useReportDetail(selectedReportId)
 
   // 匯出報告功能
+  const exportMutation = useExportReport()
   const handleExportReport = async () => {
     if (!selectedReportId) return
     
     setIsExporting(true)
     try {
-      const blob = await exportReport(selectedReportId, exportFormat)
+      const blob = await exportMutation.mutateAsync({ taskId: selectedReportId, format: exportFormat })
       
       // 根據格式設定檔名
       const extensions: Record<ReportExportFormat, string> = {

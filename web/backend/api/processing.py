@@ -54,7 +54,7 @@ async def start_processing(request: ProcessRequest, background_tasks: Background
 
     # 建立任務
     task_id = str(uuid.uuid4())[:8]
-    task = task_service.create_task(
+    task_service.create_task(
         task_id=task_id,
         file_ids=request.file_ids,
         config=request.config.model_dump(),

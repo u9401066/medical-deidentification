@@ -8,6 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- **Application Hooks 完整化** — 新建 4 個 hooks 封裝所有 API 操作
+  - `useResults` / `useResultDetail` — 結果查詢
+  - `useReports` / `useReportDetail` / `useExportReport` — 報告查詢 + 匯出
+  - `useHealth` — 健康檢查 + LLM 狀態
+  - `useDownloadResult` / `useDownloadSingleFile` — 下載 mutations
+- **Self-Update Skill** — 自主審計 Skills、Hooks、Instructions、Bylaws 同步狀態
+- **Pre-commit hook 擴充** — Python 變更自動跑 ruff + pytest
+
+### Changed
+
+- **Presentation 層 DDD 合規遷移** — 6 個元件改用 Application Hooks
+  - TasksPanel, TaskCard, DataPreview, ResultsPanel, Reports, Sidebar
+  - 不再直接 import `@/infrastructure/api`，全部透過 hooks 層
+- **專案檔案整理**
+  - 文件歸檔: `OLLAMA_CONNECTION_GUIDE.md`, `IMPROVEMENTS.md`, `REFACTORING_PLAN.md` → `docs/`
+  - 測試歸位: `test_minimind_quick.py` → `tests/integration/`
+  - 刪除遺留: `main_legacy.py`, `README.md.bak`, `result_*.xlsx`
+- **Memory Bank 精簡** — `productContext.md` 和 `systemPatterns.md` 去重 (~70% 縮減)
+- **copilot-instructions 更新** — 新增 self-update skill + hooks 清單
+
+### Fixed
+
+- `Sidebar.tsx` 型別錯誤: `upload_time` → `uploadTime` (Domain UploadedFile camelCase)
+- Backend unused imports: health.py, processing.py, processing_service.py
+
+## [0.4.0] - 2026-02-20
+
+### Added
 - **AGE_OVER_89 Hard Rule** - 後處理過濾 LLM 誤判（年齡 < 89 排除）
 - **任務持久化** - 任務狀態保存到 `tasks_db.json`，重新整理不會遺失
 - **即時任務顯示** - 使用 `queryClient.setQueryData` 立即更新 UI
