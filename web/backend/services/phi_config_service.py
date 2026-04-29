@@ -18,6 +18,7 @@ if str(_backend_dir) not in sys.path:
 
 from config import DATA_DIR
 from models.config import PHIConfig, PHITypeConfig
+from utils.safe_paths import is_safe_identifier, safe_join
 
 # 設定檔路徑
 PHI_CONFIG_DIR = DATA_DIR / "phi_configs"
@@ -298,9 +299,18 @@ class PHIConfigService:
                 logger.warning(f"Failed to load preset {preset_file}: {e}")
         return presets
 
+    def _preset_path(self, preset_id: str) -> Path:
+        """Resolve preset path safely, rejecting path-traversal attempts."""
+        if not is_safe_identifier(preset_id):
+            raise ValueError(f"Invalid preset id: {preset_id!r}")
+        return safe_join(PRESETS_DIR, f"{preset_id}.json")
+
     def get_preset(self, preset_id: str) -> dict[str, Any] | None:
         """取得指定的 preset"""
-        preset_file = PRESETS_DIR / f"{preset_id}.json"
+        try:
+            preset_file = self._preset_path(preset_id)
+        except ValueError:
+            return None
         if not preset_file.exists():
             return None
 
@@ -327,7 +337,7 @@ class PHIConfigService:
             "created_at": datetime.now().isoformat(),
         }
 
-        preset_file = PRESETS_DIR / f"{preset_id}.json"
+        preset_file = self._preset_path(preset_id)
         with open(preset_file, "w", encoding="utf-8") as f:
             json.dump(preset_data, f, ensure_ascii=False, indent=2)
 
@@ -341,7 +351,7 @@ class PHIConfigService:
         if preset_id in builtin_presets:
             raise ValueError(f"Cannot delete built-in preset: {preset_id}")
 
-        preset_file = PRESETS_DIR / f"{preset_id}.json"
+        preset_file = self._preset_path(preset_id)
         if preset_file.exists():
             preset_file.unlink()
             logger.info(f"🗑️ Deleted preset: {preset_id}")

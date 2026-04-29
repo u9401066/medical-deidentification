@@ -21,6 +21,7 @@ if str(_backend_dir) not in sys.path:
 from config import REPORTS_DIR, RESULTS_DIR
 from models.file import UploadedFile
 from services.file_service import get_file_service
+from utils.safe_paths import is_safe_identifier, safe_join, sanitize_filename
 
 router = APIRouter()
 
@@ -87,17 +88,27 @@ async def download_result(
     else:
         search_dir = REPORTS_DIR
 
-    # 找到對應的 JSON 檔案
-    matching_files = list(search_dir.glob(f"{file_id}*"))
-    if not matching_files:
-        raise HTTPException(404, "檔案不存在")
+    # 驗證 file_id 格式以防止路徑穿越攻擊
+    if not is_safe_identifier(file_id):
+        raise HTTPException(400, "無效的 file_id")
 
-    json_path = matching_files[0]
+    # 找到對應的 JSON 檔案 (僅查詢預期的 *_result.json / *_report.json)
+    expected_suffix = "_result.json" if file_type == "result" else "_report.json"
+    try:
+        json_path = safe_join(search_dir, f"{file_id}{expected_suffix}")
+    except ValueError:
+        raise HTTPException(400, "無效的路徑")
+
+    if not json_path.exists() or not json_path.is_file():
+        raise HTTPException(404, "檔案不存在")
 
     # 如果要求 JSON 格式，直接返回
     if format == "json":
+        download_name = sanitize_filename(
+            f"{file_id}_{file_type}.json", fallback=f"{file_type}.json"
+        )
         return FileResponse(
-            json_path, filename=f"{file_id}_{file_type}.json", media_type="application/json"
+            json_path, filename=download_name, media_type="application/json"
         )
 
     # 讀取 JSON
@@ -175,8 +186,10 @@ async def download_result(
 
     output.seek(0)
 
+    # Sanitize filename to prevent CRLF / quote injection in Content-Disposition
+    safe_name = sanitize_filename(filename, fallback=f"{file_type}.{format}")
     return StreamingResponse(
         output,
         media_type=media_type,
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
     )

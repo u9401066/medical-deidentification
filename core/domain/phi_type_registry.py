@@ -104,17 +104,23 @@ class PHITypeRegistry:
         return cls._instance
 
     def __init__(self) -> None:
+        # Double-checked locking: re-check inside the lock to avoid two
+        # threads racing into ``_initialize_base_types`` and corrupting the
+        # shared ``_types`` dict on the singleton instance.
         if self._initialized:
             return
+        with self._lock:
+            if self._initialized:
+                return
 
-        self._types: dict[str, RegisteredType] = {}
-        self._aliases: dict[str, str] = {}  # alias -> canonical name
-        self._discovery_callbacks: list[Callable[[str, str], None]] = []
-        self._initialize_base_types()
-        self._initialize_aliases()
-        self._initialized = True
+            self._types: dict[str, RegisteredType] = {}
+            self._aliases: dict[str, str] = {}  # alias -> canonical name
+            self._discovery_callbacks: list[Callable[[str, str], None]] = []
+            self._initialize_base_types()
+            self._initialize_aliases()
+            self._initialized = True
 
-        logger.info(f"PHITypeRegistry initialized with {len(self._types)} base types, {len(self._aliases)} aliases")
+            logger.info(f"PHITypeRegistry initialized with {len(self._types)} base types, {len(self._aliases)} aliases")
 
     def _initialize_base_types(self) -> None:
         """Initialize with base PHIType enum values"""

@@ -93,9 +93,26 @@ class MaskingProcessor:
         )
 
         masked_text = text
+        text_len = len(masked_text)
 
         for entity in sorted_entities:
             try:
+                # Validate entity bounds against current text length to
+                # avoid silently corrupting the document via out-of-range
+                # slicing (which yields empty strings and can drop content
+                # following the bad position).
+                if (
+                    entity.start_pos < 0
+                    or entity.end_pos > text_len
+                    or entity.start_pos >= entity.end_pos
+                ):
+                    logger.warning(
+                        f"Skipping entity {entity.type.value} with invalid "
+                        f"bounds start={entity.start_pos} end={entity.end_pos} "
+                        f"(text_len={text_len})"
+                    )
+                    continue
+
                 # Get masking strategy for this PHI type
                 strategy_type = self.phi_specific_strategies.get(
                     entity.type,
@@ -116,6 +133,8 @@ class MaskingProcessor:
                     masked_value +
                     masked_text[entity.end_pos:]
                 )
+                # Recompute length since masked_value can change the length
+                text_len = len(masked_text)
 
                 logger.debug(
                     f"Masked {entity.type.value}: "

@@ -4,7 +4,9 @@ Task Service
 """
 
 import json
+import os
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -59,7 +61,12 @@ class TaskService:
                 self._tasks_db = {}
 
     def _save_tasks(self):
-        """儲存任務資料到檔案"""
+        """儲存任務資料到檔案 (atomic write: temp file + rename)。
+
+        Avoids leaving a partially-written ``tasks_db.json`` if the process
+        crashes mid-write or runs out of disk space, which would otherwise
+        corrupt every task on next load.
+        """
         try:
             # 轉換 datetime 為 ISO 字串
             data = {}
@@ -71,8 +78,25 @@ class TaskService:
                     task_copy["updated_at"] = task_copy["updated_at"].isoformat()
                 data[task_id] = task_copy
 
-            with open(self._db_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False, default=str)
+            # Write to a temp file in the same directory, then atomically rename.
+            # Same-directory ensures rename is atomic on POSIX filesystems.
+            self._db_file.parent.mkdir(parents=True, exist_ok=True)
+            fd, tmp_path = tempfile.mkstemp(
+                prefix=f".{self._db_file.name}.",
+                suffix=".tmp",
+                dir=str(self._db_file.parent),
+            )
+            tmp_path_obj = Path(tmp_path)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False, default=str)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(tmp_path_obj, self._db_file)
+            except Exception:
+                # Best-effort cleanup of the temp file on failure
+                tmp_path_obj.unlink(missing_ok=True)
+                raise
         except Exception as e:
             logger.error(f"Failed to save tasks: {e}")
 

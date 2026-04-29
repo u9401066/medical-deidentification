@@ -16,6 +16,7 @@ if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
 from config import REPORTS_DIR, RESULTS_DIR
+from utils.safe_paths import is_safe_identifier, safe_join, sanitize_filename
 
 router = APIRouter()
 
@@ -60,9 +61,14 @@ async def list_results():
 @router.get("/results/{task_id}")
 async def get_result(task_id: str):
     """取得處理結果詳情"""
-    result_file = RESULTS_DIR / f"{task_id}_result.json"
+    if not is_safe_identifier(task_id):
+        raise HTTPException(400, "無效的 task_id")
+    try:
+        result_file = safe_join(RESULTS_DIR, f"{task_id}_result.json")
+    except ValueError:
+        raise HTTPException(400, "無效的路徑")
 
-    if not result_file.exists():
+    if not result_file.exists() or not result_file.is_file():
         raise HTTPException(404, "結果不存在")
 
     with open(result_file, encoding="utf-8") as f:
@@ -122,9 +128,14 @@ async def list_reports():
 @router.get("/reports/{task_id}")
 async def get_report(task_id: str):
     """取得報告詳情"""
-    report_file = REPORTS_DIR / f"{task_id}_report.json"
+    if not is_safe_identifier(task_id):
+        raise HTTPException(400, "無效的 task_id")
+    try:
+        report_file = safe_join(REPORTS_DIR, f"{task_id}_report.json")
+    except ValueError:
+        raise HTTPException(400, "無效的路徑")
 
-    if not report_file.exists():
+    if not report_file.exists() or not report_file.is_file():
         raise HTTPException(404, "報告不存在")
 
     with open(report_file, encoding="utf-8") as f:
@@ -136,21 +147,29 @@ async def export_report(task_id: str, format: str = "json"):
     """導出報告 (支援 json, csv, markdown 格式)"""
     from fastapi.responses import Response
 
-    report_file = REPORTS_DIR / f"{task_id}_report.json"
+    if not is_safe_identifier(task_id):
+        raise HTTPException(400, "無效的 task_id")
+    try:
+        report_file = safe_join(REPORTS_DIR, f"{task_id}_report.json")
+    except ValueError:
+        raise HTTPException(400, "無效的路徑")
 
-    if not report_file.exists():
+    if not report_file.exists() or not report_file.is_file():
         raise HTTPException(404, "報告不存在")
 
     with open(report_file, encoding="utf-8") as f:
         report = json.load(f)
 
+    # task_id has been validated above, so it is safe in filenames; still
+    # sanitize defensively to keep Content-Disposition headers well-formed.
     if format == "json":
         # 直接返回 JSON 供下載
         content = json.dumps(report, ensure_ascii=False, indent=2)
+        safe_name = sanitize_filename(f"report_{task_id}.json", fallback="report.json")
         return Response(
             content=content,
             media_type="application/json",
-            headers={"Content-Disposition": f'attachment; filename="report_{task_id}.json"'},
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
         )
     elif format == "csv":
         # 導出為 CSV
@@ -180,10 +199,11 @@ async def export_report(task_id: str, format: str = "json"):
             ])
 
         content = output.getvalue()
+        safe_name = sanitize_filename(f"report_{task_id}.csv", fallback="report.csv")
         return Response(
             content=content,
             media_type="text/csv",
-            headers={"Content-Disposition": f'attachment; filename="report_{task_id}.csv"'},
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
         )
     elif format == "markdown" or format == "md":
         # 導出為 Markdown
@@ -222,8 +242,9 @@ async def export_report(task_id: str, format: str = "json"):
             lines.append("")
 
         content = "\n".join(lines)
+        safe_name = sanitize_filename(f"report_{task_id}.md", fallback="report.md")
         return Response(
             content=content,
             media_type="text/markdown",
-            headers={"Content-Disposition": f'attachment; filename="report_{task_id}.md"'},
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
         )

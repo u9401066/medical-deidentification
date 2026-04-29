@@ -1,12 +1,18 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useQueryClient } from '@tanstack/react-query'
 import { Upload, FileText, Trash2, Download, FileSpreadsheet, FileJson, Cpu, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
 import { Button, ScrollArea, Badge } from '@/presentation/components/ui'
-import { useFiles, useUploadFile, useDeleteFile, useHealth } from '@/application/hooks'
+import {
+  useFiles,
+  useUploadFile,
+  useDeleteFile,
+  useHealth,
+  useStartProcessing,
+  useDownloadResult,
+} from '@/application/hooks'
 import { TASKS_QUERY_KEY } from '@/application/hooks'
 import { formatBytes, formatDate } from '@/lib/utils'
-import { startProcessing, downloadResult } from '@/infrastructure/api'
 
 interface SidebarProps {
   onFileSelect?: (fileId: string) => void
@@ -29,6 +35,21 @@ export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
 
   // 刪除檔案 mutation
   const deleteMutation = useDeleteFile()
+
+  // 啟動處理與下載結果 mutation (DDD: Application 層 hooks)
+  const startProcessingMutation = useStartProcessing()
+  const downloadResultMutation = useDownloadResult()
+
+  // 追蹤 setTimeout 以便在 unmount 時清理，避免 unmounted setState 警告/記憶體洩漏
+  const processingTimerRef = useRef<number | null>(null)
+  useEffect(() => {
+    return () => {
+      if (processingTimerRef.current !== null) {
+        window.clearTimeout(processingTimerRef.current)
+        processingTimerRef.current = null
+      }
+    }
+  }, [])
 
   // Dropzone 配置
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -241,13 +262,19 @@ export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
             if (selectedFiles.length === 0) return
             setIsProcessing(true)
             try {
-              await startProcessing({ file_ids: selectedFiles })
+              await startProcessingMutation.mutateAsync({ fileIds: selectedFiles })
               // 立即刷新任務和檔案列表
               await queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY })
               await queryClient.invalidateQueries({ queryKey: ['files'] })
               setSelectedFiles([])
               // 延遲一點再關閉 isProcessing，讓 UI 能看到狀態更新
-              setTimeout(() => setIsProcessing(false), 1000)
+              if (processingTimerRef.current !== null) {
+                window.clearTimeout(processingTimerRef.current)
+              }
+              processingTimerRef.current = window.setTimeout(() => {
+                setIsProcessing(false)
+                processingTimerRef.current = null
+              }, 1000)
             } catch (err) {
               console.error('處理失敗:', err)
               setIsProcessing(false)
@@ -274,7 +301,11 @@ export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
             for (const fileId of selectedFiles) {
               const file = files.find((f) => f.id === fileId)
               if (file?.status === 'completed') {
-                await downloadResult(fileId)
+                try {
+                  await downloadResultMutation.mutateAsync({ taskId: fileId })
+                } catch (err) {
+                  console.error('下載失敗:', err)
+                }
               }
             }
           }}
