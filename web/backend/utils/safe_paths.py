@@ -10,10 +10,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-# Task / file identifiers are generated as UUID hex fragments
-# (see ``services.file_service.FileService.upload`` and ``api.processing``).
-# Restrict to a safe alphanumeric-with-dash character set so attackers cannot
-# inject path separators or wildcards (e.g. ``../`` or ``*``).
+# Task / file / preset identifiers are generated from UUIDs (see e.g.
+# ``services.file_service.FileService.upload``) but may also include
+# user-supplied preset names. Restrict to a safe ASCII subset so attackers
+# cannot inject path separators, wildcards, or shell metacharacters
+# (e.g. ``../``, ``*``, NUL).
 _SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 
 # Characters that are illegal/unsafe in a Content-Disposition filename or on

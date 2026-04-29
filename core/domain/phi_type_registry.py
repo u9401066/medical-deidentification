@@ -104,9 +104,12 @@ class PHITypeRegistry:
         return cls._instance
 
     def __init__(self) -> None:
-        # Double-checked locking: re-check inside the lock to avoid two
-        # threads racing into ``_initialize_base_types`` and corrupting the
-        # shared ``_types`` dict on the singleton instance.
+        # Double-checked locking pattern: the first (lock-free) check is a
+        # performance optimization that avoids lock acquisition on every
+        # subsequent call (the singleton is initialized exactly once but
+        # ``__init__`` runs on every ``PHITypeRegistry()`` invocation).
+        # The second check inside the lock guarantees correctness when two
+        # threads observe ``_initialized == False`` concurrently.
         if self._initialized:
             return
         with self._lock:
