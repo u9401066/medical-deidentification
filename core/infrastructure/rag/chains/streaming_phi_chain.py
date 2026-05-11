@@ -43,6 +43,7 @@ from loguru import logger
 
 from ....domain import PHIEntity
 from ...llm.config import LLMConfig
+from ...utils.redaction import safe_exception_message
 from .streaming_processor import (
     ChunkInfo,
     ChunkResult,
@@ -275,7 +276,7 @@ class StreamingPHIChain:
                 context = self._get_rag_context(content)
                 rag_used = True
             except Exception as e:
-                logger.warning(f"RAG failed for chunk {chunk_info.chunk_id}: {e}")
+                logger.warning(safe_exception_message(e, context=f"RAG chunk {chunk_info.chunk_id}"))
                 context = self._get_minimal_context()
         else:
             context = self._get_minimal_context()
@@ -295,7 +296,7 @@ class StreamingPHIChain:
                 )
                 entities.extend(llm_entities)
             except Exception as e:
-                logger.error(f"LLM identification failed: {e}")
+                logger.error(safe_exception_message(e, context="LLM PHI identification"))
 
         return {
             "entities": entities,
@@ -326,7 +327,7 @@ class StreamingPHIChain:
 
             return "\n\n".join(context_parts) if context_parts else self._get_minimal_context()
         except Exception as e:
-            logger.warning(f"RAG retrieval failed: {e}")
+            logger.warning(safe_exception_message(e, context="RAG retrieval"))
             return self._get_minimal_context()
 
     def _get_minimal_context(self) -> str:
@@ -358,7 +359,7 @@ class StreamingPHIChain:
                 })
                 calls += 1
             except Exception as e:
-                logger.debug(f"Tool {tool.name} failed: {e}")
+                logger.debug(safe_exception_message(e, context=f"Tool {tool.name}"))
 
         return results, calls
 
@@ -430,7 +431,7 @@ class StreamingPHIChain:
             return adjusted_entities
 
         except Exception as e:
-            logger.error(f"PHI identification failed for chunk {chunk_info.chunk_id}: {e}")
+            logger.error(safe_exception_message(e, context=f"PHI chunk {chunk_info.chunk_id}"))
             return []
 
     def _convert_result(self, chunk_result: ChunkResult) -> PHIChunkResult:

@@ -22,6 +22,7 @@ from typing import Any
 from loguru import logger
 
 from ...domain import PHIEntity, PHIType, StrategyType
+from ...infrastructure.utils.redaction import safe_exception_message
 
 
 class MaskingStrategy(ABC):
@@ -289,7 +290,7 @@ class DateShiftingStrategy(MaskingStrategy):
             return shifted_date.strftime("%Y-%m-%d")
 
         except Exception as e:
-            logger.warning(f"Failed to shift date '{date_text}': {e}")
+            logger.warning(safe_exception_message(e, context="Date shifting"))
             return "[DATE]"
 
     def _generate_offset(self) -> int:

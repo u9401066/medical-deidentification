@@ -13,6 +13,7 @@ from typing import Any
 
 from loguru import logger
 
+from ....utils.redaction import safe_exception_message
 from .base_node import BaseNode, NodeConfig
 
 
@@ -145,13 +146,14 @@ class RAGNode(BaseNode[dict[str, Any]]):
             }
 
         except Exception as e:
-            logger.error(f"{self.get_name()}: RAG retrieval failed: {e}")
+            safe_error = safe_exception_message(e, context=f"{self.get_name()} RAG retrieval")
+            logger.error(safe_error)
             return {
                 **input_data,
                 "context": self._get_minimal_context(),
                 "source_documents": [],
                 "rag_enabled": False,
-                "rag_error": str(e),
+                "rag_error": safe_error,
             }
 
     def _get_minimal_context(self) -> str:

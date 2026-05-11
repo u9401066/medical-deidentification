@@ -35,6 +35,7 @@ from ...domain.phi_identification_models import (
 from ...domain.phi_types import PHIType
 from ..llm.factory import create_llm
 from ..tools import IDValidatorTool, PhoneTool, RegexPHITool, ToolResult, ToolRunner
+from ..utils.redaction import safe_exception_message
 
 
 def create_phi_tools() -> list[BaseTool]:
@@ -327,8 +328,8 @@ Always output your final answer in this JSON format:
                 try:
                     return available_tool.invoke(tool_args)
                 except Exception as e:
-                    logger.error(f"Tool {tool_name} failed: {e}")
-                    return f"Tool error: {e!s}"
+                    logger.error(safe_exception_message(e, context=f"Tool {tool_name}"))
+                    return "Tool error: details redacted"
 
         return f"Unknown tool: {tool_name}"
 
@@ -371,7 +372,7 @@ Always output your final answer in this JSON format:
                     entities.append(entity)
 
         except (json.JSONDecodeError, KeyError) as e:
-            logger.warning(f"Failed to parse agent response: {e}")
+            logger.warning(safe_exception_message(e, context="Agent response parse"))
 
         return {
             "text": original_text,

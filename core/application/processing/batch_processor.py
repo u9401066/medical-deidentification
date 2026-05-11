@@ -15,6 +15,7 @@ import pandas as pd
 from loguru import logger
 
 from ...domain import PHIEntity
+from ...infrastructure.utils.redaction import safe_exception_message
 from ...infrastructure.output import OutputManager, ReportGenerator, get_default_output_manager
 from ...infrastructure.rag.phi_identification_chain import PHIIdentificationChain
 
@@ -147,7 +148,7 @@ class BatchPHIProcessor:
             批次處理結果
         """
         logger.info(f"{'='*80}")
-        logger.info(f"Processing Excel file: {file_path}")
+        logger.info("Processing Excel file")
         logger.info(f"{'='*80}")
 
         # 載入數據
@@ -225,7 +226,7 @@ class BatchPHIProcessor:
 
         for file_path in file_paths:
             if not Path(file_path).exists():
-                logger.warning(f"File not found: {file_path}")
+                logger.warning("Input file not found")
                 continue
 
             result = self.process_excel_file(file_path, case_id_column)
@@ -236,7 +237,7 @@ class BatchPHIProcessor:
 
     def _load_excel(self, file_path: str) -> pd.DataFrame:
         """載入 Excel 文件"""
-        logger.info(f"Loading Excel file: {file_path}")
+        logger.info("Loading Excel file")
         df = pd.read_excel(file_path)
         logger.info(f"Loaded {len(df)} rows, {len(df.columns)} columns")
         return df
@@ -295,7 +296,8 @@ class BatchPHIProcessor:
 
         except Exception as e:
             processing_time = time.time() - start_time
-            logger.error(f"Error processing row {row_number}: {e}")
+            safe_error = safe_exception_message(e, context=f"Row {row_number} processing")
+            logger.error(safe_error)
 
             return RowProcessingResult(
                 row_number=row_number,
@@ -303,7 +305,7 @@ class BatchPHIProcessor:
                 text_length=0,
                 processing_time=processing_time,
                 success=False,
-                error_message=str(e)
+                error_message=safe_error
             )
 
     def _combine_row_text(self, row: pd.Series, df: pd.DataFrame) -> str:
@@ -427,6 +429,6 @@ def save_batch_results(
                 logger.success(f"✓ Report generated: {report_path}")
                 saved_paths["report"] = report_path
             except Exception as e:
-                logger.warning(f"⚠ Failed to generate report: {e}")
+                logger.warning(safe_exception_message(e, context="Report generation"))
 
     return saved_paths

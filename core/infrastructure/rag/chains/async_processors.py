@@ -20,6 +20,7 @@ from langchain_core.runnables import Runnable
 from loguru import logger
 
 from ....domain.phi_identification_models import PHIDetectionResponse
+from ...utils.redaction import safe_exception_message
 from ...llm.factory import get_structured_output_method
 from ...prompts import get_phi_identification_prompt, get_system_message
 
@@ -56,8 +57,9 @@ async def process_chunk_async(
         result = await chain.ainvoke({"context": context, "text": chunk})
         return ChunkResult(chunk_index=chunk_index, response=result)
     except Exception as e:
-        logger.warning(f"Chunk {chunk_index} failed: {e}")
-        return ChunkResult(chunk_index=chunk_index, response=None, error=str(e))
+        safe_error = safe_exception_message(e, context=f"Chunk {chunk_index}")
+        logger.warning(safe_error)
+        return ChunkResult(chunk_index=chunk_index, response=None, error=safe_error)
 
 
 async def process_chunks_parallel(

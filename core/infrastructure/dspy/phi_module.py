@@ -32,6 +32,8 @@ except ImportError:
 
 from loguru import logger
 
+from ..utils.redaction import safe_exception_message
+
 # Import prompt management
 try:
     from ..prompts import PromptConfig, load_prompt_config
@@ -166,7 +168,7 @@ if DSPY_AVAILABLE:
                 return entities
 
             except Exception as e:
-                logger.error(f"PHI identification failed: {e}")
+                logger.error(safe_exception_message(e, context="DSPy PHI identification"))
                 return []
 
         def __call__(self, medical_text: str) -> list[PHIEntity]:
@@ -242,7 +244,7 @@ def parse_phi_entities(
         logger.info(f"Recovered {len(entities)} entities from malformed JSON")
         return entities
 
-    logger.warning(f"Could not parse JSON from output: {output[:300]}")
+    logger.warning("Could not parse JSON from model output; content omitted")
     return []
 
 
@@ -281,7 +283,7 @@ def _parse_phi_entities_legacy(
         if json_match:
             output = f"[{json_match.group()}]"
         else:
-            logger.warning(f"No JSON found in output: {output[:200]}")
+            logger.warning("No JSON found in model output; content omitted")
             return []
     else:
         output = json_match.group()
@@ -308,7 +310,7 @@ def _parse_phi_entities_legacy(
                 entities.append(entity)
 
     except json.JSONDecodeError as e:
-        logger.warning(f"JSON parse error: {e}, output: {output[:200]}")
+        logger.warning(safe_exception_message(e, context="DSPy PHI JSON parse"))
 
     return entities
 
@@ -632,7 +634,7 @@ if DSPY_AVAILABLE:
                 return entities
 
             except Exception as e:
-                logger.error(f"PHI identification failed: {e}")
+                logger.error(safe_exception_message(e, context="DSPy PHI identification"))
                 return []
 
         def __call__(self, medical_text: str) -> list[PHIEntity]:
@@ -673,4 +675,3 @@ if not DSPY_AVAILABLE:
 
         def __call__(self, medical_text: str) -> list[PHIEntity]:
             return self.forward(medical_text)
-

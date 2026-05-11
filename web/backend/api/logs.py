@@ -5,20 +5,21 @@ Frontend Logs API Router
 
 import json
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends
 from loguru import logger
 from pydantic import BaseModel
 
+from config import LOG_DIR
 from models.auth import AuthUser
 from security import require_admin_user
 
 router = APIRouter(prefix="/logs", tags=["logs"])
 
 # 日誌檔案路徑
-FRONTEND_ERROR_LOG = Path(__file__).parent.parent.parent.parent / "logs" / "frontend-errors.jsonl"
+FRONTEND_ERROR_LOG = LOG_DIR / "frontend-errors.jsonl"
+REDACTED = "[REDACTED]"
 
 
 class FrontendError(BaseModel):
@@ -36,6 +37,26 @@ class FrontendErrorsRequest(BaseModel):
     errors: list[FrontendError]
 
 
+def _sanitize_extra(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _sanitize_extra(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_extra(item) for item in value]
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    return REDACTED
+
+
+def _sanitize_error(error: FrontendError) -> dict[str, Any]:
+    data = error.model_dump()
+    # Frontend exception strings can contain API bodies or rendered PHI.
+    data["message"] = REDACTED
+    data["stack"] = None
+    data["componentStack"] = None
+    data["extra"] = _sanitize_extra(data.get("extra"))
+    return data
+
+
 @router.post("/frontend-errors")
 async def receive_frontend_errors(request: FrontendErrorsRequest):
     """接收前端錯誤日誌"""
@@ -47,13 +68,15 @@ async def receive_frontend_errors(request: FrontendErrorsRequest):
         for error in request.errors:
             log_entry = {
                 "received_at": received_at,
-                **error.model_dump(),
+                **_sanitize_error(error),
             }
             f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
 
             # 同時輸出到後端日誌
             logger.warning(
-                f"[Frontend {error.type}] {error.message} | URL: {error.url}"
+                "Frontend error received",
+                frontend_error_type=error.type,
+                url=error.url,
             )
 
     return {

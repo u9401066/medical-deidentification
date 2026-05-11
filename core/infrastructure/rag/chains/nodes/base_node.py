@@ -24,6 +24,8 @@ from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_core.tools import BaseTool
 from loguru import logger
 
+from ....utils.redaction import safe_exception_message
+
 
 class NodeStatus(str, Enum):
     """Node execution status"""
@@ -217,7 +219,8 @@ class BaseNode(ABC, Generic[T]):
 
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
-            logger.error(f"{self.get_name()}: Error - {e}")
+            safe_error = safe_exception_message(e, context=f"{self.get_name()} node")
+            logger.error(safe_error)
 
             return NodeResult(
                 status=NodeStatus.ERROR,
@@ -226,7 +229,7 @@ class BaseNode(ABC, Generic[T]):
                 tool_calls_made=tool_calls,
                 iterations=iterations,
                 duration_ms=duration_ms,
-                error=str(e),
+                error=safe_error,
             )
 
     def stream(self, input_data: dict[str, Any]) -> Iterator[Any]:
@@ -292,8 +295,9 @@ class BaseNode(ABC, Generic[T]):
                 try:
                     return tool.invoke(tool_args)
                 except Exception as e:
-                    logger.error(f"{self.get_name()}: Tool {tool_name} failed: {e}")
-                    return f"Tool error: {e!s}"
+                    safe_error = safe_exception_message(e, context=f"{self.get_name()} tool {tool_name}")
+                    logger.error(safe_error)
+                    return "Tool error: details redacted"
 
         return f"Unknown tool: {tool_name}"
 

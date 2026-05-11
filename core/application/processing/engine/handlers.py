@@ -13,6 +13,7 @@ from loguru import logger
 
 from ....domain import PHIEntity
 from ....infrastructure.output import OutputManager, ReportGenerator, get_default_output_manager
+from ....infrastructure.utils.redaction import safe_exception_message
 from ..context import ProcessingContext, RegulationContext
 from ..pipeline import PipelineStage, StageResult
 from .masking import MaskingProcessor
@@ -107,8 +108,9 @@ class PipelineHandlers:
                 logger.success("Regulation retrieval completed")
 
             except Exception as e:
-                logger.error(f"Regulation retrieval failed: {e}")
-                result.set_error(str(e))
+                safe_error = safe_exception_message(e, context="Regulation retrieval")
+                logger.error(safe_error)
+                result.set_error(safe_error)
 
             return result
 
@@ -201,8 +203,12 @@ class PipelineHandlers:
                 logger.success(f"PHI identification completed: {total_phi} entities found")
 
             except Exception as e:
-                logger.error(f"PHI identification failed: {e}")
-                result.set_error(message=str(e), details={"stage": "phi_identification"})
+                safe_error = safe_exception_message(e, context="PHI identification")
+                logger.error(safe_error)
+                result.set_error(
+                    message=safe_error,
+                    details={"stage": "phi_identification", "exception_type": type(e).__name__},
+                )
 
             return result
 
@@ -304,8 +310,12 @@ class PipelineHandlers:
                 logger.success(f"Masking completed: {total_masked} entities masked")
 
             except Exception as e:
-                logger.error(f"Masking application failed: {e}")
-                result.set_error(message=str(e), details={"stage": "masking_application"})
+                safe_error = safe_exception_message(e, context="Masking application")
+                logger.error(safe_error)
+                result.set_error(
+                    message=safe_error,
+                    details={"stage": "masking_application", "exception_type": type(e).__name__},
+                )
 
             return result
 
@@ -339,8 +349,9 @@ class PipelineHandlers:
                 logger.success(f"✓ Output paths configured: {result_path}")
 
             except Exception as e:
-                logger.error(f"Output generation failed: {e}")
-                result.set_error(str(e))
+                safe_error = safe_exception_message(e, context="Output generation")
+                logger.error(safe_error)
+                result.set_error(safe_error)
 
             return result
 

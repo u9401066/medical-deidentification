@@ -9,6 +9,7 @@ from typing import Any
 
 from loguru import logger
 
+from ..utils.redaction import safe_exception_message
 from .config import LLMConfig
 from .factory import create_llm, create_structured_output_llm
 
@@ -115,7 +116,7 @@ class LLMManager:
 
         except Exception as e:
             self._stats["errors"] += 1
-            logger.error(f"LLM invocation failed: {e}")
+            logger.error(safe_exception_message(e, context="LLM invocation"))
             raise
 
     def invoke_structured(
@@ -163,7 +164,7 @@ class LLMManager:
 
         except Exception as e:
             self._stats["errors"] += 1
-            logger.error(f"Structured LLM invocation failed: {e}")
+            logger.error(safe_exception_message(e, context="Structured LLM invocation"))
             raise
 
     def batch_invoke(

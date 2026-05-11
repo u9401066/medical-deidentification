@@ -13,6 +13,8 @@ from typing import Any
 
 from loguru import logger
 
+from ..utils.redaction import safe_exception_message
+
 # Import domain models
 from ...domain.loader_models import (
     DocumentFormat,
@@ -88,7 +90,7 @@ class DocumentLoader(ABC):
                 doc = self.load(file_path)
                 documents.append(doc)
             except Exception as e:
-                logger.error(f"Failed to load {file_path}: {e}")
+                logger.error(safe_exception_message(e, context="Document load"))
 
         return documents
 

@@ -49,7 +49,7 @@ class TextLoader(BaseTextLoader):
         file_path = Path(file_path)
         self._validate_file(file_path)
 
-        logger.info(f"Loading TXT file: {file_path}")
+        logger.info("Loading TXT file")
 
         # Read content
         content = self._read_text_file(file_path)
@@ -86,7 +86,7 @@ class CSVLoader(BaseTextLoader):
         file_path = Path(file_path)
         self._validate_file(file_path)
 
-        logger.info(f"Loading CSV file: {file_path}")
+        logger.info("Loading CSV file")
 
         # Read CSV
         with open(file_path, encoding=self.config.encoding,
@@ -159,7 +159,7 @@ class ExcelLoader(BaseBinaryLoader):
         file_path = Path(file_path)
         self._validate_file(file_path)
 
-        logger.info(f"Loading Excel file: {file_path}")
+        logger.info("Loading Excel file")
 
         # Determine Excel type
         if file_path.suffix.lower() == '.xlsx':
@@ -334,7 +334,7 @@ class WordLoader(BaseBinaryLoader):
         file_path = Path(file_path)
         self._validate_file(file_path)
 
-        logger.info(f"Loading Word document: {file_path}")
+        logger.info("Loading Word document")
 
         try:
             from docx import Document
@@ -401,7 +401,7 @@ class JSONLoader(BaseTextLoader):
         file_path = Path(file_path)
         self._validate_file(file_path)
 
-        logger.info(f"Loading JSON file: {file_path}")
+        logger.info("Loading JSON file")
 
         # Read JSON
         with open(file_path, encoding=self.config.encoding) as f:
@@ -444,7 +444,7 @@ class PDFLoader(BaseBinaryLoader):
         file_path = Path(file_path)
         self._validate_file(file_path)
 
-        logger.info(f"Loading PDF file: {file_path}")
+        logger.info("Loading PDF file")
 
         if importlib.util.find_spec("pdfplumber") is not None:
             return self._load_with_pdfplumber(file_path)
@@ -539,7 +539,7 @@ class HTMLLoader(BaseTextLoader):
         file_path = Path(file_path)
         self._validate_file(file_path)
 
-        logger.info(f"Loading HTML file: {file_path}")
+        logger.info("Loading HTML file")
 
         try:
             from bs4 import BeautifulSoup
@@ -603,7 +603,7 @@ class XMLLoader(BaseTextLoader):
         file_path = Path(file_path)
         self._validate_file(file_path)
 
-        logger.info(f"Loading XML file: {file_path}")
+        logger.info("Loading XML file")
 
         from defusedxml import ElementTree as ET
 
@@ -705,7 +705,7 @@ class FHIRLoader(JSONLoader):
         # Validate FHIR structure
         if doc.structured_data:
             if "resourceType" not in doc.structured_data:
-                logger.warning(f"FHIR resource missing 'resourceType': {file_path}")
+                logger.warning("FHIR resource missing 'resourceType'")
             else:
                 resource_type = doc.structured_data["resourceType"]
                 logger.info(f"Loaded FHIR resource type: {resource_type}")

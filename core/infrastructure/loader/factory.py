@@ -10,6 +10,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from ..utils.redaction import safe_exception_message
 from .base import DocumentFormat, DocumentLoader, LoadedDocument, LoaderConfig
 from .loaders import (
     CSVLoader,
@@ -107,7 +108,7 @@ class DocumentLoaderFactory:
         loader_config = config or self.default_config
         loader = loader_class(loader_config)
 
-        logger.debug(f"Created {loader_class.__name__} for {file_path}")
+        logger.debug(f"Created {loader_class.__name__}")
 
         return loader
 
@@ -153,7 +154,7 @@ class DocumentLoaderFactory:
                 doc = self.load(file_path, config=config)
                 documents.append(doc)
             except Exception as e:
-                logger.error(f"Failed to load {file_path}: {e}")
+                logger.error(safe_exception_message(e, context="Document load"))
 
         logger.info(f"Loaded {len(documents)}/{len(file_paths)} documents")
         return documents

@@ -14,6 +14,7 @@ from typing import Any
 from loguru import logger
 
 from ....domain import PHIEntity
+from ...utils.redaction import safe_exception_message
 from ...prompts import DEFAULT_HIPAA_SAFE_HARBOR_RULES, get_phi_validation_prompt
 
 
@@ -166,6 +167,6 @@ def validate_entity(
         except json.JSONDecodeError:
             logger.warning("Failed to parse LLM validation response from chain")
         except Exception as e:
-            logger.error(f"Entity validation with LangChain chain failed: {e}")
+            logger.error(safe_exception_message(e, context="Entity validation"))
 
     return result

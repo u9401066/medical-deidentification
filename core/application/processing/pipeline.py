@@ -14,6 +14,7 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, Field
 
+from ...infrastructure.utils.redaction import safe_exception_message
 from .context import ProcessingContext
 
 ProgressCallback = Callable[[dict[str, Any]], None]
@@ -31,7 +32,7 @@ def _emit_progress(
     try:
         progress_callback({"event": event, **payload})
     except Exception as exc:
-        logger.warning(f"Progress callback failed for {event}: {exc}")
+        logger.warning(safe_exception_message(exc, context=f"Progress callback {event}"))
 
 
 class PipelineStage(str, Enum):
@@ -226,23 +227,24 @@ class DeidentificationPipeline:
                     )
 
             except Exception as e:
-                logger.exception(f"Unexpected error in stage {stage.value}: {e}")
+                safe_error = safe_exception_message(e, context=f"Pipeline stage {stage.value}")
+                logger.exception(safe_error)
 
                 stage_result = StageResult(stage=stage, success=False)
-                stage_result.set_error(str(e), {"exception_type": type(e).__name__})
+                stage_result.set_error(safe_error, {"exception_type": type(e).__name__})
                 results.append(stage_result)
                 _emit_progress(
                     progress_callback,
                     "pipeline_stage_failed",
                     stage=stage.value,
                     job_id=context.job_id,
-                    error_message=str(e),
+                    error_message=safe_error,
                     exception_type=type(e).__name__,
                 )
 
                 context.add_error(
                     error_type=f"stage_exception_{stage.value}",
-                    message=str(e),
+                    message=safe_error,
                     details={"exception_type": type(e).__name__}
                 )
 
@@ -320,7 +322,7 @@ def create_document_loading_handler(loader_factory):
             result.output["loaded"] = True
             result.mark_completed(success=True)
         except Exception as e:
-            result.set_error(str(e))
+            result.set_error(safe_exception_message(e, context="Document loading"))
 
         return result
 
@@ -349,7 +351,7 @@ def create_language_detection_handler():
             result.output["detected"] = True
             result.mark_completed(success=True)
         except Exception as e:
-            result.set_error(str(e))
+            result.set_error(safe_exception_message(e, context="Language detection"))
 
         return result
 
@@ -377,7 +379,7 @@ def create_validation_handler():
 
             result.mark_completed(success=True)
         except Exception as e:
-            result.set_error(str(e))
+            result.set_error(safe_exception_message(e, context="Validation"))
 
         return result
 

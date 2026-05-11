@@ -30,6 +30,7 @@ if str(_project_root) not in sys.path:
 
 from models.auth import AuthUser
 from security import get_current_user
+from services.error_safety import safe_exception_message
 from services.file_service import get_file_service
 
 router = APIRouter()
@@ -91,8 +92,8 @@ async def preview_file(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Preview error for {file_path}: {e}")
-        raise HTTPException(500, f"預覽失敗: {e!s}")
+        logger.error(safe_exception_message(e, context="Preview"))
+        raise HTTPException(500, "預覽失敗，詳細錯誤已安全隱藏")
 
 
 async def _preview_tabular(
@@ -164,16 +165,16 @@ async def _preview_document(file_path: Path, file_type: str, page: int, page_siz
         elif file_type == "pdf":
             content = _load_pdf_content(file_path)
     except ImportError as e:
-        logger.warning(f"Missing dependency for {file_type}: {e}")
+        logger.warning(safe_exception_message(e, context=f"{file_type} preview dependency"))
         return {
             "type": "text",
             "content": "[無法預覽：缺少必要的套件]\n\n請安裝相關依賴：\n- DOCX: pip install python-docx\n- PDF: pip install pymupdf 或 pdfplumber",
             "total_rows": 1,
-            "error": str(e),
+            "error": "missing_dependency",
             "pagination": {"page": 1, "page_size": 1, "total_rows": 1, "total_pages": 1},
         }
     except Exception as e:
-        logger.error(f"Error loading {file_type} file: {e}")
+        logger.error(safe_exception_message(e, context=f"{file_type} preview load"))
         raise
 
     # 分頁處理

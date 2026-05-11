@@ -23,6 +23,11 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 SENSITIVE_KEYS = {
     "text",
     "value",
+    "filename",
+    "file_name",
+    "filepath",
+    "file_path",
+    "job_name",
     "original",
     "original_content",
     "original_preview",

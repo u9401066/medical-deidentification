@@ -50,6 +50,8 @@ from typing import (
 
 from loguru import logger
 
+from ...utils.redaction import safe_exception_message
+
 T = TypeVar('T')
 
 
@@ -123,7 +125,7 @@ class ProcessingCheckpoint:
             with open(checkpoint_path, encoding='utf-8') as f:
                 return cls.from_dict(json.load(f))
         except Exception as e:
-            logger.warning(f"Failed to load checkpoint: {e}")
+            logger.warning(safe_exception_message(e, context="Checkpoint load"))
             return None
 
     @property
@@ -362,13 +364,14 @@ class StreamingChunkProcessor(Generic[T]):
 
             except Exception as e:
                 processing_time = (time.time() - start_time) * 1000
-                logger.error(f"Chunk {chunk_info.chunk_id} processing failed: {e}")
+                safe_error = safe_exception_message(e, context=f"Chunk {chunk_info.chunk_id} processing")
+                logger.error(safe_error)
 
                 result = ChunkResult(
                     chunk_info=chunk_info,
                     success=False,
                     output=None,
-                    error=str(e),
+                    error=safe_error,
                     processing_time_ms=processing_time,
                 )
 
@@ -377,7 +380,7 @@ class StreamingChunkProcessor(Generic[T]):
                 try:
                     self.output_func(result)
                 except Exception as e:
-                    logger.error(f"Output function failed: {e}")
+                    logger.error(safe_exception_message(e, context="Output function"))
 
             # Update checkpoint
             if checkpoint:
@@ -468,7 +471,7 @@ class StreamingChunkProcessor(Generic[T]):
             checkpoint.save(checkpoint_path)
 
             if checkpoint.is_complete:
-                logger.success(f"Processing complete: {file_path}")
+                logger.success("Processing complete")
 
     def process_text(
         self,
@@ -562,6 +565,6 @@ class StreamingChunkProcessor(Generic[T]):
         checkpoint_path = self._get_checkpoint_path(file_path)
         if os.path.exists(checkpoint_path):
             os.remove(checkpoint_path)
-            logger.info(f"Checkpoint reset: {file_path}")
+            logger.info("Checkpoint reset")
             return True
         return False

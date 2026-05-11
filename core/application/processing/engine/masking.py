@@ -11,6 +11,7 @@ from typing import Any
 from loguru import logger
 
 from ....domain import PHIEntity, PHIType, StrategyType
+from ....infrastructure.utils.redaction import safe_exception_message
 from ..strategies import MaskingStrategy, create_masking_strategy
 
 
@@ -124,8 +125,8 @@ class MaskingProcessor:
 
             except Exception as e:
                 logger.error(
-                    f"Failed to mask entity {entity.type.value} "
-                    f"at position {entity.start_pos}: {e}"
+                    f"{safe_exception_message(e, context='Entity masking')} "
+                    f"type={entity.type.value} pos={entity.start_pos}"
                 )
                 # Continue with other entities
                 continue

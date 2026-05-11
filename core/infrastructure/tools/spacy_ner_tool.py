@@ -185,7 +185,7 @@ class SpaCyNERTool(BasePHITool):
                 ))
 
         except Exception as e:
-            logger.error(f"SpaCy NER error: {e}")
+            logger.error("SpaCy NER error (%s); details redacted", type(e).__name__)
 
         return results
 

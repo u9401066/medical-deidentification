@@ -31,6 +31,10 @@ function safeUrl(): string {
   return `${window.location.origin}${window.location.pathname}`;
 }
 
+function safeMessage(error: Error | string): string {
+  return typeof error === 'string' ? '[REDACTED]' : `${error.name || 'Error'}: [REDACTED]`;
+}
+
 /**
  * 發送錯誤報告到後端
  */
@@ -65,8 +69,8 @@ export function reportError(
   extra?: Record<string, unknown>
 ) {
   const report: ErrorReport = {
-    message: typeof error === 'string' ? error : error.message,
-    stack: typeof error === 'string' ? undefined : error.stack,
+    message: safeMessage(error),
+    stack: undefined,
     url: safeUrl(),
     userAgent: navigator.userAgent,
     timestamp: new Date().toISOString(),
@@ -78,7 +82,7 @@ export function reportError(
   scheduleFlush();
   
   // 同時輸出到 console 方便開發
-  console.error(`[${type}]`, report.message);
+  console.error(`[${type}]`, 'redacted error reported');
 }
 
 /**
@@ -110,11 +114,11 @@ export function setupGlobalErrorHandlers() {
 /**
  * React Error Boundary 用
  */
-export function reportReactError(error: Error, componentStack: string) {
+export function reportReactError(error: Error, _componentStack: string) {
   const report: ErrorReport = {
-    message: error.message,
-    stack: error.stack,
-    componentStack,
+    message: safeMessage(error),
+    stack: undefined,
+    componentStack: _componentStack ? '[REDACTED]' : undefined,
     url: safeUrl(),
     userAgent: navigator.userAgent,
     timestamp: new Date().toISOString(),
@@ -124,5 +128,5 @@ export function reportReactError(error: Error, componentStack: string) {
   errorQueue.push(report);
   scheduleFlush();
   
-  console.error('[react-error]', error.message);
+  console.error('[react-error]', 'redacted error reported');
 }

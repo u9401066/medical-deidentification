@@ -21,6 +21,7 @@ from ....domain.phi_identification_models import (
 )
 from ...llm.factory import get_structured_output_method
 from ...prompts import get_phi_map_reduce_prompt, get_system_message
+from ...utils.redaction import safe_exception_message
 from .utils import deduplicate_entities
 
 ProgressCallback = Callable[[dict[str, Any]], None]
@@ -284,9 +285,8 @@ def identify_phi_with_map_reduce(
             )
 
         except Exception as e:
-            logger.error(
-                f"MapReduce Map {i+1}/{total_chunks} failed: {e}"
-            )
+            safe_error = safe_exception_message(e, context=f"MapReduce map {i+1}/{total_chunks}")
+            logger.error(safe_error)
             # Continue with empty result
             empty_response = PHIDetectionResponse(
                 entities=[],
@@ -305,7 +305,7 @@ def identify_phi_with_map_reduce(
                 duration_seconds=time.time() - chunk_start,
                 entities_found=0,
                 success=False,
-                error_message=str(e),
+                error_message=safe_error,
             )
 
         # Update position for next chunk

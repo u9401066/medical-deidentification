@@ -26,6 +26,7 @@ from typing import Any
 
 from loguru import logger
 
+from ..utils.redaction import safe_exception_message
 from .base_tool import BasePHITool, ToolResult, merge_results
 
 
@@ -111,11 +112,11 @@ def _worker_process(task: WorkerTask) -> WorkerOutput:
                 results = tool.scan(task.text)
                 all_results.extend([r.to_dict() for r in results])
             except Exception as e:
-                logger.warning(f"Tool {tool.name} failed: {e}")
+                logger.warning(safe_exception_message(e, context=f"Tool {tool.name}"))
 
     except Exception as e:
-        error = str(e)
-        logger.error(f"Worker error: {e}")
+        error = safe_exception_message(e, context="Worker")
+        logger.error(error)
 
     elapsed_ms = (time.time() - start_time) * 1000
 
@@ -268,7 +269,7 @@ class ToolRunner:
                 results = tool.scan(text)
                 all_results.extend(results)
             except Exception as e:
-                logger.warning(f"Tool {tool.name} failed: {e}")
+                logger.warning(safe_exception_message(e, context=f"Tool {tool.name}"))
 
         # Merge overlapping results
         return merge_results(all_results)
