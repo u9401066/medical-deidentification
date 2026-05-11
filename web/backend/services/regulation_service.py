@@ -4,6 +4,7 @@ Regulation Service
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -153,7 +154,15 @@ class RegulationService:
 
     async def upload_regulation(self, filename: str, content: bytes) -> dict[str, Any]:
         """上傳自訂法規"""
-        save_path = self.regulations_dir / filename
+        original_name = Path(filename).name
+        suffix = Path(original_name).suffix.lower()
+        stem = Path(original_name).stem
+        safe_stem = re.sub(r"[^a-zA-Z0-9_.-]+", "-", stem).strip(".-") or "regulation"
+        safe_filename = f"{safe_stem}{suffix}"
+        save_path = (self.regulations_dir / safe_filename).resolve()
+        allowed_dir = self.regulations_dir.resolve()
+        if not save_path.is_relative_to(allowed_dir):
+            raise PermissionError("禁止的檔案路徑")
 
         with open(save_path, "wb") as f:
             f.write(content)
@@ -162,11 +171,11 @@ class RegulationService:
         rules_count = self._count_rules(content.decode("utf-8", errors="ignore"))
 
         # 建立法規記錄
-        rule_id = Path(filename).stem.lower().replace(" ", "-")
+        rule_id = safe_stem.lower().replace("_", "-")
         new_rule = {
             "id": rule_id,
-            "name": Path(filename).stem,
-            "description": f"Custom regulation: {filename}",
+            "name": safe_stem,
+            "description": f"Custom regulation: {safe_filename}",
             "enabled": True,
             "source": "custom",
             "rules_count": rules_count,
@@ -188,10 +197,10 @@ class RegulationService:
         with open(custom_rules_file, "w", encoding="utf-8") as f:
             json.dump(custom_rules, f, indent=2, ensure_ascii=False)
 
-        logger.info(f"📚 Uploaded regulation: {filename} ({rules_count} rules)")
+        logger.info(f"📚 Uploaded regulation: {safe_filename} ({rules_count} rules)")
 
         return {
-            "message": f"已上傳 {filename}",
+            "message": f"已上傳 {safe_filename}",
             "rules": [new_rule],
         }
 

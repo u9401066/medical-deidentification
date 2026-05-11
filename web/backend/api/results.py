@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
 # 處理相對 import
@@ -16,19 +16,59 @@ if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
 from config import REPORTS_DIR, RESULTS_DIR
+from models.auth import AuthUser
+from security import get_current_user
+from services.task_service import get_task_service
 
 router = APIRouter()
 
 
+def _find_artifact(base_dir: Path, filename: str) -> Path | None:
+    """Find an artifact in legacy root storage or per-user storage."""
+    legacy_path = base_dir / filename
+    if legacy_path.exists():
+        return legacy_path
+    for artifact in base_dir.rglob(filename):
+        if artifact.is_file():
+            return artifact
+    return None
+
+
+def sanitize_payload(data: dict) -> dict:
+    """Remove raw PHI from legacy result/report files before API responses."""
+    sanitized = json.loads(json.dumps(data, ensure_ascii=False, default=str))
+    for result in sanitized.get("results", []):
+        result.pop("original_data", None)
+        result["original_content"] = ""
+        for entity in result.get("phi_entities", []):
+            entity["value"] = "[REDACTED]"
+            entity["reason"] = ""
+    for detail in sanitized.get("file_details", []):
+        detail.pop("original_data", None)
+        detail["original_content"] = ""
+        for entity in detail.get("phi_entities", []):
+            entity["value"] = "[REDACTED]"
+            entity["reason"] = ""
+    return sanitized
+
+
 @router.get("/results")
-async def list_results():
+async def list_results(current_user: AuthUser = Depends(get_current_user)):
     """列出所有處理結果"""
     results = []
+    task_service = get_task_service()
 
-    for result_file in RESULTS_DIR.glob("*_result.json"):
+    for result_file in RESULTS_DIR.rglob("*_result.json"):
         try:
             with open(result_file, encoding="utf-8") as f:
                 data = json.load(f)
+            task = task_service.get_task(data.get("task_id", ""))
+            if not task_service.can_access_task(
+                task,
+                user_id=current_user.user_id,
+                is_admin=current_user.role == "admin",
+            ):
+                continue
 
             # 聚合 PHI 類型
             phi_by_type: dict[str, int] = {}
@@ -46,6 +86,8 @@ async def list_results():
                     "job_name": data.get("job_name", ""),
                     "files_count": len(file_results),
                     "filenames": filenames,  # 處理的檔案名稱列表
+                    "owner_user_id": task.get("owner_user_id") if task else None,
+                    "owner_username": task.get("owner_username") if task else None,
                     "total_phi_found": sum(r.get("phi_found", 0) for r in file_results),
                     "phi_by_type": phi_by_type,
                     "processed_at": data.get("processed_at", ""),
@@ -58,28 +100,44 @@ async def list_results():
 
 
 @router.get("/results/{task_id}")
-async def get_result(task_id: str):
+async def get_result(task_id: str, current_user: AuthUser = Depends(get_current_user)):
     """取得處理結果詳情"""
-    result_file = RESULTS_DIR / f"{task_id}_result.json"
+    task_service = get_task_service()
+    task = task_service.get_task(task_id)
+    if not task_service.can_access_task(
+        task,
+        user_id=current_user.user_id,
+        is_admin=current_user.role == "admin",
+    ):
+        raise HTTPException(404, "結果不存在")
 
-    if not result_file.exists():
+    result_file = _find_artifact(RESULTS_DIR, f"{task_id}_result.json")
+    if result_file is None:
         raise HTTPException(404, "結果不存在")
 
     with open(result_file, encoding="utf-8") as f:
-        return json.load(f)
+        return sanitize_payload(json.load(f))
 
 
 @router.get("/reports")
-async def list_reports():
+async def list_reports(current_user: AuthUser = Depends(get_current_user)):
     """列出所有報告"""
     reports = []
+    task_service = get_task_service()
 
-    for report_file in REPORTS_DIR.glob("*_report.json"):
+    for report_file in REPORTS_DIR.rglob("*_report.json"):
         try:
             with open(report_file, encoding="utf-8") as f:
                 report = json.load(f)
 
             task_id = report["task_id"]
+            task = task_service.get_task(task_id)
+            if not task_service.can_access_task(
+                task,
+                user_id=current_user.user_id,
+                is_admin=current_user.role == "admin",
+            ):
+                continue
 
             # 更直觀的顯示名稱：檔案名稱 > job_name > task_id
             files_display = report.get("files_display", "")
@@ -107,6 +165,8 @@ async def list_reports():
                     "task_id": task_id,
                     "filename": display_name,  # 顯示更直觀的名稱
                     "job_name": job_name,
+                    "owner_user_id": task.get("owner_user_id") if task else None,
+                    "owner_username": task.get("owner_username") if task else None,
                     "files_processed": report["summary"]["files_processed"],
                     "total_phi_found": report["summary"]["total_phi_found"],
                     "created_at": report["generated_at"],  # 前端需要 created_at
@@ -120,29 +180,48 @@ async def list_reports():
 
 
 @router.get("/reports/{task_id}")
-async def get_report(task_id: str):
+async def get_report(task_id: str, current_user: AuthUser = Depends(get_current_user)):
     """取得報告詳情"""
-    report_file = REPORTS_DIR / f"{task_id}_report.json"
+    task_service = get_task_service()
+    task = task_service.get_task(task_id)
+    if not task_service.can_access_task(
+        task,
+        user_id=current_user.user_id,
+        is_admin=current_user.role == "admin",
+    ):
+        raise HTTPException(404, "報告不存在")
 
-    if not report_file.exists():
+    report_file = _find_artifact(REPORTS_DIR, f"{task_id}_report.json")
+    if report_file is None:
         raise HTTPException(404, "報告不存在")
 
     with open(report_file, encoding="utf-8") as f:
-        return json.load(f)
+        return sanitize_payload(json.load(f))
 
 
 @router.get("/reports/{task_id}/export")
-async def export_report(task_id: str, format: str = "json"):
+async def export_report(
+    task_id: str,
+    format: str = "json",
+    current_user: AuthUser = Depends(get_current_user),
+):
     """導出報告 (支援 json, csv, markdown 格式)"""
     from fastapi.responses import Response
+    task_service = get_task_service()
+    task = task_service.get_task(task_id)
+    if not task_service.can_access_task(
+        task,
+        user_id=current_user.user_id,
+        is_admin=current_user.role == "admin",
+    ):
+        raise HTTPException(404, "報告不存在")
 
-    report_file = REPORTS_DIR / f"{task_id}_report.json"
-
-    if not report_file.exists():
+    report_file = _find_artifact(REPORTS_DIR, f"{task_id}_report.json")
+    if report_file is None:
         raise HTTPException(404, "報告不存在")
 
     with open(report_file, encoding="utf-8") as f:
-        report = json.load(f)
+        report = sanitize_payload(json.load(f))
 
     if format == "json":
         # 直接返回 JSON 供下載

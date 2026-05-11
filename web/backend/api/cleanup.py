@@ -6,7 +6,7 @@ Cleanup API Router
 import sys
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from loguru import logger
 from pydantic import BaseModel
 
@@ -16,6 +16,8 @@ if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
 from config import REPORTS_DIR, RESULTS_DIR, UPLOAD_DIR
+from models.auth import AuthUser
+from security import require_admin_user
 from services.task_service import get_task_service
 
 router = APIRouter()
@@ -63,12 +65,21 @@ def _cleanup_directory(directory: Path, pattern: str = "*") -> CleanupResult:
     bytes_freed = 0
 
     try:
-        for file_path in directory.glob(pattern):
+        for file_path in directory.rglob(pattern):
             if file_path.is_file():
                 bytes_freed += file_path.stat().st_size
                 file_path.unlink()
                 files_deleted += 1
                 logger.debug(f"Deleted: {file_path.name}")
+        for child_dir in sorted(
+            [path for path in directory.rglob("*") if path.is_dir()],
+            key=lambda path: len(path.parts),
+            reverse=True,
+        ):
+            try:
+                child_dir.rmdir()
+            except OSError:
+                pass
 
         logger.info(f"Cleaned {directory.name}: {files_deleted} files, {bytes_freed} bytes")
 
@@ -89,28 +100,28 @@ def _cleanup_directory(directory: Path, pattern: str = "*") -> CleanupResult:
 
 
 @router.delete("/cleanup/uploads", response_model=CleanupResult)
-async def cleanup_uploads():
+async def cleanup_uploads(_: AuthUser = Depends(require_admin_user)):
     """清空所有上傳的檔案"""
     logger.warning("🗑️ Cleanup: Deleting all uploaded files")
     return _cleanup_directory(UPLOAD_DIR)
 
 
 @router.delete("/cleanup/results", response_model=CleanupResult)
-async def cleanup_results():
+async def cleanup_results(_: AuthUser = Depends(require_admin_user)):
     """清空所有處理結果"""
     logger.warning("🗑️ Cleanup: Deleting all results")
     return _cleanup_directory(RESULTS_DIR)
 
 
 @router.delete("/cleanup/reports", response_model=CleanupResult)
-async def cleanup_reports():
+async def cleanup_reports(_: AuthUser = Depends(require_admin_user)):
     """清空所有報告"""
     logger.warning("🗑️ Cleanup: Deleting all reports")
     return _cleanup_directory(REPORTS_DIR)
 
 
 @router.delete("/cleanup/all", response_model=CleanupAllResult)
-async def cleanup_all():
+async def cleanup_all(_: AuthUser = Depends(require_admin_user)):
     """清空所有資料（上傳、結果、報告、任務）"""
     logger.warning("🗑️🗑️🗑️ Cleanup: Deleting ALL data")
 
@@ -145,14 +156,14 @@ async def cleanup_all():
 
 
 @router.get("/cleanup/stats")
-async def get_cleanup_stats():
+async def get_cleanup_stats(current_user: AuthUser = Depends(require_admin_user)):
     """取得各目錄的檔案統計"""
 
     def get_dir_stats(directory: Path) -> dict:
         if not directory.exists():
             return {"files": 0, "size": 0, "size_formatted": "0 B"}
 
-        files = list(directory.glob("*"))
+        files = list(directory.rglob("*"))
         file_count = sum(1 for f in files if f.is_file())
         total_size = sum(f.stat().st_size for f in files if f.is_file())
 
@@ -172,7 +183,7 @@ async def get_cleanup_stats():
 
     # 取得任務數量
     task_service = get_task_service()
-    tasks = task_service.list_tasks()
+    tasks = task_service.list_tasks(user_id=current_user.user_id, is_admin=True)
 
     return {
         "uploads": get_dir_stats(UPLOAD_DIR),

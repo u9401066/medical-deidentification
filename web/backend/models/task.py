@@ -27,6 +27,8 @@ class FileResult(BaseModel):
     status: str  # pending, processing, completed, error
     phi_found: int = 0
     error: str | None = None
+    owner_user_id: str | None = None
+    owner_username: str | None = None
     processing_time: float | None = None  # 秒
 
 
@@ -50,6 +52,9 @@ class TaskStatus(BaseModel):
     current_file: str | None = None
     files_completed: int = 0
     total_files: int = 0
+    phase: str | None = None
+    phase_label: str | None = None
+    current_file_progress: float | None = None
 
     # 時間估計
     elapsed_time: float | None = None

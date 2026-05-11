@@ -10,20 +10,25 @@ _backend_dir = Path(__file__).parent.parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from api.auth import router as auth_router
+from api.cleanup import router as cleanup_router
 from api.files import router as files_router
 from api.health import router as health_router
 from api.llm import router as llm_router
+from api.logs import router as logs_router
 from api.preview import router as preview_router
 from api.processing import router as processing_router
 from api.results import router as results_router
 from api.settings import router as settings_router
+from security import require_authenticated_request
 
 # 建立主路由
-api_router = APIRouter(prefix="/api")
+api_router = APIRouter(prefix="/api", dependencies=[Depends(require_authenticated_request)])
 
 # 註冊子路由
+api_router.include_router(auth_router)
 api_router.include_router(files_router, tags=["Files"])
 api_router.include_router(preview_router, tags=["Preview"])
 api_router.include_router(processing_router, tags=["Processing"])
@@ -31,5 +36,7 @@ api_router.include_router(results_router, tags=["Results"])
 api_router.include_router(settings_router, tags=["Settings"])
 api_router.include_router(llm_router, tags=["LLM"])
 api_router.include_router(health_router, tags=["Health"])
+api_router.include_router(cleanup_router, tags=["Cleanup"])
+api_router.include_router(logs_router)
 
 __all__ = ["api_router"]

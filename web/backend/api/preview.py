@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 
 # 處理相對 import
@@ -28,6 +28,8 @@ _project_root = Path(__file__).parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
+from models.auth import AuthUser
+from security import get_current_user
 from services.file_service import get_file_service
 
 router = APIRouter()
@@ -41,7 +43,10 @@ STRUCTURED_TYPES = {"json"}
 
 @router.get("/preview/{file_id}")
 async def preview_file(
-    file_id: str, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100)
+    file_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user: AuthUser = Depends(get_current_user),
 ):
     """預覽檔案內容
 
@@ -57,7 +62,14 @@ async def preview_file(
         - 結構: json
     """
     file_service = get_file_service()
-    file_path = file_service.get_file_path(file_id)
+    try:
+        file_path = file_service.get_file_path(
+            file_id,
+            user_id=current_user.user_id,
+            is_admin=current_user.role == "admin",
+        )
+    except (PermissionError, ValueError) as e:
+        raise HTTPException(400, str(e)) from e
 
     if not file_path or not file_path.exists():
         raise HTTPException(404, "檔案不存在")

@@ -5,11 +5,13 @@ LLM 設定服務 - 管理 LLM 連線設定
 
 import json
 import os
-from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from pydantic import BaseModel
+
+from config import DATA_DIR, OLLAMA_BASE_URL, OLLAMA_MODEL
 
 
 class LLMConfig(BaseModel):
@@ -48,10 +50,16 @@ class LLMConfigService:
     """LLM 設定服務"""
 
     def __init__(self) -> None:
-        self._config_dir = Path(__file__).parent.parent / "data" / "llm_configs"
+        self._config_dir = DATA_DIR / "llm_configs"
         self._config_file = self._config_dir / "config.json"
         self._config_dir.mkdir(parents=True, exist_ok=True)
         self._config = self._load_config()
+
+    def _default_config(self) -> LLMConfig:
+        return LLMConfig(
+            base_url=os.getenv("OLLAMA_BASE_URL", OLLAMA_BASE_URL),
+            model=os.getenv("OLLAMA_MODEL", OLLAMA_MODEL),
+        )
 
     def _load_config(self) -> LLMConfig:
         """載入設定"""
@@ -59,20 +67,43 @@ class LLMConfigService:
             try:
                 with open(self._config_file, encoding="utf-8") as f:
                     data = json.load(f)
-                return LLMConfig(**data)
+                config = LLMConfig(**data)
+                self._validate_base_url(config.base_url)
+                return config
             except Exception:
-                pass
+                return self._default_config()
 
         # 從環境變數載入預設值（預設使用外部 Ollama 服務）
-        return LLMConfig(
-            base_url=os.getenv("OLLAMA_BASE_URL", "http://192.168.1.2:30133"),
-            model=os.getenv("OLLAMA_MODEL", "gemma3:27b"),
-        )
+        return self._default_config()
 
     def _save_config(self) -> None:
         """儲存設定"""
         with open(self._config_file, "w", encoding="utf-8") as f:
             json.dump(self._config.model_dump(), f, ensure_ascii=False, indent=2)
+
+    def _validate_base_url(self, base_url: str) -> None:
+        parsed = urlparse(base_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError("LLM base_url must be an http(s) URL")
+        if parsed.username or parsed.password:
+            raise ValueError("LLM base_url must not include credentials")
+
+        allowed_hosts = {
+            host.strip().lower()
+            for host in os.getenv("MEDICAL_DEID_ALLOWED_LLM_HOSTS", "").split(",")
+            if host.strip()
+        }
+        # Safe default: only the configured deployment endpoint and localhost.
+        default_host = urlparse(os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")).hostname
+        if not allowed_hosts:
+            allowed_hosts = {"localhost", "127.0.0.1", "::1"}
+            if default_host:
+                allowed_hosts.add(default_host.lower())
+
+        if parsed.hostname.lower() not in allowed_hosts:
+            raise ValueError(
+                "LLM endpoint host is not allowed. Set MEDICAL_DEID_ALLOWED_LLM_HOSTS to permit it."
+            )
 
     def get_config(self) -> LLMConfig:
         """取得目前設定"""
@@ -80,7 +111,14 @@ class LLMConfigService:
 
     def update_config(self, config: LLMConfig) -> LLMConfig:
         """更新設定"""
+        self._validate_base_url(config.base_url)
         self._config = config
+        self._save_config()
+        return self._config
+
+    def reset_to_default(self) -> LLMConfig:
+        """Reset to deployment defaults from environment/config."""
+        self._config = self._default_config()
         self._save_config()
         return self._config
 
@@ -88,6 +126,8 @@ class LLMConfigService:
         """部分更新設定"""
         current = self._config.model_dump()
         current.update(kwargs)
+        if "base_url" in kwargs:
+            self._validate_base_url(str(kwargs["base_url"]))
         self._config = LLMConfig(**current)
         self._save_config()
         return self._config

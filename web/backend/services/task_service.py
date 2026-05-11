@@ -4,7 +4,9 @@ Task Service
 """
 
 import json
+import os
 import sys
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -25,6 +27,7 @@ class TaskService:
     def __init__(self):
         self._tasks_db: dict[str, dict[str, Any]] = {}
         self._db_file = TASKS_DB_FILE
+        self._lock = threading.RLock()
 
         # 確保資料目錄存在
         DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -71,8 +74,13 @@ class TaskService:
                     task_copy["updated_at"] = task_copy["updated_at"].isoformat()
                 data[task_id] = task_copy
 
-            with open(self._db_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False, default=str)
+            with self._lock:
+                tmp_file = self._db_file.with_suffix(f"{self._db_file.suffix}.tmp")
+                with open(tmp_file, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False, default=str)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(tmp_file, self._db_file)
         except Exception as e:
             logger.error(f"Failed to save tasks: {e}")
 
@@ -82,8 +90,15 @@ class TaskService:
         return self._tasks_db
 
     def create_task(
-        self, task_id: str, file_ids: list[str], config: dict[str, Any], job_name: str | None = None,
-        file_names: dict[str, str] | None = None
+        self,
+        task_id: str,
+        file_ids: list[str],
+        config: dict[str, Any],
+        owner_user_id: str,
+        owner_role: str = "user",
+        owner_username: str | None = None,
+        job_name: str | None = None,
+        file_names: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """建立新任務
         
@@ -102,12 +117,12 @@ class TaskService:
             file_id: {
                 "file_id": file_id,
                 "filename": file_names.get(file_id, file_id),  # 優先用檔名，fallback 用 ID
-                "status": "processing",  # 立即標記為處理中
+                "status": "processing" if index == 0 else "pending",
                 "phi_found": 0,
                 "error": None,
                 "processing_time": None,
             }
-            for file_id in file_ids
+            for index, file_id in enumerate(file_ids)
         }
 
         # 取得第一個檔案名稱作為 current_file
@@ -122,6 +137,9 @@ class TaskService:
             "file_names": file_names,  # 儲存 ID -> 檔名對應
             "config": config,
             "job_name": job_name or f"job-{task_id}",
+            "owner_user_id": owner_user_id,
+            "owner_username": owner_username,
+            "owner_role": owner_role,
             "created_at": now,
             "updated_at": now,
             "result": None,
@@ -129,12 +147,16 @@ class TaskService:
             "current_file": first_filename,
             "files_completed": 0,
             "total_files": len(file_ids),
+            "phase": "queued",
+            "phase_label": "任務已排入佇列",
+            "current_file_progress": 0.0,
             "elapsed_time": None,
             "estimated_remaining": None,
             "file_results": file_results,  # 新增：單檔狀態追蹤
         }
-        self._tasks_db[task_id] = task
-        self._save_tasks()  # 持久化
+        with self._lock:
+            self._tasks_db[task_id] = task
+            self._save_tasks()  # 持久化
         logger.info(f"📋 Created task: {task_id} with {len(file_ids)} files")
         return task
 
@@ -142,14 +164,24 @@ class TaskService:
         """取得任務資訊"""
         return self._tasks_db.get(task_id)
 
+    @staticmethod
+    def can_access_task(task: dict[str, Any] | None, user_id: str, is_admin: bool = False) -> bool:
+        if not task:
+            return False
+        if is_admin:
+            return True
+        owner_user_id = task.get("owner_user_id")
+        return bool(owner_user_id) and owner_user_id == user_id
+
     def update_task(self, task_id: str, **updates) -> dict[str, Any] | None:
         """更新任務狀態"""
-        task = self._tasks_db.get(task_id)
-        if task:
-            task.update(updates)
-            task["updated_at"] = datetime.now()
-            self._save_tasks()  # 持久化
-            return task
+        with self._lock:
+            task = self._tasks_db.get(task_id)
+            if task:
+                task.update(updates)
+                task["updated_at"] = datetime.now()
+                self._save_tasks()  # 持久化
+                return task
         return None
 
     def update_file_result(
@@ -162,27 +194,28 @@ class TaskService:
         processing_time: float | None = None,
     ) -> dict[str, Any] | None:
         """更新單一檔案的處理結果"""
-        task = self._tasks_db.get(task_id)
-        if not task:
-            return None
+        with self._lock:
+            task = self._tasks_db.get(task_id)
+            if not task:
+                return None
 
-        file_results = task.get("file_results", {})
-        # 保留原有的欄位（如 filename），只更新狀態相關欄位
-        existing = file_results.get(file_id, {})
-        file_results[file_id] = {
-            **existing,  # 保留原有欄位
-            "file_id": file_id,
-            "status": status,
-            "phi_found": phi_found,
-            "error": error,
-            "processing_time": processing_time,
-        }
-        task["file_results"] = file_results
-        task["updated_at"] = datetime.now()
-        self._save_tasks()  # 持久化
+            file_results = task.get("file_results", {})
+            # 保留原有的欄位（如 filename），只更新狀態相關欄位
+            existing = file_results.get(file_id, {})
+            file_results[file_id] = {
+                **existing,  # 保留原有欄位
+                "file_id": file_id,
+                "status": status,
+                "phi_found": phi_found,
+                "error": error,
+                "processing_time": processing_time,
+            }
+            task["file_results"] = file_results
+            task["updated_at"] = datetime.now()
+            self._save_tasks()  # 持久化
 
-        logger.debug(f"Updated file result: {task_id}/{file_id} -> {status}")
-        return file_results[file_id]
+            logger.debug(f"Updated file result: {task_id}/{file_id} -> {status}")
+            return file_results[file_id]
 
     def get_file_result(self, task_id: str, file_id: str) -> dict[str, Any] | None:
         """取得單一檔案的處理結果"""
@@ -191,17 +224,24 @@ class TaskService:
             return None
         return task.get("file_results", {}).get(file_id)
 
-    def list_tasks(self) -> list[dict[str, Any]]:
+    def list_tasks(self, user_id: str, is_admin: bool = False) -> list[dict[str, Any]]:
         """列出所有任務 (按建立時間倒序)"""
-        return sorted(self._tasks_db.values(), key=lambda x: x["created_at"], reverse=True)
+        tasks = [
+            task
+            for task in self._tasks_db.values()
+            if self.can_access_task(task, user_id=user_id, is_admin=is_admin)
+        ]
+        return sorted(tasks, key=lambda x: x["created_at"], reverse=True)
 
-    def get_file_task_map(self) -> dict[str, dict[str, Any]]:
+    def get_file_task_map(self, user_id: str, is_admin: bool = False) -> dict[str, dict[str, Any]]:
         """取得檔案 ID -> 任務+檔案狀態的映射
         
         返回每個檔案最新任務中的單檔狀態
         """
         file_task_map: dict[str, dict[str, Any]] = {}
         for task in self._tasks_db.values():
+            if not self.can_access_task(task, user_id=user_id, is_admin=is_admin):
+                continue
             for file_id in task.get("file_ids", []):
                 # 取最新的任務
                 if (
@@ -250,15 +290,50 @@ class TaskService:
             "total_tasks": len(self._tasks_db),
         }
 
+    def mark_interrupted_tasks_failed(self) -> int:
+        """Mark persisted in-flight tasks as failed after backend startup.
+
+        Worker threads are in-memory only. If the backend restarts while a task is
+        processing, the persisted task would otherwise look stuck forever.
+        """
+        interrupted_statuses = {"pending", "processing"}
+        count = 0
+        now = datetime.now()
+        with self._lock:
+            for task in self._tasks_db.values():
+                if task.get("status") not in interrupted_statuses:
+                    continue
+                task["status"] = "failed"
+                task["progress"] = min(float(task.get("progress") or 0), 0.99)
+                task["message"] = "服務曾重啟或 worker 中斷，任務未完成；請重新處理。"
+                task["error"] = "interrupted_by_backend_restart"
+                task["phase"] = "failed"
+                task["phase_label"] = "任務中斷"
+                task["estimated_remaining"] = None
+                task["estimated_remaining_formatted"] = None
+                task["updated_at"] = now
+                for file_result in (task.get("file_results") or {}).values():
+                    if file_result.get("status") in interrupted_statuses:
+                        file_result["status"] = "error"
+                        file_result["error"] = "服務重啟或 worker 中斷，請重新處理。"
+                count += 1
+            if count:
+                self._save_tasks()
+
+        if count:
+            logger.warning(f"Marked {count} interrupted tasks as failed after startup")
+        return count
+
     def clear_all_tasks(self) -> int:
         """清空所有任務記錄
         
         Returns:
             刪除的任務數量
         """
-        count = len(self._tasks_db)
-        self._tasks_db.clear()
-        self._save_tasks()  # 持久化
+        with self._lock:
+            count = len(self._tasks_db)
+            self._tasks_db.clear()
+            self._save_tasks()  # 持久化
 
         # 重置統計
         self._processing_stats = {

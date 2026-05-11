@@ -3,11 +3,11 @@ Health API Router
 健康檢查 API
 """
 
-import subprocess
 import sys
 from pathlib import Path
 
-from fastapi import APIRouter
+import httpx
+from fastapi import APIRouter, Response, status
 
 # 處理相對 import
 _backend_dir = Path(__file__).parent.parent
@@ -32,26 +32,14 @@ async def health_check():
     ollama_url = llm_config.base_url.rstrip("/")
 
     try:
-        result = subprocess.run(
-            ["curl", "-s", f"{ollama_url}/api/tags"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode == 0:
-            import json
-
-            try:
-                data = json.loads(result.stdout)
-                if data.get("models"):
-                    llm_status = "online"
-            except json.JSONDecodeError:
-                pass
-    except subprocess.TimeoutExpired:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            result = await client.get(f"{ollama_url}/api/tags")
+            if result.status_code == 200 and result.json().get("models"):
+                llm_status = "online"
+    except httpx.TimeoutException:
         llm_status = "timeout"
     except Exception:
-        pass
+        llm_status = "offline"
 
     # 檢查引擎狀態
     processing_service = get_processing_service()
@@ -63,7 +51,22 @@ async def health_check():
             "status": llm_status,
             "model": llm_config.model,  # 使用設定中的模型
             "provider": llm_config.provider,
-            "endpoint": ollama_url,
         },
         "engine_available": engine_available,
     }
+
+
+@router.get("/live")
+async def live_check():
+    """Process liveness check."""
+    return {"status": "alive"}
+
+
+@router.get("/ready")
+async def ready_check(response: Response):
+    """Readiness check for monitoring/load balancers."""
+    health = await health_check()
+    ready = health["engine_available"] and health["llm"]["status"] == "online"
+    if not ready:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    return {"status": "ready" if ready else "not_ready"}

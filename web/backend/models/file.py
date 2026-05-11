@@ -17,8 +17,11 @@ class UploadedFile(BaseModel):
     upload_time: datetime
     file_type: str
     preview_available: bool = True
+    content_deleted: bool = False
     status: str = "pending"  # pending, processing, completed, error
     task_id: str | None = None  # 關聯的處理任務 ID
+    owner_user_id: str | None = None
+    owner_username: str | None = None
 
 
 __all__ = ["UploadedFile"]

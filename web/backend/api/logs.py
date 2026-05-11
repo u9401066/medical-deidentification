@@ -8,9 +8,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from loguru import logger
 from pydantic import BaseModel
+
+from models.auth import AuthUser
+from security import require_admin_user
 
 router = APIRouter(prefix="/logs", tags=["logs"])
 
@@ -60,7 +63,10 @@ async def receive_frontend_errors(request: FrontendErrorsRequest):
 
 
 @router.get("/frontend-errors")
-async def get_frontend_errors(limit: int = 50):
+async def get_frontend_errors(
+    limit: int = 50,
+    _: AuthUser = Depends(require_admin_user),
+):
     """取得最近的前端錯誤（供 debug 用）"""
     if not FRONTEND_ERROR_LOG.exists():
         return {"errors": [], "total": 0}
@@ -85,7 +91,7 @@ async def get_frontend_errors(limit: int = 50):
 
 
 @router.delete("/frontend-errors")
-async def clear_frontend_errors():
+async def clear_frontend_errors(_: AuthUser = Depends(require_admin_user)):
     """清空前端錯誤日誌"""
     if FRONTEND_ERROR_LOG.exists():
         FRONTEND_ERROR_LOG.unlink()

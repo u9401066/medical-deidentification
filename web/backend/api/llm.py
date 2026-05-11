@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 # 處理相對 import
@@ -15,7 +15,9 @@ _backend_dir = Path(__file__).parent.parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
-from services.llm_config_service import LLMConfig, get_llm_config_service
+from models.auth import AuthUser
+from security import get_current_user, require_admin_user
+from services.llm_config_service import get_llm_config_service
 
 router = APIRouter()
 
@@ -45,15 +47,19 @@ class SetModelRequest(BaseModel):
 
 
 @router.get("/llm/status")
-async def get_llm_status() -> dict[str, Any]:
+async def get_llm_status(current_user: AuthUser = Depends(get_current_user)) -> dict[str, Any]:
     """取得 LLM 狀態 (連線狀態、可用模型)"""
     service = get_llm_config_service()
     status = await service.get_status()
-    return status.model_dump()
+    result = status.model_dump()
+    if current_user.role != "admin":
+        result["endpoint"] = ""
+        result["error"] = None if status.online else "LLM 離線或不可達"
+    return result
 
 
 @router.get("/llm/models")
-async def list_llm_models() -> list[dict[str, Any]]:
+async def list_llm_models(_: AuthUser = Depends(require_admin_user)) -> list[dict[str, Any]]:
     """列出可用的 LLM 模型"""
     service = get_llm_config_service()
     models = await service.list_models()
@@ -61,7 +67,7 @@ async def list_llm_models() -> list[dict[str, Any]]:
 
 
 @router.post("/llm/test")
-async def test_llm_connection() -> dict[str, Any]:
+async def test_llm_connection(_: AuthUser = Depends(require_admin_user)) -> dict[str, Any]:
     """測試 LLM 連線"""
     service = get_llm_config_service()
     return await service.test_connection()
@@ -71,7 +77,7 @@ async def test_llm_connection() -> dict[str, Any]:
 
 
 @router.get("/llm/config")
-async def get_llm_config() -> dict[str, Any]:
+async def get_llm_config(_: AuthUser = Depends(require_admin_user)) -> dict[str, Any]:
     """取得目前的 LLM 設定"""
     service = get_llm_config_service()
     config = service.get_config()
@@ -83,7 +89,10 @@ async def get_llm_config() -> dict[str, Any]:
 
 
 @router.put("/llm/config")
-async def update_llm_config(request: LLMConfigUpdateRequest) -> dict[str, Any]:
+async def update_llm_config(
+    request: LLMConfigUpdateRequest,
+    _: AuthUser = Depends(require_admin_user),
+) -> dict[str, Any]:
     """更新 LLM 設定"""
     service = get_llm_config_service()
 
@@ -93,7 +102,10 @@ async def update_llm_config(request: LLMConfigUpdateRequest) -> dict[str, Any]:
     if not updates:
         raise HTTPException(400, "未提供任何更新內容")
 
-    updated = service.update_partial(**updates)
+    try:
+        updated = service.update_partial(**updates)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
 
     result = updated.model_dump()
     if result.get("api_key"):
@@ -103,11 +115,13 @@ async def update_llm_config(request: LLMConfigUpdateRequest) -> dict[str, Any]:
 
 
 @router.post("/llm/config/reset")
-async def reset_llm_config() -> dict[str, Any]:
+async def reset_llm_config(_: AuthUser = Depends(require_admin_user)) -> dict[str, Any]:
     """重置 LLM 設定為預設值"""
     service = get_llm_config_service()
-    default_config = LLMConfig()
-    updated = service.update_config(default_config)
+    try:
+        updated = service.reset_to_default()
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
     return {"message": "設定已重置", "config": updated.model_dump()}
 
 
@@ -115,7 +129,10 @@ async def reset_llm_config() -> dict[str, Any]:
 
 
 @router.post("/llm/model")
-async def set_llm_model(request: SetModelRequest) -> dict[str, Any]:
+async def set_llm_model(
+    request: SetModelRequest,
+    _: AuthUser = Depends(require_admin_user),
+) -> dict[str, Any]:
     """設定使用的 LLM 模型"""
     service = get_llm_config_service()
     try:

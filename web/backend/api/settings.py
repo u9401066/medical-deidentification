@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -17,8 +17,11 @@ _backend_dir = Path(__file__).parent.parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
+from config import MAX_CONFIG_UPLOAD_SIZE, MAX_REGULATION_UPLOAD_SIZE
+from models.auth import AuthUser
 from models.config import PHIConfig
 from models.regulation import RegulationRule
+from security import get_current_user, require_admin_user
 from services.phi_config_service import get_phi_config_service
 from services.regulation_service import get_regulation_service
 
@@ -29,7 +32,7 @@ router = APIRouter()
 
 
 @router.get("/settings/phi-types")
-async def get_phi_types() -> list[dict[str, Any]]:
+async def get_phi_types(_: AuthUser = Depends(get_current_user)) -> list[dict[str, Any]]:
     """取得所有可用的 PHI 類型"""
     # 嘗試從核心模組取得
     try:
@@ -99,14 +102,17 @@ def _get_phi_description(phi_type: str) -> str:
 
 
 @router.get("/settings/config")
-async def get_config() -> dict[str, Any]:
+async def get_config(_: AuthUser = Depends(get_current_user)) -> dict[str, Any]:
     """取得目前的 PHI 設定"""
     phi_config_service = get_phi_config_service()
     return phi_config_service.get_config().model_dump()
 
 
 @router.put("/settings/config")
-async def update_config(config: PHIConfig) -> dict[str, Any]:
+async def update_config(
+    config: PHIConfig,
+    _: AuthUser = Depends(require_admin_user),
+) -> dict[str, Any]:
     """更新 PHI 設定"""
     phi_config_service = get_phi_config_service()
     updated = phi_config_service.update_config(config)
@@ -125,7 +131,10 @@ class PHITypeUpdateRequest(BaseModel):
 
 
 @router.get("/settings/phi-types/{phi_type}")
-async def get_phi_type_config(phi_type: str) -> dict[str, Any]:
+async def get_phi_type_config(
+    phi_type: str,
+    _: AuthUser = Depends(get_current_user),
+) -> dict[str, Any]:
     """取得單一 PHI 類型的設定"""
     phi_config_service = get_phi_config_service()
     type_config = phi_config_service.get_phi_type_config(phi_type)
@@ -135,7 +144,11 @@ async def get_phi_type_config(phi_type: str) -> dict[str, Any]:
 
 
 @router.put("/settings/phi-types/{phi_type}")
-async def update_phi_type_config(phi_type: str, request: PHITypeUpdateRequest) -> dict[str, Any]:
+async def update_phi_type_config(
+    phi_type: str,
+    request: PHITypeUpdateRequest,
+    _: AuthUser = Depends(require_admin_user),
+) -> dict[str, Any]:
     """更新單一 PHI 類型的設定"""
     phi_config_service = get_phi_config_service()
     updated = phi_config_service.update_phi_type_config(
@@ -151,14 +164,14 @@ async def update_phi_type_config(phi_type: str, request: PHITypeUpdateRequest) -
 
 
 @router.get("/settings/export")
-async def export_config() -> dict[str, Any]:
+async def export_config(_: AuthUser = Depends(require_admin_user)) -> dict[str, Any]:
     """導出目前的 PHI 設定為 JSON"""
     phi_config_service = get_phi_config_service()
     return phi_config_service.export_config(include_metadata=True)
 
 
 @router.get("/settings/export/download")
-async def download_config() -> FileResponse:
+async def download_config(_: AuthUser = Depends(require_admin_user)) -> FileResponse:
     """下載 PHI 設定檔"""
     phi_config_service = get_phi_config_service()
     export_file = phi_config_service.export_config_file()
@@ -170,7 +183,10 @@ async def download_config() -> FileResponse:
 
 
 @router.post("/settings/import")
-async def import_config(file: UploadFile = File(...)) -> dict[str, Any]:
+async def import_config(
+    file: UploadFile = File(...),
+    _: AuthUser = Depends(require_admin_user),
+) -> dict[str, Any]:
     """從 JSON 檔案導入 PHI 設定"""
     if not file.filename:
         raise HTTPException(400, "未提供檔案名稱")
@@ -180,6 +196,8 @@ async def import_config(file: UploadFile = File(...)) -> dict[str, Any]:
 
     try:
         content = await file.read()
+        if len(content) > MAX_CONFIG_UPLOAD_SIZE:
+            raise HTTPException(413, "設定檔過大")
         data = json.loads(content.decode("utf-8"))
     except json.JSONDecodeError as e:
         raise HTTPException(400, f"無效的 JSON 格式: {e}") from e
@@ -193,7 +211,10 @@ async def import_config(file: UploadFile = File(...)) -> dict[str, Any]:
 
 
 @router.post("/settings/import/json")
-async def import_config_json(data: dict[str, Any]) -> dict[str, Any]:
+async def import_config_json(
+    data: dict[str, Any],
+    _: AuthUser = Depends(require_admin_user),
+) -> dict[str, Any]:
     """直接從 JSON 資料導入 PHI 設定"""
     phi_config_service = get_phi_config_service()
     try:
@@ -204,7 +225,7 @@ async def import_config_json(data: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.post("/settings/reset")
-async def reset_config() -> dict[str, Any]:
+async def reset_config(_: AuthUser = Depends(require_admin_user)) -> dict[str, Any]:
     """重置 PHI 設定為預設值"""
     phi_config_service = get_phi_config_service()
     reset_config = phi_config_service.reset_to_default()
@@ -215,7 +236,7 @@ async def reset_config() -> dict[str, Any]:
 
 
 @router.get("/settings/default")
-async def get_default_config() -> dict[str, Any]:
+async def get_default_config(_: AuthUser = Depends(get_current_user)) -> dict[str, Any]:
     """取得預設 PHI 設定 (不影響目前設定)"""
     phi_config_service = get_phi_config_service()
     default = phi_config_service.get_default_config()
@@ -226,14 +247,17 @@ async def get_default_config() -> dict[str, Any]:
 
 
 @router.get("/settings/presets")
-async def list_presets() -> list[dict[str, Any]]:
+async def list_presets(_: AuthUser = Depends(get_current_user)) -> list[dict[str, Any]]:
     """列出所有可用的設定範本"""
     phi_config_service = get_phi_config_service()
     return phi_config_service.list_presets()
 
 
 @router.get("/settings/presets/{preset_id}")
-async def get_preset(preset_id: str) -> dict[str, Any]:
+async def get_preset(
+    preset_id: str,
+    _: AuthUser = Depends(get_current_user),
+) -> dict[str, Any]:
     """取得指定的設定範本"""
     phi_config_service = get_phi_config_service()
     preset = phi_config_service.get_preset(preset_id)
@@ -243,7 +267,10 @@ async def get_preset(preset_id: str) -> dict[str, Any]:
 
 
 @router.post("/settings/presets/{preset_id}/apply")
-async def apply_preset(preset_id: str) -> dict[str, Any]:
+async def apply_preset(
+    preset_id: str,
+    _: AuthUser = Depends(require_admin_user),
+) -> dict[str, Any]:
     """套用指定的設定範本"""
     phi_config_service = get_phi_config_service()
     try:
@@ -261,14 +288,21 @@ class SavePresetRequest(BaseModel):
 
 
 @router.post("/settings/presets/{preset_id}")
-async def save_preset(preset_id: str, request: SavePresetRequest) -> dict[str, Any]:
+async def save_preset(
+    preset_id: str,
+    request: SavePresetRequest,
+    _: AuthUser = Depends(require_admin_user),
+) -> dict[str, Any]:
     """將目前設定儲存為新的設定範本"""
     phi_config_service = get_phi_config_service()
     return phi_config_service.save_as_preset(preset_id, request.name, request.description)
 
 
 @router.delete("/settings/presets/{preset_id}")
-async def delete_preset(preset_id: str) -> dict[str, Any]:
+async def delete_preset(
+    preset_id: str,
+    _: AuthUser = Depends(require_admin_user),
+) -> dict[str, Any]:
     """刪除設定範本"""
     phi_config_service = get_phi_config_service()
     try:
@@ -282,14 +316,17 @@ async def delete_preset(preset_id: str) -> dict[str, Any]:
 
 
 @router.get("/regulations", response_model=list[RegulationRule])
-async def list_regulations() -> list[RegulationRule]:
+async def list_regulations(_: AuthUser = Depends(require_admin_user)) -> list[RegulationRule]:
     """列出所有法規規則"""
     regulation_service = get_regulation_service()
     return regulation_service.list_regulations()
 
 
 @router.get("/regulations/{rule_id}/content")
-async def get_regulation_content(rule_id: str) -> dict[str, Any]:
+async def get_regulation_content(
+    rule_id: str,
+    _: AuthUser = Depends(require_admin_user),
+) -> dict[str, Any]:
     """取得法規的完整內容"""
     regulation_service = get_regulation_service()
     content = regulation_service.get_regulation_content(rule_id)
@@ -301,7 +338,11 @@ async def get_regulation_content(rule_id: str) -> dict[str, Any]:
 
 
 @router.put("/regulations/{rule_id}")
-async def update_regulation(rule_id: str, enabled: bool) -> dict[str, Any]:
+async def update_regulation(
+    rule_id: str,
+    enabled: bool,
+    _: AuthUser = Depends(require_admin_user),
+) -> dict[str, Any]:
     """更新法規啟用狀態"""
     regulation_service = get_regulation_service()
 
@@ -312,7 +353,10 @@ async def update_regulation(rule_id: str, enabled: bool) -> dict[str, Any]:
 
 
 @router.post("/regulations/upload")
-async def upload_regulation(file: UploadFile = File(...)) -> dict[str, Any]:
+async def upload_regulation(
+    file: UploadFile = File(...),
+    _: AuthUser = Depends(require_admin_user),
+) -> dict[str, Any]:
     """上傳自訂法規"""
     if not file.filename:
         raise HTTPException(400, "未提供檔案名稱")
@@ -324,6 +368,8 @@ async def upload_regulation(file: UploadFile = File(...)) -> dict[str, Any]:
         raise HTTPException(400, f"不支援的檔案類型: {file_ext}。支援: md, txt, json")
 
     content = await file.read()
+    if len(content) > MAX_REGULATION_UPLOAD_SIZE:
+        raise HTTPException(413, "法規檔案過大")
     regulation_service = get_regulation_service()
 
     result = await regulation_service.upload_regulation(file.filename, content)
