@@ -2,8 +2,10 @@
 
 import json
 import sys
+from io import BytesIO
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
@@ -17,6 +19,7 @@ from services.file_service import FileService
 from services import task_service as task_module
 from services import result_sanitizer
 from services.processing_service import ProcessingService
+from api.files import _result_export
 from security import validate_browser_origin
 
 
@@ -216,6 +219,90 @@ def test_processing_result_preserves_masked_table_and_true_char_count(tmp_path: 
             "note": "Patient [REDACTED] visited on 2024-01-01",
         }
     ]
+
+
+def test_processing_result_exports_original_table_when_no_phi(tmp_path: Path) -> None:
+    source = tmp_path / "safe.csv"
+    source.write_text("name,note\n測試資料,無個資\n", encoding="utf-8")
+    original_content = source.read_text(encoding="utf-8")
+    result = type(
+        "Result",
+        (),
+        {
+            "documents": [
+                {
+                    "phi_entities": [],
+                    "original_content": original_content,
+                    "masked_content": original_content,
+                }
+            ],
+            "summary": {},
+        },
+    )()
+
+    converted = ProcessingService()._convert_engine_result(
+        result,
+        source,
+        original_filename="safe.csv",
+    )
+    content, filename, _media_type = _result_export(converted)
+    dataframe = pd.read_csv(BytesIO(content))
+
+    assert converted["phi_found"] == 0
+    assert converted["masked_data"] == [{"__row": 1, "name": "測試資料", "note": "無個資"}]
+    assert filename == "safe_deidentified.csv"
+    assert list(dataframe.columns) == ["name", "note"]
+    assert dataframe.loc[0, "note"] == "無個資"
+
+
+def test_result_export_returns_deidentified_csv_not_phi_audit_list() -> None:
+    content, filename, media_type = _result_export(
+        {
+            "filename": "patients.csv",
+            "source_extension": ".csv",
+            "status": "completed",
+            "phi_entities": [
+                {"type": "NAME", "value": "王小明", "masked_value": "[REDACTED]"},
+            ],
+            "masked_data": [
+                {"__row": 1, "姓名": "[REDACTED]", "電話": "[REDACTED]", "備註": "已回診"},
+            ],
+        }
+    )
+
+    dataframe = pd.read_csv(BytesIO(content))
+
+    assert filename == "patients_deidentified.csv"
+    assert media_type.startswith("text/csv")
+    assert list(dataframe.columns) == ["姓名", "電話", "備註"]
+    assert "PHI 類型" not in dataframe.columns
+    assert dataframe.loc[0, "姓名"] == "[REDACTED]"
+
+
+def test_result_export_preserves_xlsx_sheets() -> None:
+    content, filename, media_type = _result_export(
+        {
+            "filename": "tagged_cases.xlsx",
+            "source_extension": ".xlsx",
+            "status": "completed",
+            "masked_sheets": [
+                {
+                    "name": "病例",
+                    "rows": [
+                        {"__row": 1, "姓名": "[REDACTED]", "說明": "masked"},
+                    ],
+                }
+            ],
+        }
+    )
+
+    workbook = pd.ExcelFile(BytesIO(content))
+    dataframe = pd.read_excel(workbook, sheet_name="病例")
+
+    assert filename == "tagged_cases_deidentified.xlsx"
+    assert "spreadsheetml" in media_type
+    assert workbook.sheet_names == ["病例"]
+    assert list(dataframe.columns) == ["姓名", "說明"]
 
 
 @pytest.mark.asyncio

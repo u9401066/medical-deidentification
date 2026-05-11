@@ -3,8 +3,11 @@
 import json
 import re
 import sys
+from collections import defaultdict
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import quote
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -32,26 +35,150 @@ def _validate_id(value: str, label: str = "ID") -> None:
         raise HTTPException(400, f"無效的{label}")
 
 
-def _result_dataframe(data: dict, only_file_id: str | None = None) -> pd.DataFrame:
-    all_masked_data = []
-    for file_result in data.get("results", []):
-        if only_file_id and file_result.get("file_id") != only_file_id:
-            continue
-        masked_data = file_result.get("masked_data")
-        if masked_data and isinstance(masked_data, list):
-            all_masked_data.extend(masked_data)
-        elif file_result.get("masked_content"):
-            all_masked_data.append(
-                {
-                    "檔案": file_result.get("filename", ""),
-                    "內容": file_result.get("masked_content", ""),
-                }
+def _safe_download_name(value: str, fallback: str = "deidentified") -> str:
+    name = Path(value or fallback).name.strip() or fallback
+    name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name)
+    return name[:160] or fallback
+
+
+def _content_disposition(filename: str) -> str:
+    return f"attachment; filename*=UTF-8''{quote(filename)}"
+
+
+def _drop_export_helpers(rows: list[dict]) -> list[dict]:
+    cleaned = []
+    for row in rows:
+        cleaned.append(
+            {
+                key: value
+                for key, value in row.items()
+                if key not in {"__row", "__sheet"}
+            }
+        )
+    return cleaned
+
+
+def _dataframe_from_rows(rows: list[dict]) -> pd.DataFrame:
+    return pd.DataFrame(_drop_export_helpers(rows)).fillna("")
+
+
+def _sheet_name(name: str, used: set[str]) -> str:
+    base = re.sub(r"[\[\]:*?/\\]", "_", str(name or "Sheet1")).strip()[:31] or "Sheet1"
+    candidate = base
+    counter = 2
+    while candidate in used:
+        suffix = f"_{counter}"
+        candidate = f"{base[:31 - len(suffix)]}{suffix}"
+        counter += 1
+    used.add(candidate)
+    return candidate
+
+
+def _write_xlsx(result: dict) -> bytes:
+    output = BytesIO()
+    sheets = result.get("masked_sheets") or []
+    rows = result.get("masked_data") or []
+
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        used_names: set[str] = set()
+        if sheets:
+            for sheet in sheets:
+                sheet_rows = sheet.get("rows") or []
+                df = _dataframe_from_rows(sheet_rows)
+                df.to_excel(
+                    writer,
+                    sheet_name=_sheet_name(sheet.get("name") or "Sheet1", used_names),
+                    index=False,
+                )
+        elif rows:
+            grouped: dict[str, list[dict]] = defaultdict(list)
+            for row in rows:
+                grouped[str(row.get("__sheet") or "Sheet1")].append(row)
+            for sheet, sheet_rows in grouped.items():
+                _dataframe_from_rows(sheet_rows).to_excel(
+                    writer,
+                    sheet_name=_sheet_name(sheet, used_names),
+                    index=False,
+                )
+        else:
+            pd.DataFrame([{"訊息": "沒有可輸出的去識別化資料"}]).to_excel(
+                writer,
+                sheet_name="Sheet1",
+                index=False,
             )
 
-    if all_masked_data:
-        return pd.DataFrame(all_masked_data)
+    return output.getvalue()
 
-    return pd.DataFrame([{"訊息": "沒有可輸出的資料", "任務 ID": data.get("task_id", "")}])
+
+def _write_csv(result: dict) -> bytes:
+    rows = result.get("masked_data") or []
+    df = _dataframe_from_rows(rows) if rows else pd.DataFrame([{"訊息": "沒有可輸出的去識別化資料"}])
+    return df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+
+
+def _result_export(result: dict) -> tuple[bytes, str, str]:
+    """Create the de-identified original file, not the PHI audit list."""
+    original_name = result.get("filename") or result.get("file_id") or "result"
+    original_path = Path(original_name)
+    stem = _safe_download_name(original_path.stem or result.get("file_id") or "result")
+    source_ext = (result.get("source_extension") or original_path.suffix or "").lower()
+
+    if result.get("masked_sheets") or source_ext in {".xlsx", ".xls"}:
+        filename = f"{stem}_deidentified.xlsx"
+        return (
+            _write_xlsx(result),
+            filename,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    if result.get("masked_data") or source_ext == ".csv":
+        filename = f"{stem}_deidentified.csv"
+        return _write_csv(result), filename, "text/csv; charset=utf-8"
+
+    content = result.get("masked_content") or ""
+    extension = source_ext if source_ext in {".txt", ".md", ".markdown", ".json"} else ".txt"
+    filename = f"{stem}_deidentified{extension}"
+    media_type = "application/json; charset=utf-8" if extension == ".json" else "text/plain; charset=utf-8"
+    return content.encode("utf-8"), filename, media_type
+
+
+def _stream_bytes(content: bytes, filename: str, media_type: str) -> StreamingResponse:
+    return StreamingResponse(
+        BytesIO(content),
+        media_type=media_type,
+        headers={"Content-Disposition": _content_disposition(filename)},
+    )
+
+
+def _stream_deidentified_results(results: list[dict], task_id: str) -> StreamingResponse:
+    completed = [result for result in results if result.get("status") == "completed"]
+    if not completed:
+        raise HTTPException(404, "沒有可下載的去識別化結果")
+
+    if len(completed) == 1:
+        content, filename, media_type = _result_export(completed[0])
+        return _stream_bytes(content, filename, media_type)
+
+    output = BytesIO()
+    used_names: set[str] = set()
+    with ZipFile(output, "w", ZIP_DEFLATED) as archive:
+        for result in completed:
+            content, filename, _media_type = _result_export(result)
+            safe_name = _safe_download_name(filename)
+            candidate = safe_name
+            counter = 2
+            while candidate in used_names:
+                path = Path(safe_name)
+                candidate = f"{path.stem}_{counter}{path.suffix}"
+                counter += 1
+            used_names.add(candidate)
+            archive.writestr(candidate, content)
+    output.seek(0)
+    return _stream_bytes(
+        output.getvalue(),
+        f"{_safe_download_name(task_id)}_deidentified.zip",
+        "application/zip",
+    )
 
 
 def _report_dataframe(data: dict) -> pd.DataFrame:
@@ -201,9 +328,9 @@ async def download_result(
         data = sanitize_payload(json.load(f), reveal_phi=reveal_phi)
 
     if file_type == "result":
-        df = _result_dataframe(data)
-    else:
-        df = _report_dataframe(data)
+        return _stream_deidentified_results(data.get("results", []) or [], file_id)
+
+    df = _report_dataframe(data)
 
     # 產生檔案
     if format == "xlsx":
@@ -257,5 +384,4 @@ async def download_single_file_result(
         {"task_id": task_id, "results": matching_results},
         reveal_phi=reveal_phi,
     )
-    df = _result_dataframe(safe_data, only_file_id=file_id)
-    return _stream_dataframe(df, f"{task_id}_{file_id}_result.{format}", format)
+    return _stream_deidentified_results(safe_data.get("results", []) or [], task_id)

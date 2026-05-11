@@ -351,11 +351,11 @@ def check_step5_process(
         if final_status == "completed":
             r.ok(f"任務完成", f"耗時 {time.time()-start:.1f} 秒")
         elif final_status == "completed_with_errors":
-            r.warn("任務部分完成", "請檢查單檔錯誤")
+            r.fail("任務部分完成", "完整 smoke test 需要所有檔案成功")
         elif final_status == "failed":
             r.fail("任務失敗")
         else:
-            r.warn(f"任務超時（狀態: {final_status}）", "後端仍在處理，可前往 UI 查看")
+            r.fail(f"任務超時（狀態: {final_status}）", "未產生結果時不能視為完整流程通過")
     except Exception as e:
         r.fail(f"例外: {e}")
     return r, task_id
@@ -389,9 +389,9 @@ def check_step6_results(base_url: str, task_id: str | None, verbose: bool) -> Ch
                 if total_phi > 0:
                     r.ok(f"PHI 偵測有效（> 0）")
                 else:
-                    r.warn("PHI 偵測結果為 0", "可能使用模擬引擎或 LLM 離線")
+                    r.fail("PHI 偵測結果為 0", "smoke 測試資料包含明顯 PHI")
             elif resp2.status_code == 404:
-                r.warn(f"結果尚未產生", f"task_id={task_id}")
+                r.fail(f"結果尚未產生", f"task_id={task_id}")
             else:
                 r.fail(f"GET /api/results/{task_id} → {resp2.status_code}")
     except Exception as e:
@@ -420,7 +420,7 @@ def check_step7_reports(base_url: str, task_id: str | None, verbose: bool) -> Ch
                 summary = report.get("summary", {})
                 r.ok("報告詳情正常", f"total_phi={summary.get('total_phi_found', 0)}")
             elif resp2.status_code == 404:
-                r.warn("報告尚未產生", f"task_id={task_id}")
+                r.fail("報告尚未產生", f"task_id={task_id}")
             else:
                 r.fail(f"GET /api/reports/{task_id} → {resp2.status_code}")
     except Exception as e:
@@ -438,7 +438,8 @@ def check_step8_download(base_url: str, task_id: str | None, verbose: bool) -> C
         return r
 
     try:
-        # 下載 result excel
+        # 下載去識別化原檔。即使 request 帶 format=xlsx，後端仍會依原始檔型回傳
+        # CSV/XLSX/TXT/ZIP，而不是 PHI audit list。
         resp = api(
             base_url, "GET", f"/api/download/{task_id}",
             params={"file_type": "result", "format": "xlsx"},
@@ -446,9 +447,35 @@ def check_step8_download(base_url: str, task_id: str | None, verbose: bool) -> C
         if resp.status_code == 200:
             content_type = resp.headers.get("content-type", "")
             content_len = len(resp.content)
-            r.ok("下載 Excel 成功", f"size={content_len}B, content-type={content_type}")
+            disposition = resp.headers.get("content-disposition", "")
+            r.ok("下載去識別化原檔成功", f"size={content_len}B, content-type={content_type}")
+            if "_deidentified" in disposition:
+                r.ok("檔名標示為去識別化輸出")
+            else:
+                r.fail("下載檔名未含 deidentified 標示", disposition[:120])
+
+            try:
+                import pandas as pd
+
+                if "text/csv" in content_type:
+                    dataframe = pd.read_csv(io.BytesIO(resp.content))
+                elif "spreadsheetml" in content_type:
+                    dataframe = pd.read_excel(io.BytesIO(resp.content))
+                else:
+                    dataframe = None
+
+                if dataframe is not None:
+                    columns = list(dataframe.columns)
+                    if "PHI 類型" in columns:
+                        r.fail("下載內容是 PHI 清單，不是去識別化原檔", str(columns))
+                    elif "姓名" in columns and "電話" in columns:
+                        r.ok("下載內容保留原始欄位", str(columns))
+                    else:
+                        r.fail("下載欄位與 smoke 測試資料不同", str(columns))
+            except Exception as exc:
+                r.fail("無法解析下載檔做結構檢查", type(exc).__name__)
         elif resp.status_code == 404:
-            r.warn("下載檔案 404", f"task_id={task_id} 結果可能尚未產生")
+            r.fail("下載檔案 404", f"task_id={task_id} 結果可能尚未產生")
         else:
             r.fail(f"HTTP {resp.status_code}", resp.text[:200])
 
@@ -460,7 +487,7 @@ def check_step8_download(base_url: str, task_id: str | None, verbose: bool) -> C
         if resp2.status_code == 200:
             r.ok("下載報告(JSON)成功", f"size={len(resp2.content)}B")
         elif resp2.status_code == 404:
-            r.warn("報告檔案 404，可能尚未產生")
+            r.fail("報告檔案 404，可能尚未產生")
         else:
             r.fail(f"下載報告 HTTP {resp2.status_code}")
     except Exception as e:
@@ -494,7 +521,7 @@ def main():
     parser.add_argument("--verbose", "-v", action="store_true", help="顯示詳細資訊")
     parser.add_argument("--skip-cleanup", action="store_true", help="跳過清除測試資料")
     parser.add_argument("--skip-process", action="store_true", help="跳過去識別化（僅測試 API 可用性）")
-    parser.add_argument("--process-timeout", type=int, default=120, help="等待處理任務完成的秒數")
+    parser.add_argument("--process-timeout", type=int, default=420, help="等待處理任務完成的秒數")
     parser.add_argument("--ci", action="store_true", help="CI 模式：warning 也視為失敗")
     parser.add_argument("--api-token", default=os.getenv("MEDICAL_DEID_API_TOKEN"), help="API token")
     parser.add_argument("--username", default=os.getenv("MEDICAL_DEID_SMOKE_USERNAME"), help="password auth username")

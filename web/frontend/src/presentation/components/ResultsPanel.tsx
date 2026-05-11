@@ -26,7 +26,7 @@ import {
 } from '@/presentation/components/ui'
 import { useResults, useResultDetail, useDownloadResult } from '@/application/hooks'
 import type { ResultItem, PHIEntity } from '@/infrastructure/api'
-import { saveBlob } from '@/lib/utils'
+import { deidentifiedDownloadFilename, saveBlob } from '@/lib/utils'
 import { toast } from 'sonner'
 
 // PHI 類型顏色映射
@@ -162,7 +162,10 @@ export function ResultsPanel() {
   const handleDownload = async (taskId: string) => {
     try {
       const blob = await downloadResult.mutateAsync({ taskId, fileType: 'result', revealPhi })
-      saveBlob(blob, `result_${taskId}.xlsx`)
+      const filenames = resultDetail?.task_id === taskId
+        ? resultDetail.results?.map((result) => result.filename)
+        : undefined
+      saveBlob(blob, deidentifiedDownloadFilename(taskId, filenames))
       toast.success('結果已下載')
     } catch (error) {
       console.error('下載失敗:', error)

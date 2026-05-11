@@ -232,14 +232,20 @@ class ProcessingService:
 
         total_chars = len(original_content)
         stored_entities = self._entities_for_storage(phi_entities)
-        masked_data = self._build_masked_tabular_data(file_path, phi_entities, masking_type)
+        masked_data, masked_sheets = self._build_masked_tabular_data(
+            file_path,
+            phi_entities,
+            masking_type,
+        )
         return {
             "file_id": file_id,
             "filename": display_filename,
+            "source_extension": file_path.suffix.lower(),
             "phi_found": len(phi_entities),
             "phi_entities": stored_entities,
             "total_chars": total_chars,
             "masked_data": masked_data,
+            "masked_sheets": masked_sheets,
             "original_content": original_content[:5000] if (STORE_RAW_PHI and original_content) else "",
             "original_content_truncated": bool(
                 STORE_RAW_PHI and original_content and len(original_content) > 5000
@@ -426,7 +432,7 @@ class ProcessingService:
         file_path: Path,
         phi_entities: list[dict[str, Any]],
         masking_type: str,
-    ) -> list[dict[str, Any]] | None:
+    ) -> tuple[list[dict[str, Any]] | None, list[dict[str, Any]] | None]:
         """Build structured masked rows for CSV/Excel downloads.
 
         The core engine works on flattened document text. For user downloads we
@@ -435,7 +441,7 @@ class ProcessingService:
         """
         suffix = file_path.suffix.lower()
         if suffix not in {".csv", ".xlsx", ".xls"}:
-            return None
+            return None, None
 
         replacements = self._replacement_pairs(phi_entities, masking_type)
         if not replacements:
@@ -446,10 +452,11 @@ class ProcessingService:
 
             if suffix == ".csv":
                 dataframe = pd.read_csv(file_path, dtype=str, keep_default_na=False)
-                return self._mask_dataframe(dataframe, replacements)
+                return self._mask_dataframe(dataframe, replacements), None
 
             excel = pd.ExcelFile(file_path)
             rows: list[dict[str, Any]] = []
+            sheets: list[dict[str, Any]] = []
             include_sheet = len(excel.sheet_names) > 1
             for sheet_name in excel.sheet_names:
                 dataframe = pd.read_excel(
@@ -459,17 +466,18 @@ class ProcessingService:
                     keep_default_na=False,
                 )
                 sheet_rows = self._mask_dataframe(dataframe, replacements)
+                sheets.append({"name": sheet_name, "rows": sheet_rows})
                 if include_sheet:
                     sheet_rows = [{"__sheet": sheet_name, **row} for row in sheet_rows]
                 rows.extend(sheet_rows)
-            return rows
+            return rows, sheets
         except Exception as exc:
             log.warning(
                 "Could not build structured masked data",
                 file_id=file_path.stem[:8],
                 error_type=type(exc).__name__,
             )
-            return None
+            return None, None
 
     def _replacement_pairs(
         self,
@@ -525,6 +533,7 @@ class ProcessingService:
             "phi_entities": [],
             "total_chars": 0,
             "masked_data": None,
+            "masked_sheets": None,
             "original_content": "[Simulated - Engine not available]",
             "masked_content": "[Simulated - Engine not available]",
             "status": "completed",

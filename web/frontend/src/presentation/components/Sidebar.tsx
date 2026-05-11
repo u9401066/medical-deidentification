@@ -5,7 +5,7 @@ import { Upload, FileText, Trash2, Download, FileSpreadsheet, FileJson, Cpu, Che
 import { Button, ScrollArea, Badge } from '@/presentation/components/ui'
 import { useFiles, useUploadFile, useDeleteFile, useHealth } from '@/application/hooks'
 import { TASKS_QUERY_KEY } from '@/application/hooks'
-import { formatBytes, formatDate, saveBlob } from '@/lib/utils'
+import { deidentifiedFilename, formatBytes, formatDate, saveBlob } from '@/lib/utils'
 import { startProcessing, downloadSingleFileResult } from '@/infrastructure/api'
 import { toast } from 'sonner'
 
@@ -289,10 +289,7 @@ export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
                 }
                 try {
                   const blob = await downloadSingleFileResult(taskId, fileId)
-                  const baseName = file.filename.includes('.')
-                    ? file.filename.split('.').slice(0, -1).join('.')
-                    : file.filename
-                  saveBlob(blob, `${baseName}_deid.xlsx`)
+                  saveBlob(blob, deidentifiedFilename(file.filename, fileId))
                 } catch {
                   toast.error(`${file.filename} 下載失敗`)
                 }
