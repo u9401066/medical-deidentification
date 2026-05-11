@@ -34,6 +34,7 @@ Frontend service :5173
 
 ```bash
 cd /home/eric/workspace260113/medical-deidentification
+sudo ./scripts/services/backup-runtime-state.sh
 sudo ./scripts/services/install-services.sh
 
 systemctl status medical-deid-backend medical-deid-frontend --no-pager
@@ -58,6 +59,23 @@ uv run python scripts/check_workflow.py --url http://192.168.1.201:5173 --fronte
 ```
 
 LAN helper 會使用 `anonymous_session`，適合封閉內網測試。它不等同於公開 production security boundary。
+
+### Backup And Rollback
+
+每次更新服務、切換認證模式或調整 LLM 設定前，先備份 runtime 狀態：
+
+```bash
+sudo ./scripts/services/backup-runtime-state.sh
+ls -lh /var/backups/medical-deid/
+```
+
+若更新後要回復上一版 runtime/systemd/env/data/log 狀態：
+
+```bash
+sudo ./scripts/services/restore-runtime-state.sh /var/backups/medical-deid/medical-deid-runtime-YYYYmmddTHHMMSSZ.tar.gz
+```
+
+備份檔包含 `/etc/medical-deid`、systemd unit、`/var/lib/medical-deid`、`/var/log/medical-deid`，權限預設為 root-only。
 
 ### HTTPS Reverse Proxy Production
 
@@ -110,6 +128,10 @@ OLLAMA_MODEL=gemma3:27b
 # 前端同源 proxy 路徑，最接近使用者瀏覽器
 uv run python scripts/check_workflow.py --url http://127.0.0.1:5173 --frontend-proxy --process-timeout 240
 
+# password/RBAC production 路徑，會先登入並沿用 session cookie
+MEDICAL_DEID_SMOKE_USERNAME=admin MEDICAL_DEID_SMOKE_PASSWORD='your-password' \
+  uv run python scripts/check_workflow.py --url https://deid.example.org --frontend-proxy --process-timeout 240
+
 # 後端本機路徑，適合 debug backend/CORS
 uv run python scripts/check_workflow.py --url http://127.0.0.1:8000 --frontend-origin http://127.0.0.1:5173 --process-timeout 240
 
@@ -122,6 +144,15 @@ uv run pytest tests/unit
 ```
 
 請固定使用 `uv run pytest`，不要用系統 Python 直接跑 pytest；系統 Python 可能沒有本專案依賴。
+
+目前 health check 會確認 configured `OLLAMA_MODEL` 存在於 Ollama `/api/tags`，不是只檢查 Ollama port 可連。若 smoke test 在 LLM 步驟失敗，請先確認 `/etc/medical-deid/medical-deid.env` 的 `OLLAMA_BASE_URL` 與 `OLLAMA_MODEL` 和 Ollama 實際模型一致。
+
+### Result Correctness Notes
+
+- 表格下載會保留 CSV/XLSX 的列欄結構，並輸出完整去識別化資料，不再只輸出 `masked_content` 前 5000 字。
+- 報告 CSV/Markdown 會包含 PHI 詳細列表；一般模式隱藏原始值，校對模式才揭露命中原值。
+- Generic `AGE` 會保留；只有 `AGE_OVER_89`/`AGE_OVER_90` 會套用 `<89` 移除規則，避免測試標註資料被錯誤扣掉。
+- Production log 不應保存 PHI/模型輸出片段；例外訊息、前端錯誤、loader 路徑與 masking debug 已改為安全摘要。
 
 ---
 

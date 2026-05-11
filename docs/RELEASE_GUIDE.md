@@ -11,10 +11,15 @@
 - 原始上傳檔是本機暫存，不是「從未落地」；預設處理完成刪除，並由 startup cleanup / TTL 補償。
 - 需要人工驗收偵測正確性時，內測可開 `MEDICAL_DEID_STORE_RAW_PHI=1` + `MEDICAL_DEID_ALLOW_PHI_REVEAL=1`，並在 UI 使用「校對模式」；公開 production 預設關閉。
 - service 更新請用 `sudo ./scripts/services/install-services.sh` 或對應 configure script；它會 render systemd unit 並 restart 服務。
+- 每次更新前先跑 `sudo ./scripts/services/backup-runtime-state.sh`；必要時用 `restore-runtime-state.sh` 回復。
+- release smoke 必須涵蓋實際入口：anonymous LAN 用 `--frontend-proxy`；password/RBAC production 需帶 `MEDICAL_DEID_SMOKE_USERNAME/PASSWORD`。
+- 確認結果下載保留完整表格、報告 export 含 PHI 詳細列表、log 不含原始 PHI 或模型輸出片段。
+- `/api/health` 必須回報 configured `OLLAMA_MODEL` 可用；只連得上 Ollama port 不算通過。
 
 Release 驗證命令：
 
 ```bash
+sudo ./scripts/services/backup-runtime-state.sh
 uv run ruff check core web/backend scripts/check_workflow.py tests --select F,E9
 uv run pytest tests/unit
 npm run lint --workspace web/frontend
@@ -23,6 +28,8 @@ npm run build --workspace web/frontend
 bash -n scripts/services/*.sh
 node --check scripts/services/frontend-server.mjs
 uv run python scripts/check_workflow.py --url http://127.0.0.1:5173 --frontend-proxy --process-timeout 240
+MEDICAL_DEID_SMOKE_USERNAME=admin MEDICAL_DEID_SMOKE_PASSWORD='your-password' \
+  uv run python scripts/check_workflow.py --url https://deid.example.org --frontend-proxy --process-timeout 240
 ```
 
 推送前請確認：

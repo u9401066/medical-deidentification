@@ -286,6 +286,7 @@ uv run ruff check . --fix
 
 ```bash
 # 安裝/更新前後端為系統服務
+sudo ./scripts/services/backup-runtime-state.sh
 sudo ./scripts/services/install-services.sh
 
 # 驗證服務與同源 API proxy
@@ -313,6 +314,13 @@ sudo ./scripts/services/configure-production-proxy.sh deid.example.org admin
 
 HTTPS 正式上線請用 Caddy 或 nginx 將所有流量反向代理到 `127.0.0.1:5173`，讓前端服務繼續代理 `/api`。範例見 [deploy/reverse-proxy](deploy/reverse-proxy) 與 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
 
+Password/RBAC production smoke test 可用：
+
+```bash
+MEDICAL_DEID_SMOKE_USERNAME=admin MEDICAL_DEID_SMOKE_PASSWORD='your-password' \
+  uv run python scripts/check_workflow.py --url https://deid.example.org --frontend-proxy --process-timeout 240
+```
+
 ---
 
 ## 📄 License | 授權
@@ -326,6 +334,8 @@ HTTPS 正式上線請用 Caddy 或 nginx 將所有流量反向代理到 `127.0.0
 - 🔐 所有資料處理 **100% 本地**，不外傳任何資料
 - 🧹 Web UI 會先將上傳檔短暫暫存在 server 本機磁碟，處理完成後預設刪除原始內容；若服務中斷，啟動清理與 TTL 會補償清除
 - 🔎 內部驗收若需要判斷偵測對錯，可開啟 PHI 校對模式：`MEDICAL_DEID_STORE_RAW_PHI=1` 且 `MEDICAL_DEID_ALLOW_PHI_REVEAL=1`。這會在結果檔保留「命中的 PHI 值」直到結果 TTL 清理，正式多人 production 建議關閉。
+- 📦 表格結果下載會保留 CSV/XLSX 列欄結構與完整去識別化內容；報告匯出也會包含 PHI 詳細列表。一般模式仍隱藏原始 PHI 值，校對模式才揭露。
+- 🧯 更新前可用 `scripts/services/backup-runtime-state.sh` 備份 systemd/env/data/log；需要回復時用 `restore-runtime-state.sh`。
 - 🚫 **永遠不要** 將真實 PHI 提交到版本控制
 - ✅ 設計符合 **HIPAA** 和 **台灣個資法 (PDPA)**
 - 👤 使用者需自行確保在其使用情境中的合規性

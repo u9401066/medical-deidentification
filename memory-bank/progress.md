@@ -15,7 +15,13 @@
   - ✅ Tasks UI 顯示檔名、單檔狀態、錯誤原因、目前階段、估計剩餘時間
   - ✅ Results detail 失敗時顯示錯誤與 retry，不再永久 spinner
   - ✅ 新增 PHI 校對模式：內測可保留/揭露命中原始值供上傳者驗收，production 預設隱藏
-  - ✅ 移除 masking/PHI alignment debug log 中的原始 PHI 片段，避免 log 外洩
+  - ✅ 修正結果下載：CSV/XLSX 保留完整 masked table，不再只輸出前 5000 字文字片段
+  - ✅ 報告 CSV/Markdown export 補上 PHI 詳細列表，支援校對模式
+  - ✅ 修正 AGE hard rule：保留 generic AGE，只過濾 AGE_OVER_89/AGE_OVER_90 的低齡誤判
+  - ✅ 移除 masking/PHI alignment/LLM parser/frontend error log 中的原始 PHI 片段，避免 log 外洩
+  - ✅ 新增 runtime backup/restore 腳本與 password-mode smoke login
+  - ✅ health check 會確認 configured Ollama model 存在
+  - ✅ 驗證通過：`uv run pytest tests/unit` 126 passed、frontend Vitest 89 passed、ESLint、frontend build、ruff F/E9、service syntax
   - ✅ CI workflow、npm workspace audit lockfile、README/DEPLOYMENT/RELEASE docs 更新
 - **Structured Logging + PHI 同步問題修復** (2026-01-28)
   - ✅ 新增 `logging_config.py` - 結構化日誌系統
@@ -116,6 +122,6 @@
 
 ## Next
 
-- 正式 production 前接入 TLS domain、監控告警、備份/保留政策、醫院端帳號治理
+- 正式 production 前接入 TLS domain、監控告警、醫院端帳號治理，並用 password/RBAC smoke 實測
 - 增加 API/service 層隔離測試與 Playwright 真後端 smoke
 - 針對本院硬體重新 benchmark gemma3:27b、llama3.3:70b、phi4:14b 等模型
