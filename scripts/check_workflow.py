@@ -9,14 +9,17 @@ PHI 去識別化工具 — 完整使用流程功能驗證腳本
 執行方式:
     cd /path/to/medical-deidentification
     python scripts/check_workflow.py [--url http://localhost:8000] [--verbose]
+    python scripts/check_workflow.py --url http://localhost:5173 --frontend-proxy
 """
 
 import argparse
 import io
 import json
+import os
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 try:
     import requests
@@ -25,6 +28,10 @@ except ImportError:
     sys.exit(1)
 
 # ─── 顏色輸出 ────────────────────────────────────────────────────────────────
+
+STRICT_WARNINGS = False
+API_HEADERS: dict[str, str] = {}
+API_SESSION = requests.Session()
 
 def green(s: str) -> str:
     return f"\033[32m{s}\033[0m"
@@ -57,7 +64,7 @@ class CheckResult:
         print(f"  {red('✗')} {desc}" + (f"  {red(detail)}" if detail else ""))
 
     def warn(self, desc: str, detail: str = ""):
-        self.steps.append((desc, True, detail))
+        self.steps.append((desc, not STRICT_WARNINGS, detail))
         print(f"  {yellow('⚠')} {desc}" + (f"  {yellow(detail)}" if detail else ""))
 
     @property
@@ -82,23 +89,66 @@ def step_header(num: int, title: str):
 def api(base_url: str, method: str, path: str, **kwargs) -> requests.Response:
     url = f"{base_url}{path}"
     kwargs.setdefault("timeout", 30)
-    return requests.request(method, url, **kwargs)
+    headers = dict(API_HEADERS)
+    headers.update(kwargs.pop("headers", {}) or {})
+    if headers:
+        kwargs["headers"] = headers
+    return API_SESSION.request(method, url, **kwargs)
+
+
+def default_frontend_origin(base_url: str, frontend_proxy: bool = False) -> str | None:
+    """Derive the likely frontend origin from the backend URL."""
+    if frontend_proxy:
+        return None
+    parsed = urlparse(base_url)
+    if not parsed.scheme or not parsed.hostname:
+        return None
+    if parsed.port in {80, 443, 5173}:
+        return None
+    return f"{parsed.scheme}://{parsed.hostname}:5173"
 
 
 # ─── 各步驟驗證 ───────────────────────────────────────────────────────────────
 
-def check_step0_server(base_url: str, verbose: bool) -> CheckResult:
+def check_step0_server(base_url: str, verbose: bool, frontend_origin: str | None) -> CheckResult:
     """前置：確認 server 可連線"""
     r = CheckResult("Server 連線")
-    step_header(0, "確認後端 Server 可連線")
+    step_header(0, "確認 API Server 可連線")
     try:
-        resp = api(base_url, "GET", "/docs")
+        resp = api(base_url, "GET", "/api/live")
         if resp.status_code == 200:
-            r.ok("GET /docs → 200 (FastAPI 啟動中)")
+            r.ok("GET /api/live → 200 (API 啟動中)")
         else:
-            r.fail(f"GET /docs → {resp.status_code}")
+            docs_resp = api(base_url, "GET", "/docs")
+            if docs_resp.status_code == 200:
+                r.ok("GET /docs → 200 (FastAPI 啟動中)")
+            else:
+                r.fail(f"GET /api/live → {resp.status_code}")
     except requests.exceptions.ConnectionError:
-        r.fail(f"無法連線至 {base_url}", "請確認後端已啟動：./scripts/start-web.sh")
+        r.fail(f"無法連線至 {base_url}", "請確認服務已啟動：systemctl status medical-deid-frontend medical-deid-backend")
+
+    if frontend_origin:
+        try:
+            resp = api(
+                base_url,
+                "OPTIONS",
+                "/api/auth/login",
+                headers={
+                    "Origin": frontend_origin,
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "content-type",
+                },
+            )
+            allowed_origin = resp.headers.get("access-control-allow-origin")
+            if resp.status_code == 200 and allowed_origin == frontend_origin:
+                r.ok("CORS preflight 正常", f"origin={frontend_origin}")
+            else:
+                r.fail(
+                    f"CORS preflight → {resp.status_code}",
+                    f"origin={frontend_origin}, allow-origin={allowed_origin}",
+                )
+        except Exception as e:
+            r.fail(f"CORS preflight 例外: {e}")
     return r
 
 
@@ -224,7 +274,7 @@ def check_step4_settings(base_url: str, verbose: bool) -> CheckResult:
 
 
 def check_step5_process(
-    base_url: str, file_id: str | None, verbose: bool
+    base_url: str, file_id: str | None, verbose: bool, process_timeout: int
 ) -> tuple[CheckResult, str | None]:
     """步驟 5：執行去識別化"""
     r = CheckResult("去識別化處理")
@@ -249,12 +299,11 @@ def check_step5_process(
             r.fail(f"HTTP {resp.status_code}", resp.text[:300])
             return r, None
 
-        # 輪詢等待完成（最多 120 秒）
-        r.ok("等待任務完成（最多 2 分鐘）...")
+        # 輪詢等待完成
+        r.ok(f"等待任務完成（最多 {process_timeout} 秒）...")
         start = time.time()
-        timeout = 120
         final_status = None
-        while time.time() - start < timeout:
+        while time.time() - start < process_timeout:
             try:
                 resp2 = api(base_url, "GET", f"/api/tasks/{task_id}")
             except requests.exceptions.Timeout:
@@ -267,12 +316,14 @@ def check_step5_process(
                 progress = task.get("progress", 0)
                 if verbose:
                     print(f"    {yellow('...')} status={final_status}, progress={progress:.0%}")
-                if final_status in ("completed", "failed"):
+                if final_status in ("completed", "completed_with_errors", "failed"):
                     break
             time.sleep(3)
 
         if final_status == "completed":
             r.ok(f"任務完成", f"耗時 {time.time()-start:.1f} 秒")
+        elif final_status == "completed_with_errors":
+            r.warn("任務部分完成", "請檢查單檔錯誤")
         elif final_status == "failed":
             r.fail("任務失敗")
         else:
@@ -302,7 +353,9 @@ def check_step6_results(base_url: str, task_id: str | None, verbose: bool) -> Ch
             resp2 = api(base_url, "GET", f"/api/results/{task_id}")
             if resp2.status_code == 200:
                 detail = resp2.json()
-                total_phi = detail.get("total_phi_found", 0)
+                total_phi = detail.get("total_phi_found")
+                if total_phi is None:
+                    total_phi = sum(r.get("phi_found", 0) for r in detail.get("results", []))
                 r.ok(f"結果詳情正常", f"偵測到 {total_phi} 個 PHI")
                 # 驗證 PHI 是否有偵測到（CSV 中有明顯 PHI）
                 if total_phi > 0:
@@ -413,14 +466,34 @@ def main():
     parser.add_argument("--verbose", "-v", action="store_true", help="顯示詳細資訊")
     parser.add_argument("--skip-cleanup", action="store_true", help="跳過清除測試資料")
     parser.add_argument("--skip-process", action="store_true", help="跳過去識別化（僅測試 API 可用性）")
+    parser.add_argument("--process-timeout", type=int, default=120, help="等待處理任務完成的秒數")
+    parser.add_argument("--ci", action="store_true", help="CI 模式：warning 也視為失敗")
+    parser.add_argument("--api-token", default=os.getenv("MEDICAL_DEID_API_TOKEN"), help="API token")
+    parser.add_argument(
+        "--frontend-proxy",
+        action="store_true",
+        help="目標 URL 是前端同源代理（例如 http://host:5173），跳過 CORS preflight",
+    )
+    parser.add_argument(
+        "--frontend-origin",
+        default=None,
+        help="用於 CORS preflight 的前端 Origin，預設由 --url 推導為同 host 的 5173 port",
+    )
     args = parser.parse_args()
 
     base_url = args.url.rstrip("/")
+    frontend_origin = args.frontend_origin or default_frontend_origin(base_url, args.frontend_proxy)
+    global STRICT_WARNINGS, API_HEADERS
+    STRICT_WARNINGS = args.ci
+    if args.api_token:
+        API_HEADERS = {"Authorization": f"Bearer {args.api_token}"}
 
     print(bold("\n╔══════════════════════════════════════════════════╗"))
     print(bold("║  PHI 去識別化工具 — 功能驗證                        ║"))
     print(bold("╚══════════════════════════════════════════════════╝"))
     print(f"  目標: {bold(base_url)}")
+    if frontend_origin:
+        print(f"  前端 Origin: {bold(frontend_origin)}")
     print(f"  時間: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
     all_results: list[CheckResult] = []
@@ -428,7 +501,7 @@ def main():
     task_id: str | None = None
 
     # Step 0: Server 可連線
-    r0 = check_step0_server(base_url, args.verbose)
+    r0 = check_step0_server(base_url, args.verbose, frontend_origin)
     all_results.append(r0)
     if not r0.passed:
         print(f"\n{red('✗ 後端 server 無法連線，終止驗證。')}")
@@ -454,7 +527,7 @@ def main():
     if args.skip_process:
         print(f"\n{yellow('[步驟 5]')} 去識別化處理 — {yellow('已跳過 (--skip-process)')}")
     else:
-        r5, task_id = check_step5_process(base_url, file_id, args.verbose)
+        r5, task_id = check_step5_process(base_url, file_id, args.verbose, args.process_timeout)
         all_results.append(r5)
 
     # Step 6: Results
@@ -466,8 +539,11 @@ def main():
     all_results.append(r7)
 
     # Step 8: Download
-    r8 = check_step8_download(base_url, task_id, args.verbose)
-    all_results.append(r8)
+    if args.skip_process:
+        print(f"\n{yellow('[步驟 8]')} 下載去識別化資料 — {yellow('已跳過 (--skip-process)')}")
+    else:
+        r8 = check_step8_download(base_url, task_id, args.verbose)
+        all_results.append(r8)
 
     # 清理
     if not args.skip_cleanup:

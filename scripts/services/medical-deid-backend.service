@@ -1,20 +1,30 @@
 [Unit]
 Description=Medical De-identification Backend API
 After=network.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple
-User=eric
-Group=eric
-WorkingDirectory=/home/eric/workspace260113/medical-deidentification/web/backend
-Environment="PATH=/home/eric/workspace260113/medical-deidentification/.venv/bin:/usr/local/bin:/usr/bin:/bin"
-Environment="OLLAMA_BASE_URL=http://192.168.1.2:30133"
-Environment="OLLAMA_MODEL=gemma3:27b"
-ExecStart=/home/eric/workspace260113/medical-deidentification/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
-Restart=always
+User=__APP_USER__
+Group=__APP_GROUP__
+WorkingDirectory=__PROJECT_ROOT__/web/backend
+EnvironmentFile=/etc/medical-deid/medical-deid.env
+Environment="PATH=__PROJECT_ROOT__/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=__PROJECT_ROOT__/.venv/bin/uvicorn main:app --host ${MEDICAL_DEID_BACKEND_HOST} --port 8000
+Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/medical-deid /var/log/medical-deid __PROJECT_ROOT__/web/backend/data __PROJECT_ROOT__/web/backend/logs __PROJECT_ROOT__/logs
+CapabilityBoundingSet=
+LockPersonality=true
+RestrictSUIDSGID=true
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target

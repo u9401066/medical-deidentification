@@ -264,37 +264,54 @@ git clone https://github.com/u9401066/medical-deidentification.git
 cd medical-deidentification
 uv sync --dev
 
-# 執行測試
-pytest tests/
+# 執行測試（請固定使用 uv 管理的環境）
+uv run pytest tests/unit
 
 # 前端單元測試
-cd web/frontend && npm run test:run
+npm run test:run --workspace web/frontend
 
-# 前端 E2E 測試 (Playwright, 58 tests)
-cd web/frontend && npm run test:e2e
+# 前端 E2E 測試 (Playwright)
+npm --prefix web/frontend run test:e2e
 
 # 程式碼格式化
-ruff format .
-ruff check . --fix
+uv run ruff format .
+uv run ruff check . --fix
 ```
 
 ---
 
 ## 🚀 Deployment | 部署
 
-### Systemd 服務（一鍵安裝）
+### 內部測試：systemd + 同源 `/api` proxy
 
 ```bash
-# 安裝前後端為系統服務
+# 安裝/更新前後端為系統服務
 sudo ./scripts/services/install-services.sh
 
-# 啟動服務
-sudo systemctl start medical-deid-backend
-sudo systemctl start medical-deid-frontend
+# 驗證服務與同源 API proxy
+systemctl status medical-deid-backend medical-deid-frontend --no-pager
+curl -i http://127.0.0.1:5173/api/health
+
+# 跑 8 步驟 smoke test。也可把 --url 改成 http://<LAN-IP>:5173
+uv run python scripts/check_workflow.py --url http://127.0.0.1:5173 --frontend-proxy --process-timeout 240
 
 # 卸載服務
 sudo ./scripts/services/uninstall-services.sh
 ```
+
+正式瀏覽器入口只需要開 `http://<server-ip>:5173`。前端會呼叫同源 `/api`，再由 `scripts/services/frontend-server.mjs` 代理到本機後端 `127.0.0.1:8000`；不要把前端重新 build 成 `http://<ip>:8000/api`，否則 NAT/LAN/瀏覽器 cookie 會再次踩雷。
+
+### LAN 與 HTTPS production
+
+```bash
+# 信任內網測試，不需要帳密；每個瀏覽器仍有 HttpOnly session 隔離
+sudo ./scripts/services/configure-lan-access.sh 192.168.1.201
+
+# HTTPS + 帳密/RBAC production skeleton
+sudo ./scripts/services/configure-production-proxy.sh deid.example.org admin
+```
+
+HTTPS 正式上線請用 Caddy 或 nginx 將所有流量反向代理到 `127.0.0.1:5173`，讓前端服務繼續代理 `/api`。範例見 [deploy/reverse-proxy](deploy/reverse-proxy) 與 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
 
 ---
 
@@ -307,6 +324,7 @@ sudo ./scripts/services/uninstall-services.sh
 ## ⚠️ Privacy Notice | 隱私聲明
 
 - 🔐 所有資料處理 **100% 本地**，不外傳任何資料
+- 🧹 Web UI 會先將上傳檔短暫暫存在 server 本機磁碟，處理完成後預設刪除原始內容；若服務中斷，啟動清理與 TTL 會補償清除
 - 🚫 **永遠不要** 將真實 PHI 提交到版本控制
 - ✅ 設計符合 **HIPAA** 和 **台灣個資法 (PDPA)**
 - 👤 使用者需自行確保在其使用情境中的合規性

@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          uv sync --dev
+          uv pip install -e web/backend
+      - name: Critical lint
+        run: uv run ruff check core web/backend scripts/check_workflow.py tests --select F,E9
+      - name: Backend syntax check
+        run: uv run python -m py_compile web/backend/main.py web/backend/api/*.py web/backend/services/*.py scripts/check_workflow.py
+      - name: Unit tests
+        run: uv run pytest tests/unit
+      - name: Security scan
+        run: uv run bandit -r core web/backend -c pyproject.toml
+      - name: Backend smoke test
+        env:
+          MEDICAL_DEID_API_TOKEN: ci-token
+          MEDICAL_DEID_BACKEND_HOST: 127.0.0.1
+          MEDICAL_DEID_STORE_RAW_PHI: "0"
+          MEDICAL_DEID_FORCE_SIMULATION: "1"
+          MEDICAL_DEID_DATA_DIR: ${{ runner.temp }}/medical-deid-data
+          MEDICAL_DEID_LOG_DIR: ${{ runner.temp }}/medical-deid-logs
+        run: |
+          uv run uvicorn main:app --app-dir web/backend --host 127.0.0.1 --port 8000 > "$RUNNER_TEMP/backend.log" 2>&1 &
+          BACKEND_PID=$!
+          trap 'kill "$BACKEND_PID" 2>/dev/null || true' EXIT
+          for _ in {1..30}; do
+            if curl -fsS http://127.0.0.1:8000/api/live >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8000/api/live >/dev/null || { cat "$RUNNER_TEMP/backend.log"; exit 1; }
+          uv run python scripts/check_workflow.py --url http://127.0.0.1:8000 --api-token ci-token
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Unit tests
+        run: npm run test:run
+      - name: E2E tests
+        run: |
+          npx playwright install --with-deps firefox
+          npx playwright test --project=firefox

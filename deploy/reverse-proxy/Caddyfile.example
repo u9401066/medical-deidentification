@@ -1,0 +1,23 @@
+# Replace deid.example.org with your domain.
+# Caddy automatically obtains and renews TLS certificates.
+
+deid.example.org {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	request_body {
+		max_size 60MB
+	}
+
+	handle {
+		# The frontend service serves assets and proxies /api to the local backend.
+		# Keeping the browser same-origin avoids CORS and SameSite cookie pitfalls.
+		reverse_proxy 127.0.0.1:5173
+	}
+}

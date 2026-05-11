@@ -1,5 +1,38 @@
 # GitHub 發佈指南 | GitHub Release Guide
 
+## 2026-05 Web Internal Release Gate
+
+本次 Web/systemd 版本不是單純 library release；發佈前請完成下列 gate：
+
+- `medical-deid-frontend` 必須執行 `scripts/services/frontend-server.mjs`，不可再是 `serve -s dist`。
+- 前端 bundle 的 API endpoint 必須是 `/api`；不可 hardcode `localhost:8000` 或 LAN `:8000`。
+- 外部入口只開 frontend/reverse proxy；backend `8000` 建議只 bind `127.0.0.1`。
+- 內測可用 `MEDICAL_DEID_AUTH_MODE=anonymous_session`，正式多人上線改用 `password`、HTTPS、RBAC。
+- 原始上傳檔是本機暫存，不是「從未落地」；預設處理完成刪除，並由 startup cleanup / TTL 補償。
+- service 更新請用 `sudo ./scripts/services/install-services.sh` 或對應 configure script；它會 render systemd unit 並 restart 服務。
+
+Release 驗證命令：
+
+```bash
+uv run ruff check core web/backend scripts/check_workflow.py tests --select F,E9
+uv run pytest tests/unit
+npm run lint --workspace web/frontend
+npm run test:run --workspace web/frontend
+npm run build --workspace web/frontend
+bash -n scripts/services/*.sh
+node --check scripts/services/frontend-server.mjs
+uv run python scripts/check_workflow.py --url http://127.0.0.1:5173 --frontend-proxy --process-timeout 240
+```
+
+推送前請確認：
+
+```bash
+git status --short
+git log --oneline -5
+```
+
+---
+
 ## ✅ 發佈前檢查清單
 
 ### 已完成項目

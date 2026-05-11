@@ -1,0 +1,14 @@
+{
+  "name": "medical-deidentification-workspace",
+  "private": true,
+  "workspaces": [
+    "web/frontend"
+  ],
+  "scripts": {
+    "audit": "npm audit --workspace medical-deidentification-web",
+    "audit:fix": "npm audit fix --workspace medical-deidentification-web",
+    "frontend:build": "npm --prefix web/frontend run build",
+    "frontend:lint": "npm --prefix web/frontend run lint",
+    "frontend:test": "npm --prefix web/frontend run test:run"
+  }
+}

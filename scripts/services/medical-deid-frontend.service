@@ -2,18 +2,29 @@
 Description=Medical De-identification Frontend (Production)
 After=network.target medical-deid-backend.service
 Wants=medical-deid-backend.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple
-User=eric
-Group=eric
-WorkingDirectory=/home/eric/workspace260113/medical-deidentification/web/frontend
-Environment="PATH=/home/eric/.nvm/versions/node/v20.19.6/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/home/eric/.nvm/versions/node/v20.19.6/bin/serve -s dist -l 5173
-Restart=always
+User=__APP_USER__
+Group=__APP_GROUP__
+WorkingDirectory=__PROJECT_ROOT__/web/frontend
+EnvironmentFile=/etc/medical-deid/medical-deid.env
+ExecStart=/bin/bash __PROJECT_ROOT__/scripts/services/run-frontend.sh
+Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadOnlyPaths=__PROJECT_ROOT__/web/frontend __PROJECT_ROOT__/scripts/services
+CapabilityBoundingSet=
+LockPersonality=true
+RestrictSUIDSGID=true
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target

@@ -42,7 +42,6 @@ out/
 dist/
 
 # uv (package manager)
-uv.lock
 .uv/
 
 # Poetry (legacy, migrated to uv)
@@ -96,6 +95,12 @@ web/backend/data/uploads/*
 web/backend/data/results/*
 web/backend/data/reports/*
 web/backend/data/tasks.json
+web/backend/data/tasks_db.json
+web/backend/data/llm_configs/*
+web/backend/data/phi_configs/current_config.json
+web/backend/data/phi_configs/export_*.json
+web/backend/logs/*
+web/frontend/coverage/
 !web/backend/data/.gitkeep
 
 # Temporary files
@@ -128,3 +133,26 @@ web/backend/logs/
 # Playwright
 web/frontend/playwright-report/
 web/frontend/test-results/
+
+# ===== VSIX / MCP Assistant Harness Assets =====
+# 由 VS Code extension (Zotero Keeper / PubMed Search MCP) 安裝而非本 repo 所擁有
+# 詳見 AGENTS.md "Repository Work" 段落
+.codex/
+.cline/
+.clinerules/
+.pubmed-search/
+.ccm/
+
+# Claude harness skills (PubMed / Zotero / Pipeline 來自 MCP harness)
+.claude/skills/pubmed-*/
+.claude/skills/zotero-*/
+.claude/skills/pipeline-persistence/
+.claude/skills/llm-wiki-builder/
+
+# GitHub harness 檔案
+.github/agents/research.agent.md
+.github/zotero-research-workflow.md
+
+# VSIX 打包輸出與 repo-assets 同步目錄
+*.vsix
+vscode-extension/resources/repo-assets/
