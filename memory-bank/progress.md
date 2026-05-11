@@ -14,6 +14,8 @@
   - ✅ core engine progress callback：file load、LLM direct、chunk MapReduce、masking/finalizing 進度事件
   - ✅ Tasks UI 顯示檔名、單檔狀態、錯誤原因、目前階段、估計剩餘時間
   - ✅ Results detail 失敗時顯示錯誤與 retry，不再永久 spinner
+  - ✅ 新增 PHI 校對模式：內測可保留/揭露命中原始值供上傳者驗收，production 預設隱藏
+  - ✅ 移除 masking/PHI alignment debug log 中的原始 PHI 片段，避免 log 外洩
   - ✅ CI workflow、npm workspace audit lockfile、README/DEPLOYMENT/RELEASE docs 更新
 - **Structured Logging + PHI 同步問題修復** (2026-01-28)
   - ✅ 新增 `logging_config.py` - 結構化日誌系統

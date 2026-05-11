@@ -1,7 +1,4 @@
-"""
-Files API Router
-檔案上傳/下載 API
-"""
+"""Files API Router."""
 
 import json
 import re
@@ -24,6 +21,7 @@ from models.auth import AuthUser
 from models.file import UploadedFile
 from security import get_current_user
 from services.file_service import get_file_service
+from services.result_sanitizer import sanitize_payload
 from services.task_service import get_task_service
 
 router = APIRouter()
@@ -32,23 +30,6 @@ router = APIRouter()
 def _validate_id(value: str, label: str = "ID") -> None:
     if not re.fullmatch(r"[a-zA-Z0-9-]{1,64}", value):
         raise HTTPException(400, f"無效的{label}")
-
-
-def _sanitize_payload(data: dict) -> dict:
-    sanitized = json.loads(json.dumps(data, ensure_ascii=False, default=str))
-    for result in sanitized.get("results", []):
-        result.pop("original_data", None)
-        result["original_content"] = ""
-        for entity in result.get("phi_entities", []):
-            entity["value"] = "[REDACTED]"
-            entity["reason"] = ""
-    for detail in sanitized.get("file_details", []):
-        detail.pop("original_data", None)
-        detail["original_content"] = ""
-        for entity in detail.get("phi_entities", []):
-            entity["value"] = "[REDACTED]"
-            entity["reason"] = ""
-    return sanitized
 
 
 def _result_dataframe(data: dict, only_file_id: str | None = None) -> pd.DataFrame:
@@ -82,7 +63,7 @@ def _report_dataframe(data: dict) -> pd.DataFrame:
                 {
                     "檔案": filename,
                     "PHI 類型": phi.get("type", ""),
-                    "原始值": "[REDACTED]",
+                    "原始值": phi.get("value") or "[REDACTED]",
                     "遮罩值": phi.get("masked_value", "[MASKED]"),
                     "信心度": phi.get("confidence", ""),
                 }
@@ -174,6 +155,7 @@ async def download_result(
     file_id: str,
     file_type: str = Query("result", enum=["result", "report"]),
     format: str = Query("xlsx", enum=["xlsx", "csv", "json"]),
+    reveal_phi: bool = Query(False),
     current_user: AuthUser = Depends(get_current_user),
 ):
     """下載處理結果或報告
@@ -210,13 +192,13 @@ async def download_result(
     if format == "json":
         with open(json_path, encoding="utf-8") as f:
             return JSONResponse(
-                content=_sanitize_payload(json.load(f)),
+                content=sanitize_payload(json.load(f), reveal_phi=reveal_phi),
                 headers={"Content-Disposition": f"attachment; filename={file_id}_{file_type}.json"},
             )
 
     # 讀取 JSON
     with open(json_path, encoding="utf-8") as f:
-        data = _sanitize_payload(json.load(f))
+        data = sanitize_payload(json.load(f), reveal_phi=reveal_phi)
 
     if file_type == "result":
         df = _result_dataframe(data)
@@ -237,6 +219,7 @@ async def download_single_file_result(
     task_id: str,
     file_id: str,
     format: str = Query("xlsx", enum=["xlsx", "csv", "json"]),
+    reveal_phi: bool = Query(False),
     current_user: AuthUser = Depends(get_current_user),
 ):
     """下載任務中單一檔案的去識別化結果。"""
@@ -265,7 +248,10 @@ async def download_single_file_result(
         raise HTTPException(404, "單檔結果不存在")
 
     if format == "json":
-        return _sanitize_payload({"task_id": task_id, "results": matching_results})
+        return sanitize_payload(
+            {"task_id": task_id, "results": matching_results},
+            reveal_phi=reveal_phi,
+        )
 
     df = _result_dataframe({"task_id": task_id, "results": matching_results}, only_file_id=file_id)
     return _stream_dataframe(df, f"{task_id}_{file_id}_result.{format}", format)

@@ -5,7 +5,8 @@ import {
   Eye, 
   Download,
   CheckCircle,
-  ArrowLeftRight
+  ArrowLeftRight,
+  AlertTriangle,
 } from 'lucide-react'
 import { 
   Button, 
@@ -21,6 +22,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Switch,
 } from '@/presentation/components/ui'
 import { useResults, useResultDetail, useDownloadResult } from '@/application/hooks'
 import type { ResultItem, PHIEntity } from '@/infrastructure/api'
@@ -44,16 +46,29 @@ function getPhiColor(type: string) {
   return PHI_COLORS[type] || PHI_COLORS.DEFAULT
 }
 
+function hasVisiblePhiValue(value?: string | null) {
+  return Boolean(value && value !== '[REDACTED]' && value !== '[已隱藏]')
+}
+
+function PhiValueCell({ value }: { value?: string | null }) {
+  if (!hasVisiblePhiValue(value)) {
+    return <span className="text-muted-foreground">[已隱藏]</span>
+  }
+
+  return <span>{value}</span>
+}
+
 // Diff 高亮組件 - 加強 masked 內容的視覺效果
-function DiffCell({ masked, phiType }: { masked: string; phiType?: string }) {
+function DiffCell({ original, masked, phiType }: { original?: string; masked: string; phiType?: string }) {
   const colors = phiType ? getPhiColor(phiType) : PHI_COLORS.DEFAULT
+  const originalValue = hasVisiblePhiValue(original) ? original : '[已隱藏]'
 
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2">
         <span className="text-xs text-red-500 font-medium shrink-0">原始:</span>
         <span className={`px-1.5 py-0.5 rounded ${colors.bg} ${colors.text} line-through opacity-70`}>
-          [已隱藏]
+          {originalValue}
         </span>
       </div>
       <div className="flex items-center gap-2">
@@ -77,7 +92,7 @@ function HighlightedContent({ masked, phiEntities }: {
   }
 
   // 收集所有 mask 標記
-  const maskPattern = /\[([A-Z_]+)_\d+\]|\[MASKED\]|\*{3,}/g
+  const maskPattern = /\[([A-Z_]+)_\d+\]|\[MASKED\]|\[REDACTED\]|\*{3,}/g
   const parts: Array<{ text: string; isMasked: boolean }> = []
   let lastIndex = 0
   let match
@@ -119,6 +134,7 @@ function HighlightedContent({ masked, phiEntities }: {
 export function ResultsPanel() {
   const [selectedResult, setSelectedResult] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'list' | 'diff'>('list')
+  const [revealPhi, setRevealPhi] = useState(false)
 
   // 取得結果列表
   const { results, isLoading } = useResults()
@@ -130,7 +146,7 @@ export function ResultsPanel() {
     isError: isDetailError,
     error: resultDetailError,
     refetch: refetchResultDetail,
-  } = useResultDetail(selectedResult)
+  } = useResultDetail(selectedResult, revealPhi)
 
   const downloadResult = useDownloadResult()
 
@@ -138,12 +154,13 @@ export function ResultsPanel() {
   const handleBack = () => {
     setSelectedResult(null)
     setViewMode('list')
+    setRevealPhi(false)
   }
 
   // 下載結果
   const handleDownload = async (taskId: string) => {
     try {
-      const blob = await downloadResult.mutateAsync({ taskId, fileType: 'result' })
+      const blob = await downloadResult.mutateAsync({ taskId, fileType: 'result', revealPhi })
       saveBlob(blob, `result_${taskId}.xlsx`)
     } catch (error) {
       console.error('下載失敗:', error)
@@ -176,7 +193,10 @@ export function ResultsPanel() {
             <Card 
               key={result.task_id} 
               className="cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => setSelectedResult(result.task_id)}
+              onClick={() => {
+                setRevealPhi(false)
+                setSelectedResult(result.task_id)
+              }}
             >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -267,6 +287,17 @@ export function ResultsPanel() {
             返回列表
           </Button>
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+              <Switch
+                checked={revealPhi}
+                onCheckedChange={setRevealPhi}
+                aria-label="切換 PHI 校對模式"
+              />
+              <div className="leading-tight">
+                <p className="text-xs font-medium">校對模式</p>
+                <p className="text-[11px] text-muted-foreground">顯示原始命中值</p>
+              </div>
+            </div>
             <Button
               variant={viewMode === 'list' ? 'default' : 'outline'}
               size="sm"
@@ -317,6 +348,23 @@ export function ResultsPanel() {
           </CardContent>
         </Card>
 
+        {(resultDetail.raw_phi_notice || revealPhi) && (
+          <Card className={resultDetail.raw_phi_revealed ? 'border-amber-300 bg-amber-50' : ''}>
+            <CardContent className="flex gap-3 py-3 text-sm">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <div>
+                <p className="font-medium">
+                  {resultDetail.raw_phi_revealed ? 'PHI 校對模式已啟用' : 'PHI 原始值目前隱藏'}
+                </p>
+                <p className="text-muted-foreground">
+                  {resultDetail.raw_phi_notice ||
+                    '若要比對正確性，請開啟校對模式；正式多人環境建議關閉。'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* PHI 列表視圖 */}
         {viewMode === 'list' && (
           <ScrollArea className="h-[calc(100vh-320px)]">
@@ -351,7 +399,7 @@ export function ResultsPanel() {
                                   </Badge>
                                 </TableCell>
                                 <TableCell className="font-mono text-sm line-through text-red-600">
-                                  [已隱藏]
+                                  <PhiValueCell value={phi.value} />
                                 </TableCell>
                                 <TableCell className="font-mono text-sm text-green-600">
                                   {phi.masked_value}
@@ -403,12 +451,15 @@ export function ResultsPanel() {
                                 <TableCell className="text-muted-foreground">{rowIdx + 1}</TableCell>
                                 {Object.keys(maskedRow).map((col) => {
                                   const maskedVal = String(maskedRow[col] ?? '')
+                                  const originalRow = fileResult.original_data?.[rowIdx]
+                                  const originalVal = originalRow ? String(originalRow[col] ?? '') : undefined
                                   const phi = fileResult.phi_entities?.find(
                                     (p: PHIEntity) => p.field === col
                                   )
                                   return (
                                     <TableCell key={col}>
                                       <DiffCell 
+                                        original={originalVal}
                                         masked={maskedVal} 
                                         phiType={phi?.type}
                                       />
@@ -422,6 +473,14 @@ export function ResultsPanel() {
                       </Table>
                     ) : fileResult.masked_content ? (
                       <div className="grid gap-4">
+                        {fileResult.original_content && (
+                          <div>
+                            <h4 className="text-sm font-medium mb-2 text-red-600">原始內容 <span className="text-muted-foreground">(校對模式)</span></h4>
+                            <pre className="bg-red-50 p-3 rounded text-xs whitespace-pre-wrap overflow-auto max-h-64 border border-red-200">
+                              {fileResult.original_content}
+                            </pre>
+                          </div>
+                        )}
                         <div>
                           <h4 className="text-sm font-medium mb-2 text-green-600">🔒 遮罩後 <span className="text-yellow-600">(黃色標記 = PHI)</span></h4>
                           <pre className="bg-green-50 p-3 rounded text-xs whitespace-pre-wrap overflow-auto max-h-64 border border-green-200">

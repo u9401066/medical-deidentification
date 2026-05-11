@@ -83,11 +83,12 @@ export async function deleteFile(fileId: string): Promise<void> {
  */
 export async function downloadResult(
   fileId: string,
-  fileType: 'result' | 'report' = 'result'
+  fileType: 'result' | 'report' = 'result',
+  revealPhi = false
 ): Promise<Blob> {
   logger.info('Downloading result', { fileId, fileType });
   const response = await apiClient.get(`/download/${fileId}`, {
-    params: { file_type: fileType },
+    params: { file_type: fileType, reveal_phi: revealPhi },
     responseType: 'blob',
   });
   return response.data;

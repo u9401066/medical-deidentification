@@ -10,8 +10,8 @@ import {
 import type { Report, ReportDetail, ReportExportFormat } from '@/infrastructure/api';
 
 export const REPORTS_QUERY_KEY = ['reports'] as const;
-export const REPORT_DETAIL_QUERY_KEY = (taskId: string) =>
-  ['reports', taskId] as const;
+export const REPORT_DETAIL_QUERY_KEY = (taskId: string, revealPhi = false) =>
+  ['reports', taskId, { revealPhi }] as const;
 
 export function useReports() {
   const query = useQuery({
@@ -27,10 +27,10 @@ export function useReports() {
   };
 }
 
-export function useReportDetail(taskId: string | null) {
+export function useReportDetail(taskId: string | null, revealPhi = false) {
   return useQuery<ReportDetail>({
-    queryKey: REPORT_DETAIL_QUERY_KEY(taskId ?? ''),
-    queryFn: () => getReport(taskId!),
+    queryKey: REPORT_DETAIL_QUERY_KEY(taskId ?? '', revealPhi),
+    queryFn: () => getReport(taskId!, revealPhi),
     enabled: !!taskId,
   });
 }
@@ -40,10 +40,12 @@ export function useExportReport() {
     mutationFn: async ({
       taskId,
       format,
+      revealPhi = false,
     }: {
       taskId: string;
       format: ReportExportFormat;
-    }) => exportReport(taskId, format),
+      revealPhi?: boolean;
+    }) => exportReport(taskId, format, revealPhi),
   });
 }
 

@@ -157,15 +157,14 @@ class PipelineHandlers:
                         # Get structured PHI entities (List[PHIEntity])
                         phi_entities: list[PHIEntity] = rag_response.get("entities", [])
 
-                        # 詳細日誌：記錄 LLM 識別的所有 PHI
                         logger.debug(
                             f"PHI identification result for {doc_context.document_id}: "
                             f"{len(phi_entities)} entities"
                         )
-                        for i, entity in enumerate(phi_entities[:20]):  # 最多顯示前 20 個
+                        for i, entity in enumerate(phi_entities[:20]):
                             logger.debug(
                                 f"  [{i}] {entity.type.value if hasattr(entity.type, 'value') else entity.type}: "
-                                f"'{entity.text[:50]}' @ pos {entity.start_pos}-{entity.end_pos}"
+                                f"pos {entity.start_pos}-{entity.end_pos}, len={len(entity.text)}"
                             )
 
                         # Add entities to document context
@@ -257,11 +256,10 @@ class PipelineHandlers:
                         f"in {doc_context.document_id}"
                     )
 
-                    # 詳細日誌：記錄即將被遮蔽的 entities
                     for i, entity in enumerate(phi_entities[:10]):
                         logger.debug(
                             f"  Masking [{i}] {entity.type.value if hasattr(entity.type, 'value') else entity.type}: "
-                            f"'{entity.text[:30]}' @ {entity.start_pos}-{entity.end_pos}"
+                            f"pos {entity.start_pos}-{entity.end_pos}, len={len(entity.text)}"
                         )
 
                     # Apply masking using structured entities
@@ -277,9 +275,11 @@ class PipelineHandlers:
                             f"Masking mismatch: {len(phi_entities)} entities but "
                             f"{redacted_count} [REDACTED] markers in output"
                         )
-                        # 顯示前 500 字符比較
-                        logger.debug(f"Original preview: {original_text[:500]}")
-                        logger.debug(f"Masked preview: {masked_text[:500]}")
+                        logger.debug(
+                            "Masking mismatch content previews omitted to avoid PHI in logs",
+                            original_len=len(original_text),
+                            masked_len=len(masked_text),
+                        )
 
                     doc_context.masked_content = masked_text
                     doc_context.mark_completed()

@@ -9,6 +9,7 @@
 - 外部入口只開 frontend/reverse proxy；backend `8000` 建議只 bind `127.0.0.1`。
 - 內測可用 `MEDICAL_DEID_AUTH_MODE=anonymous_session`，正式多人上線改用 `password`、HTTPS、RBAC。
 - 原始上傳檔是本機暫存，不是「從未落地」；預設處理完成刪除，並由 startup cleanup / TTL 補償。
+- 需要人工驗收偵測正確性時，內測可開 `MEDICAL_DEID_STORE_RAW_PHI=1` + `MEDICAL_DEID_ALLOW_PHI_REVEAL=1`，並在 UI 使用「校對模式」；公開 production 預設關閉。
 - service 更新請用 `sudo ./scripts/services/install-services.sh` 或對應 configure script；它會 render systemd unit 並 restart 服務。
 
 Release 驗證命令：

@@ -118,8 +118,8 @@ class MaskingProcessor:
                 )
 
                 logger.debug(
-                    f"Masked {entity.type.value}: "
-                    f"'{entity.text}' -> '{masked_value}'"
+                    f"Masked {entity.type.value} at "
+                    f"{entity.start_pos}-{entity.end_pos}"
                 )
 
             except Exception as e:
@@ -174,8 +174,8 @@ class MaskingProcessor:
             # Check if original PHI text still exists in masked text
             if entity.text in masked_text:
                 logger.warning(
-                    f"PHI entity '{entity.text}' "
-                    f"({entity.type.value}) still present in masked text"
+                    f"PHI entity ({entity.type.value}) still present in masked text "
+                    f"at {entity.start_pos}-{entity.end_pos}"
                 )
                 return False
 

@@ -159,11 +159,11 @@ def merge_phi_results(
                         all_entities.append(adjusted_entity)
                     else:
                         logger.warning(
-                            f"Could not find entity '{entity_text[:30]}...' "
-                            f"in original text at chunk position {chunk_start_pos}"
+                            "Could not align entity in original text "
+                            f"at chunk position {chunk_start_pos}, entity_len={len(entity_text)}"
                         )
             else:
-                logger.warning(f"Could not find entity '{entity_text[:30]}...' in chunk")
+                logger.warning(f"Could not align entity in chunk, entity_len={len(entity_text)}")
 
     # Deduplicate entities (same text at overlapping positions)
     unique_entities = deduplicate_entities(all_entities)

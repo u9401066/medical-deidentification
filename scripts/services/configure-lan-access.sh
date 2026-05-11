@@ -72,7 +72,10 @@ VITE_API_BASE_URL=/api
 MEDICAL_DEID_AUTH_MODE=anonymous_session
 MEDICAL_DEID_ALLOW_NO_AUTH=0
 MEDICAL_DEID_LOG_LEVEL=INFO
-MEDICAL_DEID_STORE_RAW_PHI=0
+# Internal QA mode keeps detected PHI values in result artifacts so the
+# uploader can verify true/false positives. Raw upload files are still purged.
+MEDICAL_DEID_STORE_RAW_PHI=1
+MEDICAL_DEID_ALLOW_PHI_REVEAL=1
 MEDICAL_DEID_SESSION_COOKIE_SECURE=0
 MEDICAL_DEID_SESSION_COOKIE_SAMESITE=lax
 MEDICAL_DEID_ENABLE_PUBLIC_BOOTSTRAP=0
@@ -124,3 +127,4 @@ echo "Browser API should be reachable at http://$LAN_HOST:5173/api"
 echo "Backend API is intentionally bound locally at http://127.0.0.1:8000/api"
 echo "CORS origins allowed: $cors_origins"
 echo "Auth mode: anonymous_session (per-browser data isolation, no username/password prompt)."
+echo "PHI review mode: enabled for internal QA (detected raw PHI values kept until result TTL cleanup)."

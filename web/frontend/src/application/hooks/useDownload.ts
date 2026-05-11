@@ -10,11 +10,13 @@ export function useDownloadResult() {
       taskId,
       fileType = 'result',
       format = 'xlsx',
+      revealPhi = false,
     }: {
       taskId: string;
       fileType?: 'result' | 'report';
       format?: 'xlsx' | 'csv' | 'json';
-    }) => downloadResult(taskId, fileType, format),
+      revealPhi?: boolean;
+    }) => downloadResult(taskId, fileType, format, revealPhi),
   });
 }
 
@@ -24,10 +26,12 @@ export function useDownloadSingleFile() {
       taskId,
       fileId,
       format = 'xlsx',
+      revealPhi = false,
     }: {
       taskId: string;
       fileId: string;
       format?: 'xlsx' | 'csv' | 'json';
-    }) => downloadSingleFileResult(taskId, fileId, format),
+      revealPhi?: boolean;
+    }) => downloadSingleFileResult(taskId, fileId, format, revealPhi),
   });
 }

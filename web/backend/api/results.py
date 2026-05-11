@@ -1,13 +1,10 @@
-"""
-Results API Router
-結果與報告 API
-"""
+"""Results API Router."""
 
 import json
 import sys
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 
 # 處理相對 import
@@ -18,6 +15,7 @@ if str(_backend_dir) not in sys.path:
 from config import REPORTS_DIR, RESULTS_DIR
 from models.auth import AuthUser
 from security import get_current_user
+from services.result_sanitizer import sanitize_payload
 from services.task_service import get_task_service
 
 router = APIRouter()
@@ -32,24 +30,6 @@ def _find_artifact(base_dir: Path, filename: str) -> Path | None:
         if artifact.is_file():
             return artifact
     return None
-
-
-def sanitize_payload(data: dict) -> dict:
-    """Remove raw PHI from legacy result/report files before API responses."""
-    sanitized = json.loads(json.dumps(data, ensure_ascii=False, default=str))
-    for result in sanitized.get("results", []):
-        result.pop("original_data", None)
-        result["original_content"] = ""
-        for entity in result.get("phi_entities", []):
-            entity["value"] = "[REDACTED]"
-            entity["reason"] = ""
-    for detail in sanitized.get("file_details", []):
-        detail.pop("original_data", None)
-        detail["original_content"] = ""
-        for entity in detail.get("phi_entities", []):
-            entity["value"] = "[REDACTED]"
-            entity["reason"] = ""
-    return sanitized
 
 
 @router.get("/results")
@@ -100,7 +80,11 @@ async def list_results(current_user: AuthUser = Depends(get_current_user)):
 
 
 @router.get("/results/{task_id}")
-async def get_result(task_id: str, current_user: AuthUser = Depends(get_current_user)):
+async def get_result(
+    task_id: str,
+    reveal_phi: bool = Query(False),
+    current_user: AuthUser = Depends(get_current_user),
+):
     """取得處理結果詳情"""
     task_service = get_task_service()
     task = task_service.get_task(task_id)
@@ -116,7 +100,7 @@ async def get_result(task_id: str, current_user: AuthUser = Depends(get_current_
         raise HTTPException(404, "結果不存在")
 
     with open(result_file, encoding="utf-8") as f:
-        return sanitize_payload(json.load(f))
+        return sanitize_payload(json.load(f), reveal_phi=reveal_phi)
 
 
 @router.get("/reports")
@@ -180,7 +164,11 @@ async def list_reports(current_user: AuthUser = Depends(get_current_user)):
 
 
 @router.get("/reports/{task_id}")
-async def get_report(task_id: str, current_user: AuthUser = Depends(get_current_user)):
+async def get_report(
+    task_id: str,
+    reveal_phi: bool = Query(False),
+    current_user: AuthUser = Depends(get_current_user),
+):
     """取得報告詳情"""
     task_service = get_task_service()
     task = task_service.get_task(task_id)
@@ -196,13 +184,14 @@ async def get_report(task_id: str, current_user: AuthUser = Depends(get_current_
         raise HTTPException(404, "報告不存在")
 
     with open(report_file, encoding="utf-8") as f:
-        return sanitize_payload(json.load(f))
+        return sanitize_payload(json.load(f), reveal_phi=reveal_phi)
 
 
 @router.get("/reports/{task_id}/export")
 async def export_report(
     task_id: str,
     format: str = "json",
+    reveal_phi: bool = Query(False),
     current_user: AuthUser = Depends(get_current_user),
 ):
     """導出報告 (支援 json, csv, markdown 格式)"""
@@ -221,7 +210,7 @@ async def export_report(
         raise HTTPException(404, "報告不存在")
 
     with open(report_file, encoding="utf-8") as f:
-        report = sanitize_payload(json.load(f))
+        report = sanitize_payload(json.load(f), reveal_phi=reveal_phi)
 
     if format == "json":
         # 直接返回 JSON 供下載

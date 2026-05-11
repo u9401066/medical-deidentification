@@ -208,6 +208,7 @@ from ..prompts import PHI_IDENTIFICATION_PROMPT
 | 2025-11-22 | 移除舊的 RAG chain 檔案（regulation_chain.py, retriever.py）和依賴舊 API 的 examples | 完成 RAG Chain 職責分離後，舊的 RegulationRAGChain (716 lines) 和 retriever.py (230 lines) 已被新的模組化 chains 取代。刪除 5 個檔案（2 個核心檔案 + 3 個 examples），更新 engine.py 使用新 API。新架構更清晰：RegulationRetrievalChain（法規檢索）+ PHIIdentificationChain（PHI識別）。 |
 | 2025-11-22 | 將 engine.py (718 lines) 重構為模組化的 engine/ 資料夾結構 | 原 engine.py 過於龐大（718 行），混合了配置、結果、遮蔽邏輯、handlers 等多種職責，不符合單一職責原則。重構為 6 個模組：config.py（配置）、result.py（結果）、masking.py（遮蔽邏輯）、handlers.py（Pipeline處理器）、core.py（主引擎）、__init__.py（導出）。優勢：易讀性（每個模組~206行）、可維護性（修改局部化）、可測試性（獨立測試）、可擴展性（新增功能不影響其他）、向後兼容（import路徑不變）。 |
 | 2025-11-22 | 選擇 Ollama 作為本地 LLM 解決方案 | OpenAI API 回應極慢（>5分鐘/請求），需要本地 LLM 提升測試效率。Ollama 優勢：1) 開源免費，2) 支援多種模型（Qwen, Llama, Mistral），3) 易於安裝和部署，4) 與 LangChain 整合良好，5) 保護敏感醫療數據隱私 |
+| 2026-05-11 | PHI 校對模式採雙開關設計 | 多人正式環境預設隱藏原始 PHI，避免結果/報告 API 外洩；內測驗收需要判斷 true/false positive 時，須同時啟用 `MEDICAL_DEID_STORE_RAW_PHI=1` 與 `MEDICAL_DEID_ALLOW_PHI_REVEAL=1`，並由授權使用者在 UI 明確切換「校對模式」。 |
 | 2025-11-22 | 使用 invoke() 替代 predict() 以支援所有 LangChain chat models | ChatOllama 不支援舊版的 predict() 方法，只支援新版的 invoke() API。為了確保與 OpenAI、Anthropic、Ollama 三種 provider 的相容性，統一使用 invoke() 方法並處理回應格式差異（response.content vs str(response)）。這使得代碼更加健壯，可以無縫切換不同的 LLM provider。 |
 | 2025-11-22 | Test Script Management: Only ONE test script per feature | To maintain codebase clarity and avoid confusion:
 1. Each feature should have only ONE active test script

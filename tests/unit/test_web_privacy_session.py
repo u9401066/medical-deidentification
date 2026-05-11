@@ -15,6 +15,7 @@ if str(BACKEND_DIR) not in sys.path:
 from services.auth_service import AuthService
 from services.file_service import FileService
 from services import task_service as task_module
+from services import result_sanitizer
 from security import validate_browser_origin
 
 
@@ -83,6 +84,89 @@ def test_browser_origin_guard_allows_local_frontend_proxy() -> None:
     )
 
     validate_browser_origin(request)
+
+
+def test_result_sanitizer_hides_raw_phi_by_default() -> None:
+    payload = {
+        "task_id": "task-1",
+        "results": [
+            {
+                "original_content": "Patient 王小明",
+                "phi_entities": [
+                    {
+                        "type": "NAME",
+                        "value": "王小明",
+                        "masked_value": "[REDACTED]",
+                        "reason": "name",
+                    }
+                ],
+            }
+        ],
+    }
+
+    sanitized = result_sanitizer.sanitize_payload(payload)
+
+    assert sanitized["results"][0]["original_content"] == ""
+    assert sanitized["results"][0]["phi_entities"][0]["value"] == "[REDACTED]"
+    assert sanitized["results"][0]["phi_entities"][0]["reason"] == ""
+    assert sanitized["raw_phi_available"] is True
+    assert sanitized["raw_phi_revealed"] is False
+    assert payload["results"][0]["phi_entities"][0]["value"] == "王小明"
+
+
+def test_result_sanitizer_reveals_raw_phi_only_when_allowed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(result_sanitizer, "ALLOW_PHI_REVEAL", True)
+    payload = {
+        "task_id": "task-1",
+        "results": [
+            {
+                "original_content": "Patient 王小明",
+                "phi_entities": [
+                    {
+                        "type": "NAME",
+                        "value": "王小明",
+                        "masked_value": "[REDACTED]",
+                        "reason": "name",
+                    }
+                ],
+            }
+        ],
+    }
+
+    sanitized = result_sanitizer.sanitize_payload(payload, reveal_phi=True)
+
+    assert sanitized["results"][0]["original_content"] == "Patient 王小明"
+    assert sanitized["results"][0]["phi_entities"][0]["value"] == "王小明"
+    assert sanitized["results"][0]["phi_entities"][0]["reason"] == "name"
+    assert sanitized["raw_phi_revealed"] is True
+
+
+def test_result_sanitizer_reports_when_raw_phi_was_not_persisted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(result_sanitizer, "ALLOW_PHI_REVEAL", True)
+    payload = {
+        "task_id": "task-1",
+        "results": [
+            {
+                "phi_entities": [
+                    {
+                        "type": "NAME",
+                        "value": "[REDACTED]",
+                        "masked_value": "[REDACTED]",
+                    }
+                ],
+            }
+        ],
+    }
+
+    sanitized = result_sanitizer.sanitize_payload(payload, reveal_phi=True)
+
+    assert sanitized["raw_phi_available"] is False
+    assert sanitized["raw_phi_revealed"] is False
+    assert "沒有保留原始 PHI" in sanitized["raw_phi_notice"]
 
 
 @pytest.mark.asyncio

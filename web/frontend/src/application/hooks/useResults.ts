@@ -6,8 +6,8 @@ import { getResults, getResultDetail } from '@/infrastructure/api';
 import type { ResultItem, ResultDetail } from '@/infrastructure/api';
 
 export const RESULTS_QUERY_KEY = ['results'] as const;
-export const RESULT_DETAIL_QUERY_KEY = (taskId: string) =>
-  ['results', taskId] as const;
+export const RESULT_DETAIL_QUERY_KEY = (taskId: string, revealPhi = false) =>
+  ['results', taskId, { revealPhi }] as const;
 
 export function useResults() {
   const query = useQuery({
@@ -24,10 +24,10 @@ export function useResults() {
   };
 }
 
-export function useResultDetail(taskId: string | null) {
+export function useResultDetail(taskId: string | null, revealPhi = false) {
   return useQuery<ResultDetail>({
-    queryKey: RESULT_DETAIL_QUERY_KEY(taskId ?? ''),
-    queryFn: () => getResultDetail(taskId!),
+    queryKey: RESULT_DETAIL_QUERY_KEY(taskId ?? '', revealPhi),
+    queryFn: () => getResultDetail(taskId!, revealPhi),
     enabled: !!taskId,
   });
 }

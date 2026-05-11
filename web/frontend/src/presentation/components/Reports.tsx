@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { FileText, Download, Eye, Calendar, BarChart3 } from 'lucide-react'
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge, ScrollArea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui'
+import { FileText, Download, Eye, Calendar, BarChart3, AlertTriangle } from 'lucide-react'
+import { Button, Card, CardContent, CardHeader, CardTitle, Badge, ScrollArea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch } from '@/presentation/components/ui'
 import { useReports, useReportDetail, useExportReport } from '@/application/hooks'
 import type { Report, ReportExportFormat } from '@/infrastructure/api'
 import { formatDate, saveBlob } from '@/lib/utils'
@@ -9,12 +9,13 @@ export function Reports() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [exportFormat, setExportFormat] = useState<ReportExportFormat>('json')
+  const [revealPhi, setRevealPhi] = useState(false)
 
   // 取得報告列表
   const { reports, isLoading: reportsLoading } = useReports()
 
   // 取得報告詳情
-  const { data: reportDetail, isLoading: detailLoading } = useReportDetail(selectedReportId)
+  const { data: reportDetail, isLoading: detailLoading } = useReportDetail(selectedReportId, revealPhi)
 
   // 匯出報告功能
   const exportMutation = useExportReport()
@@ -23,7 +24,11 @@ export function Reports() {
     
     setIsExporting(true)
     try {
-      const blob = await exportMutation.mutateAsync({ taskId: selectedReportId, format: exportFormat })
+      const blob = await exportMutation.mutateAsync({
+        taskId: selectedReportId,
+        format: exportFormat,
+        revealPhi,
+      })
       
       // 根據格式設定檔名
       const extensions: Record<ReportExportFormat, string> = {
@@ -49,7 +54,10 @@ export function Reports() {
           <span className="text-sm font-medium">選擇報告:</span>
           <Select
             value={selectedReportId || ''}
-            onValueChange={setSelectedReportId}
+            onValueChange={(value) => {
+              setRevealPhi(false)
+              setSelectedReportId(value)
+            }}
           >
             <SelectTrigger className="w-80">
               <SelectValue placeholder="選擇報告" />
@@ -67,6 +75,17 @@ export function Reports() {
 
         {selectedReportId && (
           <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+              <Switch
+                checked={revealPhi}
+                onCheckedChange={setRevealPhi}
+                aria-label="切換 PHI 校對模式"
+              />
+              <div className="leading-tight">
+                <p className="text-xs font-medium">校對模式</p>
+                <p className="text-[11px] text-muted-foreground">匯出也會包含原始值</p>
+              </div>
+            </div>
             <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as ReportExportFormat)}>
               <SelectTrigger className="w-32">
                 <SelectValue />
@@ -109,6 +128,23 @@ export function Reports() {
           </div>
         ) : reportDetail ? (
           <div className="space-y-6">
+            {(reportDetail.raw_phi_notice || revealPhi) && (
+              <Card className={reportDetail.raw_phi_revealed ? 'border-amber-300 bg-amber-50' : ''}>
+                <CardContent className="flex gap-3 py-3 text-sm">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <div>
+                    <p className="font-medium">
+                      {reportDetail.raw_phi_revealed ? 'PHI 校對模式已啟用' : 'PHI 原始值目前隱藏'}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {reportDetail.raw_phi_notice ||
+                        '若要比對正確性，請開啟校對模式；正式多人環境建議關閉。'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* 報告概要 */}
             <Card>
               <CardHeader>
@@ -222,8 +258,8 @@ export function Reports() {
                                     <td className="p-2">
                                       <Badge variant="outline">{item.type}</Badge>
                                     </td>
-                                    <td className="p-2 font-mono text-xs text-red-600">
-                                      [已隱藏]
+                                    <td className="p-2 font-mono text-xs text-red-600 line-through">
+                                      {item.value && item.value !== '[REDACTED]' ? item.value : '[已隱藏]'}
                                     </td>
                                     <td className="p-2 font-mono text-xs text-green-600">
                                       {item.masked_value}

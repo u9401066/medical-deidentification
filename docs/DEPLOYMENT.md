@@ -91,6 +91,8 @@ MEDICAL_DEID_SESSION_COOKIE_SECURE=0       # HTTP LAN
 # MEDICAL_DEID_SESSION_COOKIE_SECURE=1     # HTTPS production
 MEDICAL_DEID_SESSION_COOKIE_SAMESITE=lax
 MEDICAL_DEID_DELETE_UPLOAD_AFTER_PROCESS=1
+MEDICAL_DEID_STORE_RAW_PHI=0              # production: 不保留命中原始 PHI 值
+MEDICAL_DEID_ALLOW_PHI_REVEAL=0           # production: 不允許 API/UI 揭露原始 PHI
 MEDICAL_DEID_UPLOAD_TTL_HOURS=2
 MEDICAL_DEID_RESULT_TTL_HOURS=24
 MEDICAL_DEID_PROCESSING_WORKERS=1
@@ -99,6 +101,8 @@ OLLAMA_MODEL=gemma3:27b
 ```
 
 隱私語義請精確理解：系統不把資料送到雲端；Web UI 會短暫把上傳檔寫入本機磁碟供背景 worker 處理，完成後預設刪除原始檔內容並保留非原文 metadata、去識別化輸出與報告。若服務在處理中重啟，啟動時會把中斷任務標為 failed，並由 cleanup/TTL 補償清除暫存檔。
+
+若要驗收 `test_phi_tagged_cases.xlsx` 這類標註資料的偵測對錯，需要讓上傳者能看見「命中的原始 PHI 值」。內測 LAN helper 會設定 `MEDICAL_DEID_STORE_RAW_PHI=1` 與 `MEDICAL_DEID_ALLOW_PHI_REVEAL=1`，前端則以「校對模式」按需查詢 `reveal_phi=true`。這不會保留整份上傳原檔，但會在結果/報告 artifact 中暫存命中的 PHI 值，直到 `MEDICAL_DEID_RESULT_TTL_HOURS` 清理；正式 production 請維持兩者為 `0`。
 
 ### Smoke Test Matrix
 

@@ -211,6 +211,11 @@ export interface ReportDetail {
   task_id: string;
   job_name?: string;
   generated_at?: string;
+  raw_phi_available?: boolean;
+  raw_phi_revealed?: boolean;
+  raw_phi_reveal_requested?: boolean;
+  raw_phi_reveal_allowed?: boolean;
+  raw_phi_notice?: string;
   summary?: {
     files_processed?: number;
     total_phi_found?: number;
@@ -248,6 +253,11 @@ export interface ResultItem {
 export interface ResultDetail {
   task_id: string;
   job_name: string;
+  raw_phi_available?: boolean;
+  raw_phi_revealed?: boolean;
+  raw_phi_reveal_requested?: boolean;
+  raw_phi_reveal_allowed?: boolean;
+  raw_phi_notice?: string;
   config: {
     masking_type: string;
     phi_types: string[];
@@ -420,10 +430,11 @@ export const deleteFile = async (fileId: string): Promise<void> => {
 export const downloadResult = async (
   fileId: string,
   fileType: 'result' | 'report' = 'result',
-  format: 'xlsx' | 'csv' | 'json' = 'xlsx'
+  format: 'xlsx' | 'csv' | 'json' = 'xlsx',
+  revealPhi = false
 ): Promise<Blob> => {
   const response = await apiClient.get(`/download/${fileId}`, {
-    params: { file_type: fileType, format },
+    params: { file_type: fileType, format, reveal_phi: revealPhi },
     responseType: 'blob',
   });
   return response.data;
@@ -432,10 +443,11 @@ export const downloadResult = async (
 export const downloadSingleFileResult = async (
   taskId: string,
   fileId: string,
-  format: 'xlsx' | 'csv' | 'json' = 'xlsx'
+  format: 'xlsx' | 'csv' | 'json' = 'xlsx',
+  revealPhi = false
 ): Promise<Blob> => {
   const response = await apiClient.get(`/download/${taskId}/file/${fileId}`, {
-    params: { format },
+    params: { format, reveal_phi: revealPhi },
     responseType: 'blob',
   });
   return response.data;
@@ -484,13 +496,23 @@ export const getResults = async (): Promise<ResultItem[]> => {
   return response.data;
 };
 
-export const getReport = async (taskId: string): Promise<ReportDetail> => {
-  const response = await apiClient.get(`/reports/${taskId}`);
+export const getReport = async (
+  taskId: string,
+  revealPhi = false
+): Promise<ReportDetail> => {
+  const response = await apiClient.get(`/reports/${taskId}`, {
+    params: { reveal_phi: revealPhi },
+  });
   return response.data;
 };
 
-export const getResultDetail = async (taskId: string): Promise<ResultDetail> => {
-  const response = await apiClient.get(`/results/${taskId}`);
+export const getResultDetail = async (
+  taskId: string,
+  revealPhi = false
+): Promise<ResultDetail> => {
+  const response = await apiClient.get(`/results/${taskId}`, {
+    params: { reveal_phi: revealPhi },
+  });
   return response.data;
 };
 
@@ -503,10 +525,11 @@ export type ReportExportFormat = 'json' | 'csv' | 'markdown';
 
 export const exportReport = async (
   taskId: string,
-  format: ReportExportFormat = 'json'
+  format: ReportExportFormat = 'json',
+  revealPhi = false
 ): Promise<Blob> => {
   const response = await apiClient.get(`/reports/${taskId}/export`, {
-    params: { format },
+    params: { format, reveal_phi: revealPhi },
     responseType: 'blob',
   });
   return response.data;

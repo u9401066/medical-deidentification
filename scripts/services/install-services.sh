@@ -30,6 +30,14 @@ env_value() {
     awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE" 2>/dev/null
 }
 
+ensure_env_key() {
+    local key="$1"
+    local value="$2"
+    if ! grep -q "^${key}=" "$ENV_FILE" 2>/dev/null; then
+        echo "${key}=${value}" >> "$ENV_FILE"
+    fi
+}
+
 render_service_file() {
     local template="$1"
     local target="$2"
@@ -61,6 +69,7 @@ VITE_API_TOKEN=
 VITE_API_BASE_URL=/api
 MEDICAL_DEID_LOG_LEVEL=INFO
 MEDICAL_DEID_STORE_RAW_PHI=0
+MEDICAL_DEID_ALLOW_PHI_REVEAL=0
 MEDICAL_DEID_AUTH_MODE=anonymous_session
 MEDICAL_DEID_ALLOW_NO_AUTH=0
 MEDICAL_DEID_ENABLE_PUBLIC_BOOTSTRAP=0
@@ -80,6 +89,8 @@ MEDICAL_DEID_CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 MEDICAL_DEID_ALLOWED_LLM_HOSTS=localhost,127.0.0.1,192.168.1.2
 EOF
 fi
+
+ensure_env_key "MEDICAL_DEID_ALLOW_PHI_REVEAL" "0"
 
 chown root:root "$ENV_DIR" "$ENV_FILE"
 chmod 750 "$ENV_DIR"

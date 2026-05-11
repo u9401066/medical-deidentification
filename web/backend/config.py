@@ -28,6 +28,10 @@ MAX_REGULATION_UPLOAD_SIZE = 5 * 1024 * 1024  # 5MB
 # 隱私/安全設定
 BACKEND_HOST = os.getenv("MEDICAL_DEID_BACKEND_HOST", "127.0.0.1")
 STORE_RAW_PHI = os.getenv("MEDICAL_DEID_STORE_RAW_PHI", "0").lower() in {"1", "true", "yes"}
+ALLOW_PHI_REVEAL = os.getenv(
+    "MEDICAL_DEID_ALLOW_PHI_REVEAL",
+    "1" if STORE_RAW_PHI else "0",
+).lower() in {"1", "true", "yes"}
 AUTH_MODE = os.getenv("MEDICAL_DEID_AUTH_MODE", "password").strip().lower()
 if AUTH_MODE not in {"password", "anonymous_session"}:
     raise RuntimeError("MEDICAL_DEID_AUTH_MODE must be 'password' or 'anonymous_session'")
@@ -80,6 +84,7 @@ def ensure_directories():
 __all__ = [
     "API_TOKEN",
     "ALLOW_NO_AUTH",
+    "ALLOW_PHI_REVEAL",
     "AUTH_MODE",
     "BACKEND_HOST",
     "BOOTSTRAP_TOKEN",
