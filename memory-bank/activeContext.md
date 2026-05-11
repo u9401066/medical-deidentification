@@ -1,43 +1,38 @@
 # Active Context
 
-## Current Goals
+## 當前焦點
 
-- ✅ Frontend DDD 重構完成
-- ✅ Backend 模組化重構完成
-- ✅ Web UI 系統維護功能
-- ✅ E2E 測試套件 (58 Playwright tests)
-- ✅ Systemd 服務部署
-- ✅ **DDD Hooks 遷移** — Presentation 元件改用 Application Hooks
-- ✅ **Self-Update Skill** — 自主審計更新 Skills/Hooks/Instructions
-- ✅ **Pre-commit hook 擴充** — 新增 Python ruff + pytest 檢查
+Web 服務發行前收斂：systemd 部署、同源 `/api` proxy、anonymous session 隔離、RBAC、真實進度回報、release smoke test 與文件同步。
 
-## Current Session Focus (Feb 20, 2026)
+## 相關檔案
 
-### DDD Hooks 遷移完成
-- 建立 4 個新 Application Hooks: useResults, useReports, useHealth, useDownload
-- 遷移 6 個 Presentation 元件到 hooks 模式:
-  - TasksPanel ✅ (完全遷移)
-  - TaskCard ✅ (download mutation)
-  - DataPreview ✅ (useFiles + useFilePreview)
-  - ResultsPanel ✅ (useResults + useResultDetail)
-  - Reports ✅ (useReports + useReportDetail + useExportReport)
-  - Sidebar ✅ (useFiles + useUploadFile + useDeleteFile + useHealth)
-- 所有 TS 編譯錯誤已修正 (Domain UploadedFile camelCase 適配)
+- `scripts/services/frontend-server.mjs` - production frontend static server + same-origin `/api` proxy
+- `scripts/services/install-services.sh` - systemd install/update entrypoint
+- `scripts/services/configure-lan-access.sh` - trusted LAN anonymous-session setup
+- `scripts/services/configure-production-proxy.sh` - HTTPS/password/RBAC production setup
+- `web/backend/main.py` - anonymous session middleware and startup cleanup/recovery
+- `web/backend/security.py` - origin guard, service token, session auth helpers
+- `web/backend/services/task_service.py` - persisted task state and interrupted task recovery
+- `web/backend/services/file_service.py` - user-scoped uploads and raw upload purge
+- `web/frontend/src/infrastructure/api/base.ts` - frontend API base resolution, default `/api`
+- `docs/DEPLOYMENT.md` - current deployment/runbook
+- `docs/RELEASE_GUIDE.md` - release gate checklist
 
-### 自動化基礎設施更新
-- 建立 `self-update` skill (`.claude/skills/self-update/SKILL.md`)
-- 擴充 pre-commit hook (Python ruff + pytest + Memory Bank 提醒)
-- 更新 `copilot-instructions.md` (新增 self-update skill + hooks 清單)
-- 清理 Memory Bank (productContext 從 ~250 行精簡到 ~60 行, systemPatterns 從 376 行精簡到 ~70 行)
+## 待解決問題
 
-## Test Status
+- [ ] 完成 full release validation：backend unit、frontend lint/test/build、frontend-proxy smoke
+- [ ] 分段 Git commit：runtime/security、progress/UX、deployment/docs、CI/audit
+- [ ] Push 到 `origin/master`
+- [ ] 真正公開 production 前仍需正式 TLS 網域、醫院端身份政策、備份/稽核/監控策略
 
-| Suite | Result |
-|-------|--------|
-| Frontend Unit (Vitest) | 89/89 ✅ |
-| Frontend E2E (Playwright) | 58/58 ✅ |
-| Backend (pytest) | 122/122 ✅ (7 integration skipped - no Ollama) |
+## 上下文
 
-## Current Blockers
+- 內測模式可使用 `MEDICAL_DEID_AUTH_MODE=anonymous_session`，不需要帳密，但仍以 HttpOnly cookie 建立每個瀏覽器/session 的資料隔離。
+- 正式多人上線建議 `password` auth + admin/user RBAC + HTTPS reverse proxy。
+- 瀏覽器不應直接呼叫 `:8000`；前端 bundle 預設 `/api`，由 frontend service 代理到 `127.0.0.1:8000`。
+- Web UI 原始上傳檔不是「從不落地」，而是本機短暫暫存，處理完成後預設刪除，並由 startup cleanup/TTL 補償。
+- systemd frontend 必須執行 `node scripts/services/frontend-server.mjs`，不可再使用舊的 `serve -s dist`。
 
-- None ✅
+## 更新時間
+
+2026-05-11 15:50

@@ -12,6 +12,9 @@
 | 2026-01-14 | Frontend DDD 架構 | 前端採用相同 DDD 分層：domain → application → infrastructure → presentation |
 | 2026-01-28 | PHI/masked_content 必須同步 | 當 hard rules 移除 entities 後必須重新產生 masked_content，確保資料一致性 |
 | 2026-01-28 | AGE 類型統一處理 | AGE, AGE_OVER_89, AGE_OVER_90 三種類型統一過濾: age < 89 則移除，避免 LLM 誤判 |
+| 2026-05-11 | Web production 同源 API proxy | 瀏覽器永遠呼叫同源 `/api`，由 frontend service 代理到本機 backend，避免 LAN/NAT/CORS/SameSite 問題 |
+| 2026-05-11 | 內測 anonymous session | 內部測試可免帳密，但仍使用 HttpOnly session cookie 做每個瀏覽器/session 的資料隔離 |
+| 2026-05-11 | 原始上傳檔為本機暫存而非永不落地 | Web background worker 需要暫存檔案路徑；預設處理後刪除 raw content，並以 TTL/startup cleanup 補償中斷情境 |
 
 ## Architecture Decisions | 架構決策
 

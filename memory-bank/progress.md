@@ -1,7 +1,20 @@
-# Progress (Updated: 2026-02-20)
+# Progress (Updated: 2026-05-11)
 
 ## Done
 
+- **Web 內測上線前 release hardening** (2026-05-11)
+  - ✅ 修正前端 API base：production 預設 `/api`，避免 LAN/NAT client 直連 `:8000`
+  - ✅ 新增 `frontend-server.mjs`：serves `dist` 並同源代理 `/api` 到 `127.0.0.1:8000`
+  - ✅ 修正 systemd / install scripts：restart 更新、render service user/path、移除舊 `serve` 依賴
+  - ✅ 新增 anonymous session 模式：免帳密內測仍保有 HttpOnly session 隔離
+  - ✅ 新增 password/RBAC 管理：admin/user、bootstrap、login/logout、使用者管理
+  - ✅ 加強 origin guard：阻擋 cross-site fetch、cookie unsafe request 缺 origin、信任本機 frontend proxy
+  - ✅ raw upload 預設處理後 purge，保留 metadata；startup cleanup/TTL 補償
+  - ✅ persisted processing task 在 backend restart 後標記為 failed，避免 UI 永久卡住
+  - ✅ core engine progress callback：file load、LLM direct、chunk MapReduce、masking/finalizing 進度事件
+  - ✅ Tasks UI 顯示檔名、單檔狀態、錯誤原因、目前階段、估計剩餘時間
+  - ✅ Results detail 失敗時顯示錯誤與 retry，不再永久 spinner
+  - ✅ CI workflow、npm workspace audit lockfile、README/DEPLOYMENT/RELEASE docs 更新
 - **Structured Logging + PHI 同步問題修復** (2026-01-28)
   - ✅ 新增 `logging_config.py` - 結構化日誌系統
   - ✅ 日誌輸出: `web/backend/logs/` (.log + .jsonl)
@@ -97,10 +110,10 @@
 
 ## Doing
 
-- 無
+- Full release validation、分段 commit、push
 
 ## Next
 
-- 提升 Presentation 層測試覆蓋率到 70%
-- 完成 DataPreview / Sidebar 型別完全對齊（domain vs flat API UploadedFile）
-- Production deployment testing
+- 正式 production 前接入 TLS domain、監控告警、備份/保留政策、醫院端帳號治理
+- 增加 API/service 層隔離測試與 Playwright 真後端 smoke
+- 針對本院硬體重新 benchmark gemma3:27b、llama3.3:70b、phi4:14b 等模型

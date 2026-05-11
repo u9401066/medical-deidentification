@@ -6,6 +6,32 @@ This document outlines the architectural design for the Medical Text De-identifi
 
 本文件概述醫療文本去識別化工具套件的架構設計,遵循領域驅動設計 (DDD) 原則與 MVP 開發方法論。
 
+## Current Web Runtime Architecture (2026-05-11)
+
+```text
+Browser
+  │
+  ▼
+Frontend service :5173
+  ├─ Static assets from web/frontend/dist
+  └─ /api/* same-origin proxy
+        ▼
+FastAPI backend 127.0.0.1:8000
+  ├─ Auth/session/RBAC
+  ├─ User/session-scoped files, tasks, results
+  ├─ Background PHI processing workers
+  └─ Ollama/local LLM
+```
+
+Key decisions:
+
+- Browser API base defaults to `/api`; avoid absolute `http://host:8000/api` in production bundles.
+- Frontend service is a Node server (`scripts/services/frontend-server.mjs`), not the generic `serve` package.
+- The backend should be local-only in normal deployment; external traffic enters via frontend service or TLS reverse proxy.
+- Internal testing can use `anonymous_session`; production should use `password` auth, HTTPS, admin/user RBAC.
+- Uploaded raw files are local temporary artifacts. They are purged after processing by default; metadata, de-identified outputs, and reports may remain until TTL cleanup.
+- Startup marks persisted `processing` tasks as failed because worker threads are in-memory and cannot survive backend restart.
+
 ## Architectural Decisions
 
 - 採用 Multi-Agent 架構而非固定管道
@@ -791,6 +817,5 @@ Pydantic model 定義 RAG 返回的結構化 PHI 識別結果
 - 處理多語言 PHI 類型別名
 - 支援 custom PHI types
 - 提供錯誤時的默認類型
-
 
 
