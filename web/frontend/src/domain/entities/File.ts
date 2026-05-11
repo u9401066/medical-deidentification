@@ -13,7 +13,11 @@ export interface UploadedFile {
   readonly uploadTime: Date;
   readonly fileType: string;
   readonly previewAvailable: boolean;
+  readonly contentDeleted: boolean;
   readonly status: FileStatusType;
+  readonly taskId?: string | null;
+  readonly ownerUserId?: string | null;
+  readonly ownerUsername?: string | null;
 }
 
 /**
@@ -27,7 +31,11 @@ export function createUploadedFile(data: {
   upload_time: string;
   file_type: string;
   preview_available: boolean;
+  content_deleted?: boolean;
   status?: string;
+  task_id?: string | null;
+  owner_user_id?: string | null;
+  owner_username?: string | null;
 }): UploadedFile {
   return {
     id: data.file_id || data.id || '',
@@ -36,7 +44,11 @@ export function createUploadedFile(data: {
     uploadTime: new Date(data.upload_time),
     fileType: data.file_type,
     previewAvailable: data.preview_available,
+    contentDeleted: data.content_deleted ?? !data.preview_available,
     status: (data.status as FileStatusType) || 'pending',
+    taskId: data.task_id ?? null,
+    ownerUserId: data.owner_user_id ?? null,
+    ownerUsername: data.owner_username ?? null,
   };
 }
 

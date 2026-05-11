@@ -15,17 +15,18 @@ Implements loaders for various file formats:
 """
 
 import csv
+import importlib.util
 import json
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
 
+from ...domain.loader_models import DocumentMetadata
 from .base import (
     BaseBinaryLoader,
     BaseTextLoader,
     DocumentFormat,
-    DocumentMetadata,
     LoadedDocument,
 )
 
@@ -445,18 +446,14 @@ class PDFLoader(BaseBinaryLoader):
 
         logger.info(f"Loading PDF file: {file_path}")
 
-        try:
-            import pdfplumber
+        if importlib.util.find_spec("pdfplumber") is not None:
             return self._load_with_pdfplumber(file_path)
-        except ImportError:
-            try:
-                import PyPDF2
-                return self._load_with_pypdf2(file_path)
-            except ImportError:
-                raise ImportError(
-                    "PDF loading requires pdfplumber or PyPDF2. "
-                    "Install with: pip install pdfplumber or pip install PyPDF2"
-                )
+        if importlib.util.find_spec("PyPDF2") is not None:
+            return self._load_with_pypdf2(file_path)
+        raise ImportError(
+            "PDF loading requires pdfplumber or PyPDF2. "
+            "Install with: pip install pdfplumber or pip install PyPDF2"
+        )
 
     def _load_with_pdfplumber(self, file_path: Path) -> LoadedDocument:
         """Load PDF using pdfplumber (better text extraction)"""
@@ -593,7 +590,7 @@ class XMLLoader(BaseTextLoader):
     XML 檔案載入器
     
     Loads XML files and converts to text representation.
-    Uses xml.etree.ElementTree for parsing.
+    Uses defusedxml for parsing user-provided XML safely.
     
     Examples:
         >>> loader = XMLLoader()
@@ -608,7 +605,7 @@ class XMLLoader(BaseTextLoader):
 
         logger.info(f"Loading XML file: {file_path}")
 
-        import xml.etree.ElementTree as ET
+        from defusedxml import ElementTree as ET
 
         # Parse XML
         tree = ET.parse(file_path)

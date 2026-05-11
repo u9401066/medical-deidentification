@@ -4,8 +4,10 @@ PHI 處理服務
 """
 
 import json
+import os
 import re
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -17,7 +19,8 @@ _backend_dir = Path(__file__).parent.parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
-from config import OLLAMA_BASE_URL, OLLAMA_MODEL, REPORTS_DIR, RESULTS_DIR
+from config import OLLAMA_BASE_URL, OLLAMA_MODEL, REPORTS_DIR, RESULTS_DIR, STORE_RAW_PHI
+from services.llm_config_service import get_llm_config_service
 
 # 建立專用 logger
 log = logger.bind(component="processing_service")
@@ -34,6 +37,11 @@ class ProcessingService:
 
     def _check_engine(self) -> None:
         """檢查引擎是否可用"""
+        if os.getenv("MEDICAL_DEID_FORCE_SIMULATION", "0").lower() in {"1", "true", "yes"}:
+            logger.warning("PHI Engine disabled by MEDICAL_DEID_FORCE_SIMULATION")
+            self._engine_available = False
+            return
+
         try:
             # 確保可以 import 主專案模組
             project_root = Path(__file__).parent.parent.parent.parent
@@ -57,6 +65,7 @@ class ProcessingService:
         file_path: Path,
         config: dict[str, Any],
         original_filename: str | None = None,
+        progress_callback: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
         """處理單一檔案
 
@@ -64,6 +73,7 @@ class ProcessingService:
             file_path: 檔案路徑
             config: 處理配置
             original_filename: 原始檔名 (用於報告顯示)
+            progress_callback: Optional core engine progress event callback
         """
         if not self._engine_available:
             return self._simulate_processing(file_path, original_filename)
@@ -74,14 +84,15 @@ class ProcessingService:
                 EngineConfig,
             )
 
+            llm_config = get_llm_config_service().get_config()
             engine_config = EngineConfig(
                 llm_provider="ollama",
-                llm_model=OLLAMA_MODEL,
-                llm_base_url=OLLAMA_BASE_URL,
+                llm_model=llm_config.model or OLLAMA_MODEL,
+                llm_base_url=llm_config.base_url or OLLAMA_BASE_URL,
                 use_rag=False,
             )
             engine = DeidentificationEngine(engine_config)
-            result = engine.process_file(file_path)
+            result = engine.process_file(file_path, progress_callback=progress_callback)
 
             masking_type = config.get("masking_type", "redact")
             return self._convert_engine_result(result, file_path, original_filename, masking_type)
@@ -127,10 +138,7 @@ class ProcessingService:
                         "Document PHI entities from engine",
                         doc_idx=doc_idx,
                         entities_count=len(raw_entities),
-                        entities_preview=[
-                            {"type": e.get("type"), "text": e.get("text", "")[:30]}
-                            for e in raw_entities[:10]
-                        ],
+                        entity_types=[e.get("type") for e in raw_entities[:10]],
                     )
 
                     for entity in raw_entities:
@@ -160,8 +168,6 @@ class ProcessingService:
                         "Content comparison",
                         original_len=len(original_content),
                         masked_len=len(masked_content),
-                        original_preview=original_content[:200] if original_content else None,
-                        masked_preview=masked_content[:200] if masked_content else None,
                     )
 
         # 若 documents 為空，嘗試從 summary.phi_entities 取得
@@ -224,25 +230,53 @@ class ProcessingService:
             phi_types=[e.get("type") for e in phi_entities],
         )
 
+        stored_entities = self._entities_for_storage(phi_entities)
         return {
             "file_id": file_id,
             "filename": display_filename,
             "phi_found": len(phi_entities),
-            "phi_entities": phi_entities,
-            "original_content": original_content[:5000] if original_content else "",
+            "phi_entities": stored_entities,
+            "original_content": original_content[:5000] if (STORE_RAW_PHI and original_content) else "",
             "masked_content": masked_content[:5000] if masked_content else "",
             "status": "completed",
         }
+
+    def _entities_for_storage(self, phi_entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Return PHI entities safe for persistence/API responses by default."""
+        if STORE_RAW_PHI:
+            return phi_entities
+
+        safe_entities = []
+        for entity in phi_entities:
+            safe_entities.append(
+                {
+                    **entity,
+                    "value": "[REDACTED]",
+                    "reason": "",
+                }
+            )
+        return safe_entities
 
     def _compute_masked_value(self, original_text: str, phi_type: str, masking_type: str) -> str:
         """計算遮罩後的值"""
         if not original_text:
             return "[REDACTED]"
 
-        if masking_type == "hash":
+        if masking_type in {"hash", "pseudonymize"}:
             import hashlib
+            import hmac
+            import os
 
-            hash_val = hashlib.sha256(original_text.encode()).hexdigest()[:8]
+            secret = (
+                os.getenv("MEDICAL_DEID_PSEUDONYM_SECRET")
+                or os.getenv("MEDICAL_DEID_API_TOKEN")
+                or "medical-deid-local-default"
+            )
+            hash_val = hmac.new(
+                secret.encode("utf-8"),
+                original_text.encode("utf-8"),
+                hashlib.sha256,
+            ).hexdigest()[:12]
             return f"[{phi_type}_{hash_val}]"
         elif masking_type == "generalize":
             # 泛化: 保留類型標籤
@@ -271,14 +305,14 @@ class ProcessingService:
             if phi_type in ("AGE_OVER_89", "AGE_OVER_90", "AGE"):
                 age = self._extract_age_number(value)
                 if age is not None and age < 89:
-                    corrections.append(f"Removed {phi_type} '{value}' (age={age} < 89)")
+                    corrections.append(f"Removed {phi_type} candidate (age={age} < 89)")
                     continue  # 跳過這條記錄
                 elif age is not None and age >= 89:
                     # 年齡正確，保留
                     filtered.append(entity)
                 else:
                     # 無法解析數字，移除（保守策略：不確定就不要遮罩）
-                    corrections.append(f"Removed {phi_type} '{value}' (unable to parse age)")
+                    corrections.append(f"Removed {phi_type} candidate (unable to parse age)")
                     continue
             else:
                 # 其他類型直接保留
@@ -351,7 +385,6 @@ class ProcessingService:
                 masked_text = masked_text.replace(value, masked_value, 1)
                 log.debug(
                     "Replaced entity by search",
-                    value=value[:30],
                     phi_type=phi_type,
                 )
             else:
@@ -363,7 +396,6 @@ class ProcessingService:
                     masked_text = masked_text[:start_pos] + masked_value + masked_text[end_pos:]
                     log.debug(
                         "Replaced entity by position",
-                        value=value[:30],
                         phi_type=phi_type,
                         pos=f"{start_pos}-{end_pos}",
                     )
@@ -372,13 +404,11 @@ class ProcessingService:
                     masked_text = masked_text.replace(value, masked_value, 1)
                     log.warning(
                         "Position mismatch, replaced by search",
-                        value=value[:30],
                         expected_pos=f"{start_pos}-{end_pos}",
                     )
                 else:
                     log.error(
                         "Could not replace entity",
-                        value=value[:30],
                         phi_type=phi_type,
                     )
 
@@ -405,9 +435,59 @@ class ProcessingService:
             "warning": "PHI 引擎未載入，使用模擬處理",
         }
 
-    def save_result(self, task_id: str, result: dict[str, Any]) -> Path:
+    def _owned_output_dir(self, base_dir: Path, owner_user_id: str | None) -> Path:
+        """Store new artifacts in per-user directories while keeping legacy reads compatible."""
+        if not owner_user_id:
+            return base_dir
+        output_dir = base_dir / "users" / owner_user_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return output_dir
+
+    def cleanup_expired_outputs(self, max_age_hours: float) -> dict[str, int]:
+        """Delete generated result/report artifacts older than the configured TTL."""
+        cutoff = datetime.now().timestamp() - (max_age_hours * 3600)
+        files_deleted = 0
+        bytes_freed = 0
+
+        for base_dir in (self.results_dir, self.reports_dir):
+            if not base_dir.exists():
+                continue
+            for artifact in base_dir.rglob("*"):
+                if not artifact.is_file():
+                    continue
+                try:
+                    if artifact.stat().st_mtime > cutoff:
+                        continue
+                    bytes_freed += artifact.stat().st_size
+                    artifact.unlink()
+                    files_deleted += 1
+                except Exception as exc:
+                    logger.warning(f"Failed to delete expired artifact {artifact}: {exc}")
+
+            for directory in sorted(
+                [path for path in base_dir.rglob("*") if path.is_dir()],
+                key=lambda path: len(path.parts),
+                reverse=True,
+            ):
+                try:
+                    directory.rmdir()
+                except OSError:
+                    pass
+
+        if files_deleted:
+            logger.info(
+                f"Cleaned expired outputs: {files_deleted} files, {bytes_freed} bytes freed"
+            )
+        return {"files_deleted": files_deleted, "bytes_freed": bytes_freed}
+
+    def save_result(
+        self,
+        task_id: str,
+        result: dict[str, Any],
+        owner_user_id: str | None = None,
+    ) -> Path:
         """儲存處理結果"""
-        result_path = self.results_dir / f"{task_id}_result.json"
+        result_path = self._owned_output_dir(self.results_dir, owner_user_id) / f"{task_id}_result.json"
         with open(result_path, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, ensure_ascii=False, default=str)
         return result_path
@@ -418,6 +498,7 @@ class ProcessingService:
         job_name: str,
         file_results: list[dict[str, Any]],
         processing_time: float,
+        owner_user_id: str | None = None,
     ) -> Path:
         """生成並儲存報告"""
         total_phi = sum(r.get("phi_found", 0) for r in file_results)
@@ -439,6 +520,7 @@ class ProcessingService:
         report = {
             "task_id": task_id,
             "job_name": job_name,
+            "owner_user_id": owner_user_id,
             "files_display": files_display,  # 新增：檔案名稱顯示
             "generated_at": datetime.now().isoformat(),
             "summary": {
@@ -464,7 +546,7 @@ class ProcessingService:
             ],
         }
 
-        report_path = self.reports_dir / f"{task_id}_report.json"
+        report_path = self._owned_output_dir(self.reports_dir, owner_user_id) / f"{task_id}_report.json"
         with open(report_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2, ensure_ascii=False, default=str)
 

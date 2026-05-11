@@ -41,7 +41,7 @@ export function ResultsPreview() {
   // 監控任務狀態
   useEffect(() => {
     // 有任務完成時刷新結果
-    const completed = tasks.filter((t: TaskStatus) => t.status === 'completed')
+    const completed = tasks.filter((t: TaskStatus) => t.status === 'completed' || t.status === 'completed_with_errors')
     if (completed.length > 0) {
       queryClient.invalidateQueries({ queryKey: ['results'] })
       queryClient.invalidateQueries({ queryKey: ['files'] })
@@ -52,6 +52,8 @@ export function ResultsPreview() {
     switch (status) {
       case 'completed':
         return <CheckCircle className="h-4 w-4 text-green-500" />
+      case 'completed_with_errors':
+        return <AlertCircle className="h-4 w-4 text-amber-500" />
       case 'failed':
         return <XCircle className="h-4 w-4 text-red-500" />
       case 'processing':
@@ -65,6 +67,8 @@ export function ResultsPreview() {
     switch (status) {
       case 'completed':
         return <Badge variant="default">完成</Badge>
+      case 'completed_with_errors':
+        return <Badge className="bg-amber-500">部分失敗</Badge>
       case 'failed':
         return <Badge variant="destructive">失敗</Badge>
       case 'processing':

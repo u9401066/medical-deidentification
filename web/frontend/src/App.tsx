@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { FileSearch, Database, FileBarChart, Settings, ListTodo, BookOpen } from 'lucide-react'
+import { FileSearch, Database, FileBarChart, Settings, ListTodo, BookOpen, Users, LogOut } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/presentation/components/ui'
-import { Guide, Sidebar, DataPreview, TasksPanel, ResultsPanel, Reports, SettingsPanel } from '@/presentation/components'
+import { AuthGate, Guide, Sidebar, DataPreview, TasksPanel, ResultsPanel, Reports, SettingsPanel, UsersPanel } from '@/presentation/components'
+import type { AuthUser } from '@/infrastructure/api'
 
-function App() {
+function WorkspaceApp({ user, onLogout }: { user: AuthUser, onLogout: () => void }) {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('guide')
 
@@ -23,6 +24,7 @@ function App() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
           {/* 標籤列 */}
           <div className="border-b px-4">
+            <div className="flex items-center justify-between">
             <TabsList className="h-12">
               <TabsTrigger value="guide" className="gap-2">
                 <BookOpen className="h-4 w-4" />
@@ -44,11 +46,27 @@ function App() {
                 <FileBarChart className="h-4 w-4" />
                 報告
               </TabsTrigger>
-              <TabsTrigger value="settings" className="gap-2">
-                <Settings className="h-4 w-4" />
-                設定
-              </TabsTrigger>
+              {user.role === 'admin' && (
+                <>
+                <TabsTrigger value="settings" className="gap-2">
+                  <Settings className="h-4 w-4" />
+                  設定
+                </TabsTrigger>
+                <TabsTrigger value="users" className="gap-2">
+                  <Users className="h-4 w-4" />
+                  使用者
+                </TabsTrigger>
+                </>
+              )}
             </TabsList>
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <span>{user.username} ({user.role})</span>
+              <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={onLogout}>
+                <LogOut className="h-4 w-4" />
+                登出
+              </button>
+            </div>
+            </div>
           </div>
 
           {/* 標籤內容 */}
@@ -67,12 +85,27 @@ function App() {
           <TabsContent value="reports" className="flex-1 m-0">
             <Reports />
           </TabsContent>
-          <TabsContent value="settings" className="flex-1 m-0">
-            <SettingsPanel />
-          </TabsContent>
+          {user.role === 'admin' && (
+            <>
+              <TabsContent value="settings" className="flex-1 m-0">
+                <SettingsPanel />
+              </TabsContent>
+              <TabsContent value="users" className="flex-1 m-0">
+                <UsersPanel currentUser={user} />
+              </TabsContent>
+            </>
+          )}
         </Tabs>
       </main>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <AuthGate>
+      {(user, onLogout) => <WorkspaceApp user={user} onLogout={onLogout} />}
+    </AuthGate>
   )
 }
 

@@ -14,6 +14,7 @@ interface FileResponse {
   upload_time: string;
   file_type: string;
   preview_available: boolean;
+  content_deleted?: boolean;
   status?: string;
 }
 

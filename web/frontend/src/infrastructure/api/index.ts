@@ -6,14 +6,15 @@
 
 import axios from 'axios';
 import { logger } from '../logging';
-
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000/api';
+import { API_BASE, ensureApiResponse } from './base';
 
 export const apiClient = axios.create({
   baseURL: API_BASE,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000,
 });
 
 // 請求攔截器
@@ -34,6 +35,7 @@ apiClient.interceptors.request.use(
 // 響應攔截器
 apiClient.interceptors.response.use(
   (response) => {
+    ensureApiResponse(response);
     logger.debug('API Response', {
       status: response.status,
       url: response.config.url,
@@ -41,6 +43,14 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
+    const status = error.response?.status;
+    if (typeof window !== 'undefined' && status !== undefined && [401, 403].includes(status)) {
+      window.dispatchEvent(
+        new CustomEvent('medical-deid-auth-error', {
+          detail: { status },
+        })
+      );
+    }
     logger.error('API Response Error', {
       status: error.response?.status,
       url: error.config?.url,
@@ -62,8 +72,11 @@ export interface UploadedFile {
   upload_time: string;
   file_type: string;
   preview_available: boolean;
+  content_deleted?: boolean;
   status: 'pending' | 'processing' | 'completed' | 'error';
   task_id?: string | null;  // 關聯的處理任務 ID
+  owner_user_id?: string | null;
+  owner_username?: string | null;
 }
 
 export interface PHITypeConfig {
@@ -87,11 +100,13 @@ export interface FileResult {
   filename?: string;
   status: 'pending' | 'processing' | 'completed' | 'error';
   phi_found?: number;
+  error?: string | null;
+  processing_time?: number | null;
 }
 
 export interface TaskStatus {
   task_id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'completed_with_errors' | 'failed';
   progress: number;
   message: string;
   file_ids: string[];  // 處理的檔案 ID 列表
@@ -101,12 +116,23 @@ export interface TaskStatus {
   report_file?: string;
   started_at?: string;
   elapsed_seconds?: number;
+  elapsed_time?: number;
   estimated_remaining_seconds?: number;
+  estimated_remaining?: number;
   processing_speed?: number;
   total_chars?: number;
   processed_chars?: number;
   file_results?: Record<string, FileResult>;
+  owner_user_id?: string | null;
+  owner_username?: string | null;
   current_file?: string;
+  files_completed?: number;
+  total_files?: number;
+  phase?: string | null;
+  phase_label?: string | null;
+  current_file_progress?: number | null;
+  elapsed_time_formatted?: string;
+  estimated_remaining_formatted?: string;
 }
 
 export interface ProcessRequest {
@@ -165,6 +191,8 @@ export interface Report {
   total_phi_found: number;
   created_at: string;
   generated_at?: string;
+  owner_user_id?: string | null;
+  owner_username?: string | null;
 }
 
 export interface PHIEntity {
@@ -210,6 +238,8 @@ export interface ResultItem {
   job_name: string;
   files_count: number;
   filenames: string[];  // 處理的檔案名稱列表
+  owner_user_id?: string | null;
+  owner_username?: string | null;
   total_phi_found: number;
   phi_by_type: Record<string, number>;
   processed_at: string;
@@ -250,6 +280,19 @@ export interface HealthStatus {
   engine_available?: boolean;
 }
 
+export interface AuthUser {
+  user_id: string;
+  username: string;
+  role: 'admin' | 'user';
+  is_active: boolean;
+  created_at?: string;
+  last_login_at?: string | null;
+}
+
+export interface AuthResponse {
+  user: AuthUser;
+}
+
 // LLM 設定類型
 export interface LLMConfig {
   provider: string;
@@ -284,6 +327,68 @@ export interface LLMProvider {
   requires_api_key: boolean;
   default_url: string;
 }
+
+// ============================================================
+// Auth APIs
+// ============================================================
+
+export const getSetupRequired = async (): Promise<boolean> => {
+  const response = await apiClient.get('/auth/setup-required');
+  if (typeof response.data?.setup_required !== 'boolean') {
+    throw new Error('Invalid setup-required response from API');
+  }
+  return Boolean(response.data.setup_required);
+};
+
+export const bootstrapAdmin = async (
+  username: string,
+  password: string
+): Promise<AuthResponse> => {
+  const response = await apiClient.post('/auth/bootstrap', { username, password });
+  return response.data;
+};
+
+export const login = async (
+  username: string,
+  password: string
+): Promise<AuthResponse> => {
+  const response = await apiClient.post('/auth/login', { username, password });
+  return response.data;
+};
+
+export const logout = async (): Promise<void> => {
+  await apiClient.post('/auth/logout');
+};
+
+export const getCurrentUser = async (): Promise<AuthResponse> => {
+  const response = await apiClient.get('/auth/me');
+  if (!response.data?.user?.user_id) {
+    throw new Error('Invalid current-user response from API');
+  }
+  return response.data;
+};
+
+export const listUsers = async (): Promise<AuthUser[]> => {
+  const response = await apiClient.get('/auth/users');
+  return response.data;
+};
+
+export const createUser = async (
+  username: string,
+  password: string,
+  role: 'admin' | 'user' = 'user'
+): Promise<AuthUser> => {
+  const response = await apiClient.post('/auth/users', { username, password, role });
+  return response.data;
+};
+
+export const updateUser = async (
+  userId: string,
+  updates: { role?: 'admin' | 'user'; is_active?: boolean }
+): Promise<AuthUser> => {
+  const response = await apiClient.patch(`/auth/users/${userId}`, updates);
+  return response.data;
+};
 
 // ============================================================
 // File APIs
@@ -525,6 +630,14 @@ export const getLLMProviders = async (): Promise<LLMProvider[]> => {
 // ============================================================
 
 const api = {
+  getSetupRequired,
+  bootstrapAdmin,
+  login,
+  logout,
+  getCurrentUser,
+  listUsers,
+  createUser,
+  updateUser,
   uploadFile,
   listFiles,
   deleteFile,

@@ -8,14 +8,14 @@ import axios, {
   AxiosResponse,
 } from 'axios';
 import { logger } from '../logging';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+import { API_BASE, ensureApiResponse } from './base';
 
 /**
  * 創建 Axios 實例
  */
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -41,6 +41,7 @@ apiClient.interceptors.request.use(
 // 響應攔截器
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
+    ensureApiResponse(response);
     logger.debug('API Response', {
       status: response.status,
       url: response.config.url,
@@ -48,11 +49,18 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error: AxiosError) => {
+    const status = error.response?.status;
+    if (typeof window !== 'undefined' && status !== undefined && [401, 403].includes(status)) {
+      window.dispatchEvent(
+        new CustomEvent('medical-deid-auth-error', {
+          detail: { status },
+        })
+      );
+    }
     const errorInfo = {
       status: error.response?.status,
       url: error.config?.url,
       message: error.message,
-      data: error.response?.data,
     };
     logger.error('API Response Error', errorInfo);
     return Promise.reject(error);

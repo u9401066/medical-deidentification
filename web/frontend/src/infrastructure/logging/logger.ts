@@ -60,9 +60,9 @@ function log(level: LogLevel, message: string, context?: object): void {
     }
   }
 
-  // 生產模式：錯誤和警告仍然輸出
+  // 生產模式：避免把檔名/PHI response body 等 context 留在 console。
   if (!import.meta.env.DEV && (level === 'ERROR' || level === 'WARN')) {
-    console.log(`[${level}]`, message, context ?? '');
+    console.log(`[${level}]`, message);
   }
 }
 

@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, CheckCircle, XCircle, Clock, AlertCircle, Timer } from 'lucide-react'
+import { RefreshCw, CheckCircle, XCircle, Clock, AlertCircle, Timer, FileText } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Progress, Badge, ScrollArea } from '@/presentation/components/ui'
-import { useTasks, TASKS_QUERY_KEY } from '@/application/hooks'
+import { useTasks } from '@/application/hooks'
 
 // 格式化時間
 function formatTime(seconds?: number): string {
@@ -39,6 +39,8 @@ export function TasksPanel() {
     switch (status) {
       case 'completed':
         return <CheckCircle className="h-5 w-5 text-green-500" />
+      case 'completed_with_errors':
+        return <AlertCircle className="h-5 w-5 text-amber-500" />
       case 'failed':
         return <XCircle className="h-5 w-5 text-red-500" />
       case 'processing':
@@ -52,6 +54,8 @@ export function TasksPanel() {
     switch (status) {
       case 'completed':
         return <Badge className="bg-green-500">完成</Badge>
+      case 'completed_with_errors':
+        return <Badge className="bg-amber-500">部分失敗</Badge>
       case 'failed':
         return <Badge variant="destructive">失敗</Badge>
       case 'processing':
@@ -59,6 +63,14 @@ export function TasksPanel() {
       default:
         return <Badge variant="outline">等待中</Badge>
     }
+  }
+
+  const progressValue = (progress: number) => (progress <= 1 ? progress * 100 : progress)
+  const progressText = (progress: number) => `${Math.round(progressValue(progress))}%`
+  const fileProgressText = (progress?: number | null) => {
+    if (progress === undefined || progress === null) return null
+    const value = progress <= 1 ? progress * 100 : progress
+    return `${Math.round(value)}%`
   }
 
   return (
@@ -106,10 +118,18 @@ export function TasksPanel() {
           </div>
         ) : (
           <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-            {tasks.map((task) => (
-              <Card key={task.task_id} className={`
+            {tasks.map((task) => {
+              const fileResults = Object.values(task.fileResults)
+              const fileCount = task.totalFiles || task.fileIds.length || fileResults.length
+              const primaryFileLabel = fileResults.length > 0
+                ? fileResults.map((file) => file.filename || file.fileId).join(', ')
+                : task.currentFile || `${fileCount} 個檔案`
+
+              return (
+              <Card key={task.id} className={`
                 ${task.status === 'processing' ? 'border-blue-500 border-2' : ''}
                 ${task.status === 'completed' ? 'border-green-500/50' : ''}
+                ${task.status === 'completed_with_errors' ? 'border-amber-500/70' : ''}
                 ${task.status === 'failed' ? 'border-red-500/50' : ''}
               `}>
                 <CardHeader className="pb-2">
@@ -117,34 +137,90 @@ export function TasksPanel() {
                     <div className="flex items-center gap-2">
                       {getStatusIcon(task.status)}
                       <CardTitle className="text-base">
-                        任務 {task.task_id.slice(0, 8)}
+                        任務 {task.id.slice(0, 8)}
                       </CardTitle>
                     </div>
                     {getStatusBadge(task.status)}
                   </div>
-                  {/* 顯示處理檔案數量 */}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {task.file_ids?.length || 0} 個檔案
-                  </p>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-sm font-medium truncate" title={primaryFileLabel}>
+                      <FileText className="inline h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                      {primaryFileLabel}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {fileCount} 個檔案
+                      {task.filesCompleted !== undefined && task.totalFiles
+                        ? ` • 已完成 ${task.filesCompleted}/${task.totalFiles}`
+                        : ''}
+                      {task.ownerUsername ? ` • owner: ${task.ownerUsername}` : ''}
+                    </p>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {fileResults.length > 0 && (
+                    <div className="space-y-1">
+                      {fileResults.map((file) => (
+                        <div key={file.fileId} className="rounded bg-muted/50 px-2 py-1 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate" title={file.filename || file.fileId}>
+                              {file.filename || file.fileId}
+                            </span>
+                            <Badge
+                              variant={file.status === 'error' ? 'destructive' : 'outline'}
+                              className="shrink-0"
+                            >
+                              {file.status === 'completed'
+                                ? `${file.phiFound} PHI`
+                                : file.status === 'processing'
+                                ? '處理中'
+                                : file.status === 'error'
+                                ? '錯誤'
+                                : '等待'}
+                            </Badge>
+                          </div>
+                          {file.status === 'error' && file.error && (
+                            <p className="mt-1 text-[11px] text-red-600 line-clamp-2">
+                              {file.error}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* 進度條 */}
                   {task.status === 'processing' && (
                     <>
-                      <Progress value={task.progress} className="h-2" />
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-medium text-blue-600">
+                            {task.phaseLabel || '處理中'}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {progressText(task.progress)}
+                          </span>
+                        </div>
+                        <Progress value={progressValue(task.progress)} className="h-2" />
+                        {fileProgressText(task.currentFileProgress) && (
+                          <div className="text-xs text-muted-foreground">
+                            目前檔案進度: {fileProgressText(task.currentFileProgress)}
+                            {task.phase === 'model_scanning' ? '（模型掃描中，為估算值）' : ''}
+                          </div>
+                        )}
+                      </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Timer className="h-3 w-3" />
-                          已用時: {formatTime(task.elapsed_seconds)}
+                          已用時: {task.elapsedTimeFormatted || formatTime(task.elapsedSeconds)}
                         </div>
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          剩餘: {formatTime(task.estimated_remaining_seconds)}
+                          剩餘: {task.estimatedRemainingFormatted || formatTime(task.estimatedRemainingSeconds)}
                         </div>
                       </div>
-                      {task.processing_speed && task.processing_speed > 0 && (
+                      {task.processingSpeed && task.processingSpeed > 0 && (
                         <div className="text-xs text-muted-foreground">
-                          速度: {task.processing_speed.toFixed(1)} 字元/秒
+                          速度: {task.processingSpeed.toFixed(1)} 字元/秒
                         </div>
                       )}
                     </>
@@ -158,14 +234,14 @@ export function TasksPanel() {
                   )}
 
                   {/* 完成狀態 */}
-                  {task.status === 'completed' && task.elapsed_seconds && (
+                  {(task.status === 'completed' || task.status === 'completed_with_errors') && task.elapsedSeconds && (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-green-600">
-                        ✓ 耗時: {formatTime(task.elapsed_seconds)}
+                      <span className={task.status === 'completed_with_errors' ? 'text-amber-600' : 'text-green-600'}>
+                        {task.status === 'completed_with_errors' ? '⚠ 部分完成' : '✓ 耗時'}: {task.elapsedTimeFormatted || formatTime(task.elapsedSeconds)}
                       </span>
-                      {task.processing_speed && task.processing_speed > 0 && (
+                      {task.processingSpeed && task.processingSpeed > 0 && (
                         <span className="text-muted-foreground">
-                          {task.processing_speed.toFixed(0)} 字元/秒
+                          {task.processingSpeed.toFixed(0)} 字元/秒
                         </span>
                       )}
                     </div>
@@ -173,11 +249,12 @@ export function TasksPanel() {
 
                   {/* 時間戳記 */}
                   <div className="text-xs text-muted-foreground pt-2 border-t">
-                    建立: {new Date(task.created_at).toLocaleString('zh-TW')}
+                    建立: {task.createdAt.toLocaleString('zh-TW')}
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              )
+            })}
           </div>
         )}
       </ScrollArea>

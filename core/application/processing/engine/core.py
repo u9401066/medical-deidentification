@@ -8,6 +8,7 @@ Main orchestration engine that integrates all components.
 
 import uuid
 from pathlib import Path
+from typing import Any
 
 from loguru import logger
 
@@ -28,6 +29,7 @@ from ..context import DocumentContext, ProcessingContext
 from ..pipeline import (
     DeidentificationPipeline,
     PipelineStage,
+    ProgressCallback,
     StageResult,
     create_language_detection_handler,
     create_validation_handler,
@@ -37,6 +39,21 @@ from .config import EngineConfig, ProcessingStatus
 from .handlers import PipelineHandlers
 from .masking import MaskingProcessor
 from .result import ProcessingResult
+
+
+def _emit_progress(
+    progress_callback: ProgressCallback | None,
+    event: str,
+    **payload: Any,
+) -> None:
+    """Emit engine progress events without coupling the core to any UI transport."""
+    if progress_callback is None:
+        return
+
+    try:
+        progress_callback({"event": event, **payload})
+    except Exception as exc:
+        logger.warning(f"Progress callback failed for {event}: {exc}")
 
 
 class DeidentificationEngine:
@@ -89,7 +106,11 @@ class DeidentificationEngine:
         ... )
     """
 
-    def __init__(self, config: EngineConfig | None = None):
+    def __init__(
+        self,
+        config: EngineConfig | None = None,
+        progress_callback: ProgressCallback | None = None,
+    ):
         """
         Initialize engine
         
@@ -97,6 +118,7 @@ class DeidentificationEngine:
             config: Engine configuration. Uses defaults if None.
         """
         self.config = config or EngineConfig()
+        self.progress_callback = progress_callback
 
         # Initialize output manager and report generator
         output_config = OutputConfig(
@@ -145,7 +167,8 @@ class DeidentificationEngine:
             phi_chain=self._phi_chain,
             masking_processor=self._masking_processor,
             use_rag=self.config.use_rag,
-            output_manager=self.output_manager
+            output_manager=self.output_manager,
+            progress_callback=self.progress_callback,
         )
 
         # Add stage handlers
@@ -306,7 +329,8 @@ class DeidentificationEngine:
     def process_file(
         self,
         file_path: str | Path,
-        job_name: str | None = None
+        job_name: str | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> ProcessingResult:
         """
         Process single file
@@ -314,16 +338,18 @@ class DeidentificationEngine:
         Args:
             file_path: Path to file
             job_name: Optional job name
+            progress_callback: Optional progress event callback
             
         Returns:
             ProcessingResult
         """
-        return self.process_files([file_path], job_name)
+        return self.process_files([file_path], job_name, progress_callback)
 
     def process_files(
         self,
         file_paths: list[str | Path],
-        job_name: str | None = None
+        job_name: str | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> ProcessingResult:
         """
         Process multiple files
@@ -331,10 +357,15 @@ class DeidentificationEngine:
         Args:
             file_paths: List of file paths
             job_name: Optional job name
+            progress_callback: Optional progress event callback
             
         Returns:
             ProcessingResult
         """
+        active_progress_callback = progress_callback or self.progress_callback
+        if self._pipeline_handlers:
+            self._pipeline_handlers.progress_callback = active_progress_callback
+
         # Create processing context
         job_id = str(uuid.uuid4())
         context = ProcessingContext(
@@ -342,14 +373,29 @@ class DeidentificationEngine:
             job_name=job_name or f"batch-{len(file_paths)}-files",
             config=self.config.model_dump()
         )
+        _emit_progress(
+            active_progress_callback,
+            "job_started",
+            job_id=job_id,
+            job_name=context.job_name,
+            total_files=len(file_paths),
+        )
 
         logger.info(
             f"Starting job {job_id}: processing {len(file_paths)} files"
         )
 
         # Load documents
-        for file_path in file_paths:
+        for file_index, file_path in enumerate(file_paths):
             try:
+                _emit_progress(
+                    active_progress_callback,
+                    "file_load_started",
+                    job_id=job_id,
+                    file_index=file_index,
+                    total_files=len(file_paths),
+                    file_path=str(file_path),
+                )
                 loaded_doc = self.loader_factory.load(file_path)
                 doc_context = DocumentContext(
                     document=loaded_doc,
@@ -357,6 +403,16 @@ class DeidentificationEngine:
                 )
                 context.add_document(doc_context)
                 logger.info(f"Loaded document: {loaded_doc.metadata.filename}")
+                _emit_progress(
+                    active_progress_callback,
+                    "file_load_completed",
+                    job_id=job_id,
+                    file_index=file_index,
+                    total_files=len(file_paths),
+                    filename=loaded_doc.metadata.filename,
+                    text_length=len(loaded_doc.content or ""),
+                    document_id=doc_context.document_id,
+                )
 
             except Exception as e:
                 logger.error(f"Failed to load {file_path}: {e}")
@@ -366,12 +422,26 @@ class DeidentificationEngine:
                     details={"file_path": str(file_path)}
                 )
                 context.mark_document_processed(success=False)
+                _emit_progress(
+                    active_progress_callback,
+                    "file_load_failed",
+                    job_id=job_id,
+                    file_index=file_index,
+                    total_files=len(file_paths),
+                    file_path=str(file_path),
+                    error_message=str(e),
+                )
 
         # Initialize RAG or PHI chain
+        _emit_progress(active_progress_callback, "engine_initializing", job_id=job_id)
         self._initialize_rag()
+        _emit_progress(active_progress_callback, "engine_initialized", job_id=job_id)
 
         # Execute pipeline
-        stage_results = self.pipeline.execute(context)
+        stage_results = self.pipeline.execute(
+            context,
+            progress_callback=active_progress_callback,
+        )
 
         # Mark job as completed
         context.mark_completed()
@@ -383,6 +453,17 @@ class DeidentificationEngine:
             f"Job {job_id} completed: "
             f"{result.processed_documents}/{result.total_documents} "
             f"documents processed in {result.duration_seconds:.2f}s"
+        )
+        _emit_progress(
+            active_progress_callback,
+            "job_completed",
+            job_id=job_id,
+            processed_documents=result.processed_documents,
+            total_documents=result.total_documents,
+            failed_documents=result.failed_documents,
+            total_phi_entities=result.total_phi_entities,
+            duration_seconds=result.duration_seconds,
+            status=result.status.value if hasattr(result.status, "value") else str(result.status),
         )
 
         return result

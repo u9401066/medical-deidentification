@@ -190,8 +190,6 @@ class TestStreamingChunkProcessor:
             with open(test_file, "w", encoding="utf-8") as f:
                 f.write("A" * 200)
 
-            processed_chunks = []
-
             def process_func(content: str, info: ChunkInfo) -> dict:
                 return {"length": len(content), "chunk_id": info.chunk_id}
 

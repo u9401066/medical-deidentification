@@ -322,10 +322,10 @@ Always output your final answer in this JSON format:
 
     def _execute_tool(self, tool_name: str, tool_args: dict[str, Any]) -> str:
         """Execute a tool by name"""
-        for tool in self.tools:
-            if tool.name == tool_name:
+        for available_tool in self.tools:
+            if available_tool.name == tool_name:
                 try:
-                    return tool.invoke(tool_args)
+                    return available_tool.invoke(tool_args)
                 except Exception as e:
                     logger.error(f"Tool {tool_name} failed: {e}")
                     return f"Tool error: {e!s}"

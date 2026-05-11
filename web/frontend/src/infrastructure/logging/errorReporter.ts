@@ -17,6 +17,20 @@ interface ErrorReport {
 const errorQueue: ErrorReport[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
+function sanitizeExtra(extra?: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (!extra) return undefined;
+  return Object.fromEntries(
+    Object.entries(extra).map(([key, value]) => [
+      key,
+      typeof value === 'number' || typeof value === 'boolean' ? value : '[REDACTED]',
+    ])
+  );
+}
+
+function safeUrl(): string {
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
 /**
  * 發送錯誤報告到後端
  */
@@ -53,18 +67,18 @@ export function reportError(
   const report: ErrorReport = {
     message: typeof error === 'string' ? error : error.message,
     stack: typeof error === 'string' ? undefined : error.stack,
-    url: window.location.href,
+    url: safeUrl(),
     userAgent: navigator.userAgent,
     timestamp: new Date().toISOString(),
     type,
-    extra,
+    extra: sanitizeExtra(extra),
   };
   
   errorQueue.push(report);
   scheduleFlush();
   
   // 同時輸出到 console 方便開發
-  console.error(`[${type}]`, report.message, extra || '');
+  console.error(`[${type}]`, report.message);
 }
 
 /**
@@ -101,7 +115,7 @@ export function reportReactError(error: Error, componentStack: string) {
     message: error.message,
     stack: error.stack,
     componentStack,
-    url: window.location.href,
+    url: safeUrl(),
     userAgent: navigator.userAgent,
     timestamp: new Date().toISOString(),
     type: 'react-error',
@@ -110,5 +124,5 @@ export function reportReactError(error: Error, componentStack: string) {
   errorQueue.push(report);
   scheduleFlush();
   
-  console.error('[react-error]', error.message, { componentStack });
+  console.error('[react-error]', error.message);
 }

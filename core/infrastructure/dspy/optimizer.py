@@ -53,7 +53,6 @@ try:
         FewShotExample,
         PromptConfig,
         PromptManager,
-        load_prompt_config,
     )
     PROMPT_MANAGER_AVAILABLE = True
 except ImportError:
@@ -652,4 +651,3 @@ def load_optimized_identifier(
         model_name=model_name,
         config_version=version,
     )
-

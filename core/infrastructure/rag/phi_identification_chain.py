@@ -22,6 +22,7 @@ NOT responsible for:
 - Persisting medical text (uses MedicalTextRetriever for ephemeral processing)
 """
 
+from collections.abc import Callable
 from typing import Any
 
 from loguru import logger
@@ -38,6 +39,23 @@ from .chains.processors import identify_phi_direct
 from .chains.utils import get_minimal_context
 from .regulation_retrieval_chain import RegulationRetrievalChain
 from .text_splitter import MedicalTextSplitter
+
+ProgressCallback = Callable[[dict[str, Any]], None]
+
+
+def _emit_progress(
+    progress_callback: ProgressCallback | None,
+    event: str,
+    **payload: Any,
+) -> None:
+    """Emit PHI-chain progress while insulating processing from observer errors."""
+    if progress_callback is None:
+        return
+
+    try:
+        progress_callback({"event": event, **payload})
+    except Exception as exc:
+        logger.warning(f"Progress callback failed for {event}: {exc}")
 
 
 class PHIIdentificationChain:
@@ -134,7 +152,8 @@ class PHIIdentificationChain:
         text: str,
         language: str | None = None,
         return_source: bool = False,
-        return_entities: bool = True
+        return_entities: bool = True,
+        progress_callback: ProgressCallback | None = None,
     ) -> dict[str, Any]:
         """
         Identify PHI in medical text
@@ -152,6 +171,7 @@ class PHIIdentificationChain:
             language: Language code (e.g., "zh-TW", "en")
             return_source: Whether to return source regulation documents
             return_entities: Whether to return identified entities
+            progress_callback: Optional progress event callback
             
         Returns:
             Dictionary with:
@@ -170,16 +190,29 @@ class PHIIdentificationChain:
                 f"Text length ({len(text)}) > max_text_length ({self.max_text_length}), "
                 f"using MapReduce pattern"
             )
-            return self._identify_phi_chunked(text, language, return_source, return_entities)
+            return self._identify_phi_chunked(
+                text,
+                language,
+                return_source,
+                return_entities,
+                progress_callback,
+            )
         else:
-            return self._identify_phi_direct(text, language, return_source, return_entities)
+            return self._identify_phi_direct(
+                text,
+                language,
+                return_source,
+                return_entities,
+                progress_callback,
+            )
 
     def _identify_phi_direct(
         self,
         text: str,
         language: str | None = None,
         return_source: bool = False,
-        return_entities: bool = True
+        return_entities: bool = True,
+        progress_callback: ProgressCallback | None = None,
     ) -> dict[str, Any]:
         """
         Direct PHI identification for short texts
@@ -189,7 +222,13 @@ class PHIIdentificationChain:
             This is a pure LLM approach without tool pre-scanning.
             For tool-calling agent approach, use PHIIdentificationAgent.
         """
-        return identify_phi_direct(
+        _emit_progress(
+            progress_callback,
+            "direct_llm_started",
+            text_length=len(text),
+            language=language,
+        )
+        result = identify_phi_direct(
             text=text,
             language=language,
             regulation_chain=self.regulation_chain,
@@ -199,13 +238,23 @@ class PHIIdentificationChain:
             return_source=return_source,
             return_entities=return_entities,
         )
+        _emit_progress(
+            progress_callback,
+            "direct_llm_completed",
+            text_length=len(text),
+            language=language,
+            entities_found=result.get("total_entities", 0),
+            has_phi=result.get("has_phi", False),
+        )
+        return result
 
     def _identify_phi_chunked(
         self,
         text: str,
         language: str | None = None,
         return_source: bool = False,
-        return_entities: bool = True
+        return_entities: bool = True,
+        progress_callback: ProgressCallback | None = None,
     ) -> dict[str, Any]:
         """
         Chunked PHI identification for long texts using MapReduce
@@ -216,7 +265,8 @@ class PHIIdentificationChain:
             text=text,
             llm=self.llm,
             text_splitter=self.text_splitter,
-            language=language
+            language=language,
+            progress_callback=progress_callback,
         )
 
         # Build response

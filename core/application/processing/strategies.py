@@ -14,7 +14,7 @@ Strategies:
 """
 
 import hashlib
-import random
+import secrets
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Any
@@ -253,10 +253,12 @@ class DateShiftingStrategy(MaskingStrategy):
         self.offset_range = self.config.get("offset_range", [-365, 365])
         self.preserve_year = self.config.get("preserve_year", False)
 
-        # Set random seed for consistency
         seed = self.config.get("seed")
-        if seed is not None:
-            random.seed(seed)
+        self._seed_offset = (
+            int.from_bytes(hashlib.sha256(str(seed).encode("utf-8")).digest(), "big")
+            if seed is not None
+            else None
+        )
 
         # Cache offset for consistency within document
         self._offset = None
@@ -274,7 +276,7 @@ class DateShiftingStrategy(MaskingStrategy):
                 if self.offset_days is not None:
                     self._offset = self.offset_days
                 else:
-                    self._offset = random.randint(*self.offset_range)
+                    self._offset = self._generate_offset()
 
             # Apply offset
             shifted_date = date_obj + timedelta(days=self._offset)
@@ -289,6 +291,16 @@ class DateShiftingStrategy(MaskingStrategy):
         except Exception as e:
             logger.warning(f"Failed to shift date '{date_text}': {e}")
             return "[DATE]"
+
+    def _generate_offset(self) -> int:
+        """Generate a date offset without relying on process-global RNG state."""
+        min_days, max_days = [int(value) for value in self.offset_range]
+        span = max_days - min_days + 1
+        if span <= 0:
+            raise ValueError("offset_range must be ordered as [min_days, max_days]")
+        if self._seed_offset is not None:
+            return min_days + (self._seed_offset % span)
+        return min_days + secrets.randbelow(span)
 
     def _parse_date(self, date_text: str) -> datetime:
         """Parse date from text"""

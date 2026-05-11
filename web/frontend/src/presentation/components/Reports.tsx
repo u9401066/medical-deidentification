@@ -3,7 +3,7 @@ import { FileText, Download, Eye, Calendar, BarChart3 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Badge, ScrollArea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui'
 import { useReports, useReportDetail, useExportReport } from '@/application/hooks'
 import type { Report, ReportExportFormat } from '@/infrastructure/api'
-import { formatDate } from '@/lib/utils'
+import { formatDate, saveBlob } from '@/lib/utils'
 
 export function Reports() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
@@ -33,15 +33,7 @@ export function Reports() {
       }
       const filename = `report_${selectedReportId}.${extensions[exportFormat]}`
       
-      // 建立下載連結
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = filename
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      saveBlob(blob, filename)
     } catch (error) {
       console.error('匯出報告失敗:', error)
     } finally {
@@ -64,8 +56,9 @@ export function Reports() {
             </SelectTrigger>
             <SelectContent>
               {reports.map((report: Report) => (
-                <SelectItem key={report.id} value={report.id}>
+                <SelectItem key={report.id} value={report.task_id}>
                   {report.filename} - {formatDate(report.created_at)}
+                  {report.owner_username ? ` - owner: ${report.owner_username}` : ''}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -230,7 +223,7 @@ export function Reports() {
                                       <Badge variant="outline">{item.type}</Badge>
                                     </td>
                                     <td className="p-2 font-mono text-xs text-red-600">
-                                      {item.value}
+                                      [已隱藏]
                                     </td>
                                     <td className="p-2 font-mono text-xs text-green-600">
                                       {item.masked_value}

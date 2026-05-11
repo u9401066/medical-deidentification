@@ -6,6 +6,8 @@ interface ImportMetaEnv {
   readonly MODE: string;
   readonly BASE_URL: string;
   readonly VITE_API_BASE_URL?: string;
+  readonly VITE_API_BASE?: string;
+  readonly VITE_API_TOKEN?: string;
 }
 
 interface ImportMeta {

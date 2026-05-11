@@ -523,6 +523,24 @@ function LLMSettings() {
     queryFn: getLLMConfig,
     staleTime: 10000,
   })
+  const [llmDraft, setLlmDraft] = useState({
+    base_url: '',
+    api_key: '',
+    temperature: '0.1',
+    max_tokens: '4096',
+    timeout: '120',
+  })
+
+  useEffect(() => {
+    if (!llmConfig) return
+    setLlmDraft({
+      base_url: llmConfig.base_url || '',
+      api_key: '',
+      temperature: String(llmConfig.temperature ?? 0.1),
+      max_tokens: String(llmConfig.max_tokens ?? 4096),
+      timeout: String(llmConfig.timeout ?? 120),
+    })
+  }, [llmConfig])
 
   // 取得支援的提供者
   const { data: providers = [] } = useQuery({
@@ -733,10 +751,10 @@ function LLMSettings() {
             <div className="space-y-2">
               <label className="text-sm font-medium">API 端點</label>
               <Input
-                value={llmConfig?.base_url || ''}
-                onChange={() => {
-                  // 使用 onBlur 更新
-                }}
+                value={llmDraft.base_url}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setLlmDraft((draft) => ({ ...draft, base_url: e.target.value }))
+                }
                 onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
                   if (e.target.value !== llmConfig?.base_url) {
                     updateMutation.mutate({ base_url: e.target.value })
@@ -752,14 +770,17 @@ function LLMSettings() {
               <label className="text-sm font-medium">API Key</label>
               <Input
                 type="password"
-                value={llmConfig?.api_key || ''}
-                onChange={() => {}}
+                value={llmDraft.api_key}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setLlmDraft((draft) => ({ ...draft, api_key: e.target.value }))
+                }
                 onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
-                  if (e.target.value && e.target.value !== llmConfig?.api_key) {
+                  if (e.target.value) {
                     updateMutation.mutate({ api_key: e.target.value })
+                    setLlmDraft((draft) => ({ ...draft, api_key: '' }))
                   }
                 }}
-                placeholder="輸入 API Key"
+                placeholder={llmConfig?.api_key ? '已設定 API Key，輸入新值可覆蓋' : '輸入 API Key'}
               />
             </div>
           )}
@@ -772,8 +793,10 @@ function LLMSettings() {
                 step="0.1"
                 min="0"
                 max="2"
-                value={llmConfig?.temperature ?? 0.1}
-                onChange={() => {}}
+                value={llmDraft.temperature}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setLlmDraft((draft) => ({ ...draft, temperature: e.target.value }))
+                }
                 onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
                   const value = parseFloat(e.target.value)
                   if (!isNaN(value) && value !== llmConfig?.temperature) {
@@ -789,8 +812,10 @@ function LLMSettings() {
                 type="number"
                 min="1"
                 max="32000"
-                value={llmConfig?.max_tokens ?? 4096}
-                onChange={() => {}}
+                value={llmDraft.max_tokens}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setLlmDraft((draft) => ({ ...draft, max_tokens: e.target.value }))
+                }
                 onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
                   const value = parseInt(e.target.value)
                   if (!isNaN(value) && value !== llmConfig?.max_tokens) {
@@ -806,8 +831,10 @@ function LLMSettings() {
                 type="number"
                 min="10"
                 max="600"
-                value={llmConfig?.timeout ?? 120}
-                onChange={() => {}}
+                value={llmDraft.timeout}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setLlmDraft((draft) => ({ ...draft, timeout: e.target.value }))
+                }
                 onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
                   const value = parseInt(e.target.value)
                   if (!isNaN(value) && value !== llmConfig?.timeout) {

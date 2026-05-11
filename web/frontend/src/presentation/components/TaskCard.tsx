@@ -1,4 +1,4 @@
-import { RefreshCw, CheckCircle, XCircle, Clock, Timer, Download } from 'lucide-react'
+import { RefreshCw, CheckCircle, XCircle, Clock, Timer, Download, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Progress, Badge, Button } from '@/presentation/components/ui'
 import { useDownloadSingleFile } from '@/application/hooks'
 import type { TaskStatus } from '@/infrastructure/api'
@@ -28,6 +28,12 @@ interface TaskCardProps {
 
 export function TaskCard({ task }: TaskCardProps) {
   const downloadMutation = useDownloadSingleFile()
+  const progressValue = task.progress <= 1 ? task.progress * 100 : task.progress
+  const currentFileProgress = task.current_file_progress == null
+    ? null
+    : task.current_file_progress <= 1
+    ? task.current_file_progress * 100
+    : task.current_file_progress
 
   // 下載單一檔案結果
   const handleDownloadFile = async (fileId: string, filename: string) => {
@@ -56,6 +62,8 @@ export function TaskCard({ task }: TaskCardProps) {
     switch (status) {
       case 'completed':
         return <CheckCircle className="h-5 w-5 text-green-500" />
+      case 'completed_with_errors':
+        return <AlertCircle className="h-5 w-5 text-amber-500" />
       case 'failed':
         return <XCircle className="h-5 w-5 text-red-500" />
       case 'processing':
@@ -69,6 +77,8 @@ export function TaskCard({ task }: TaskCardProps) {
     switch (status) {
       case 'completed':
         return <Badge className="bg-green-500">完成</Badge>
+      case 'completed_with_errors':
+        return <Badge className="bg-amber-500">部分失敗</Badge>
       case 'failed':
         return <Badge variant="destructive">失敗</Badge>
       case 'processing':
@@ -82,6 +92,7 @@ export function TaskCard({ task }: TaskCardProps) {
     <Card className={`
       ${task.status === 'processing' ? 'border-blue-500 border-2' : ''}
       ${task.status === 'completed' ? 'border-green-500/50' : ''}
+      ${task.status === 'completed_with_errors' ? 'border-amber-500/70' : ''}
       ${task.status === 'failed' ? 'border-red-500/50' : ''}
     `}>
       <CardHeader className="pb-2">
@@ -100,32 +111,37 @@ export function TaskCard({ task }: TaskCardProps) {
         {task.file_results && Object.keys(task.file_results).length > 0 ? (
           <div className="text-sm space-y-2">
             {Object.values(task.file_results).map((fr) => (
-              <div key={fr.file_id} className="flex items-center justify-between gap-2">
-                <span className="font-medium truncate max-w-[160px]" title={fr.filename || fr.file_id}>
-                  {fr.filename || fr.file_id}
-                </span>
-                <div className="flex items-center gap-1">
-                  {fr.status === 'completed' && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={() => handleDownloadFile(fr.file_id, fr.filename || fr.file_id)}
-                      title="下載去識別化結果"
-                    >
-                      <Download className="h-3 w-3" />
-                    </Button>
-                  )}
-                  <Badge variant={
-                    fr.status === 'completed' ? 'default' :
-                    fr.status === 'processing' ? 'secondary' :
-                    fr.status === 'error' ? 'destructive' : 'outline'
-                  } className="text-xs">
-                    {fr.status === 'completed' ? `✓ ${fr.phi_found} PHI` :
-                     fr.status === 'processing' ? '處理中' :
-                     fr.status === 'error' ? '錯誤' : '等待'}
-                  </Badge>
+              <div key={fr.file_id} className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium truncate max-w-[160px]" title={fr.filename || fr.file_id}>
+                    {fr.filename || fr.file_id}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {fr.status === 'completed' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => handleDownloadFile(fr.file_id, fr.filename || fr.file_id)}
+                        title="下載去識別化結果"
+                      >
+                        <Download className="h-3 w-3" />
+                      </Button>
+                    )}
+                    <Badge variant={
+                      fr.status === 'completed' ? 'default' :
+                      fr.status === 'processing' ? 'secondary' :
+                      fr.status === 'error' ? 'destructive' : 'outline'
+                    } className="text-xs">
+                      {fr.status === 'completed' ? `✓ ${fr.phi_found} PHI` :
+                       fr.status === 'processing' ? '處理中' :
+                       fr.status === 'error' ? '錯誤' : '等待'}
+                    </Badge>
+                  </div>
                 </div>
+                {fr.status === 'error' && fr.error && (
+                  <p className="text-xs text-red-600 line-clamp-2">{fr.error}</p>
+                )}
               </div>
             ))}
           </div>
@@ -139,7 +155,23 @@ export function TaskCard({ task }: TaskCardProps) {
         {/* 進度條 */}
         {task.status === 'processing' && (
           <>
-            <Progress value={task.progress} className="h-2" />
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-blue-600">
+                  {task.phase_label || '處理中'}
+                </span>
+                <span className="text-muted-foreground">
+                  {Math.round(progressValue)}%
+                </span>
+              </div>
+              <Progress value={progressValue} className="h-2" />
+              {currentFileProgress !== null && (
+                <div className="text-xs text-muted-foreground">
+                  目前檔案進度: {Math.round(currentFileProgress)}%
+                  {task.phase === 'model_scanning' ? '（模型掃描中，為估算值）' : ''}
+                </div>
+              )}
+            </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <div className="flex items-center gap-1">
                 <Timer className="h-3 w-3" />
@@ -166,10 +198,10 @@ export function TaskCard({ task }: TaskCardProps) {
         )}
 
         {/* 完成狀態 */}
-        {task.status === 'completed' && task.elapsed_seconds && (
+        {(task.status === 'completed' || task.status === 'completed_with_errors') && task.elapsed_seconds && (
           <div className="flex items-center justify-between text-sm">
-            <span className="text-green-600">
-              ✓ 耗時: {formatTime(task.elapsed_seconds)}
+            <span className={task.status === 'completed_with_errors' ? 'text-amber-600' : 'text-green-600'}>
+              {task.status === 'completed_with_errors' ? '⚠ 部分完成' : '✓ 耗時'}: {formatTime(task.elapsed_seconds)}
             </span>
             {task.processing_speed && task.processing_speed > 0 && (
               <span className="text-muted-foreground">

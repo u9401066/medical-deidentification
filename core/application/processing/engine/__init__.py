@@ -22,6 +22,7 @@ from .core import DeidentificationEngine
 from .handlers import PipelineHandlers
 from .masking import MaskingProcessor
 from .result import ProcessingResult
+from ..pipeline import ProgressCallback
 
 __all__ = [
     # Config
@@ -30,6 +31,7 @@ __all__ = [
 
     # Result
     "ProcessingResult",
+    "ProgressCallback",
 
     # Processing
     "MaskingProcessor",

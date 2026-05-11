@@ -7,7 +7,9 @@ Implements MapReduce pattern using LangChain for processing long medical texts:
 - Reduce stage: Merge and deduplicate results (pure data processing)
 """
 
+from collections.abc import Callable
 from dataclasses import replace
+from typing import Any
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
@@ -20,6 +22,23 @@ from ....domain.phi_identification_models import (
 from ...llm.factory import get_structured_output_method
 from ...prompts import get_phi_map_reduce_prompt, get_system_message
 from .utils import deduplicate_entities
+
+ProgressCallback = Callable[[dict[str, Any]], None]
+
+
+def _emit_progress(
+    progress_callback: ProgressCallback | None,
+    event: str,
+    **payload: Any,
+) -> None:
+    """Emit chunk-level progress without allowing observers to fail processing."""
+    if progress_callback is None:
+        return
+
+    try:
+        progress_callback({"event": event, **payload})
+    except Exception as exc:
+        logger.warning(f"Progress callback failed for {event}: {exc}")
 
 
 def build_map_chain(llm) -> Runnable:
@@ -160,7 +179,8 @@ def identify_phi_with_map_reduce(
     text: str,
     llm,
     text_splitter,
-    language: str | None = None
+    language: str | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> list[PHIEntity]:
     """
     Process long text using MapReduce pattern with LangChain
@@ -176,6 +196,7 @@ def identify_phi_with_map_reduce(
         llm: Language model
         text_splitter: MedicalTextSplitter for chunking
         language: Language code (optional, for future multilingual support)
+        progress_callback: Optional progress event callback
         
     Returns:
         List of PHIEntity with absolute positions
@@ -184,7 +205,25 @@ def identify_phi_with_map_reduce(
 
     # 1. Split text into chunks
     chunks = text_splitter.split_text(text)
-    logger.info(f"MapReduce: Split into {len(chunks)} chunks")
+    total_chunks = len(chunks)
+    logger.info(f"MapReduce: Split into {total_chunks} chunks")
+    _emit_progress(
+        progress_callback,
+        "chunks_prepared",
+        text_length=len(text),
+        total_chunks=total_chunks,
+        language=language,
+    )
+
+    if total_chunks == 0:
+        _emit_progress(
+            progress_callback,
+            "reduce_completed",
+            total_chunks=0,
+            total_phi_found=0,
+            unique_entities=0,
+        )
+        return []
 
     # 2. Build map chain (LangChain Runnable)
     map_chain = build_map_chain(llm)
@@ -197,10 +236,20 @@ def identify_phi_with_map_reduce(
         import time
         chunk_start = time.time()
 
-        progress_pct = (i / len(chunks)) * 100
+        progress_pct = (i / total_chunks) * 100
         logger.info(
-            f"MapReduce Map {i+1}/{len(chunks)} ({progress_pct:.1f}%): "
+            f"MapReduce Map {i+1}/{total_chunks} ({progress_pct:.1f}%): "
             f"Processing chunk at pos {current_pos} ({len(chunk)} chars)"
+        )
+        _emit_progress(
+            progress_callback,
+            "chunk_started",
+            chunk_index=i,
+            chunk_number=i + 1,
+            total_chunks=total_chunks,
+            chunk_start_pos=current_pos,
+            chunk_end_pos=current_pos + len(chunk),
+            chunk_size=len(chunk),
         )
 
         try:
@@ -216,14 +265,27 @@ def identify_phi_with_map_reduce(
             chunk_results.append((detection_response, current_pos, chunk))
 
             logger.info(
-                f"MapReduce Map {i+1}/{len(chunks)}: "
+                f"MapReduce Map {i+1}/{total_chunks}: "
                 f"Found {len(detection_response.entities)} PHI entities "
                 f"({chunk_duration:.2f}s, {tokens_per_sec:.1f} tokens/sec)"
+            )
+            _emit_progress(
+                progress_callback,
+                "chunk_completed",
+                chunk_index=i,
+                chunk_number=i + 1,
+                total_chunks=total_chunks,
+                chunk_start_pos=current_pos,
+                chunk_end_pos=current_pos + len(chunk),
+                chunk_size=len(chunk),
+                duration_seconds=chunk_duration,
+                entities_found=len(detection_response.entities),
+                success=True,
             )
 
         except Exception as e:
             logger.error(
-                f"MapReduce Map {i+1}/{len(chunks)} failed: {e}"
+                f"MapReduce Map {i+1}/{total_chunks} failed: {e}"
             )
             # Continue with empty result
             empty_response = PHIDetectionResponse(
@@ -231,19 +293,47 @@ def identify_phi_with_map_reduce(
                 has_phi=False
             )
             chunk_results.append((empty_response, current_pos, chunk))
+            _emit_progress(
+                progress_callback,
+                "chunk_completed",
+                chunk_index=i,
+                chunk_number=i + 1,
+                total_chunks=total_chunks,
+                chunk_start_pos=current_pos,
+                chunk_end_pos=current_pos + len(chunk),
+                chunk_size=len(chunk),
+                duration_seconds=time.time() - chunk_start,
+                entities_found=0,
+                success=False,
+                error_message=str(e),
+            )
 
         # Update position for next chunk
         current_pos += len(chunk)
 
     # 4. Reduce stage: Merge results (pure data processing, no LLM)
     logger.info(f"MapReduce Reduce: Merging {len(chunk_results)} chunk results...")
+    _emit_progress(
+        progress_callback,
+        "reduce_started",
+        total_chunks=total_chunks,
+        processed_chunks=len(chunk_results),
+    )
 
     # Calculate overall statistics
-    total_chunks = len(chunks)
     successful_chunks = len([r for r in chunk_results if r[0].entities])
     total_phi_found = sum(len(r[0].entities) for r in chunk_results)
 
     entities = merge_phi_results(chunk_results, text)
+    _emit_progress(
+        progress_callback,
+        "reduce_completed",
+        total_chunks=total_chunks,
+        processed_chunks=len(chunk_results),
+        successful_chunks=successful_chunks,
+        total_phi_found=total_phi_found,
+        unique_entities=len(entities),
+    )
 
     logger.success(
         f"MapReduce complete: {len(entities)} unique PHI entities identified "

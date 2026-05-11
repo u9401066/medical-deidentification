@@ -5,8 +5,9 @@ import { Upload, FileText, Trash2, Download, FileSpreadsheet, FileJson, Cpu, Che
 import { Button, ScrollArea, Badge } from '@/presentation/components/ui'
 import { useFiles, useUploadFile, useDeleteFile, useHealth } from '@/application/hooks'
 import { TASKS_QUERY_KEY } from '@/application/hooks'
-import { formatBytes, formatDate } from '@/lib/utils'
-import { startProcessing, downloadResult } from '@/infrastructure/api'
+import { formatBytes, formatDate, saveBlob } from '@/lib/utils'
+import { startProcessing, downloadSingleFileResult } from '@/infrastructure/api'
+import { toast } from 'sonner'
 
 interface SidebarProps {
   onFileSelect?: (fileId: string) => void
@@ -17,6 +18,11 @@ export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
   const queryClient = useQueryClient()
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+
+  const errorMessage = (error: unknown) => {
+    const apiError = error as { response?: { data?: { detail?: string } }; message?: string }
+    return apiError.response?.data?.detail || apiError.message || '未知錯誤'
+  }
 
   // 取得系統健康狀態（含 LLM）
   const { health } = useHealth({ refetchInterval: 10000 })
@@ -204,6 +210,7 @@ export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatBytes(file.size)} • {formatDate(file.uploadTime)}
+                      {file.ownerUsername ? ` • owner: ${file.ownerUsername}` : ''}
                     </p>
                   </div>
                   <Badge
@@ -250,6 +257,7 @@ export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
               setTimeout(() => setIsProcessing(false), 1000)
             } catch (err) {
               console.error('處理失敗:', err)
+              toast.error(`開始處理失敗：${errorMessage(err)}`)
               setIsProcessing(false)
             }
           }}
@@ -274,7 +282,20 @@ export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
             for (const fileId of selectedFiles) {
               const file = files.find((f) => f.id === fileId)
               if (file?.status === 'completed') {
-                await downloadResult(fileId)
+                const taskId = file.taskId
+                if (!taskId) {
+                  toast.error(`${file.filename} 找不到任務 ID，無法下載`)
+                  continue
+                }
+                try {
+                  const blob = await downloadSingleFileResult(taskId, fileId)
+                  const baseName = file.filename.includes('.')
+                    ? file.filename.split('.').slice(0, -1).join('.')
+                    : file.filename
+                  saveBlob(blob, `${baseName}_deid.xlsx`)
+                } catch {
+                  toast.error(`${file.filename} 下載失敗`)
+                }
               }
             }
           }}

@@ -7,7 +7,7 @@ Provides handler functions for each stage of the de-identification pipeline.
 """
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from loguru import logger
 
@@ -16,6 +16,23 @@ from ....infrastructure.output import OutputManager, ReportGenerator, get_defaul
 from ..context import ProcessingContext, RegulationContext
 from ..pipeline import PipelineStage, StageResult
 from .masking import MaskingProcessor
+
+ProgressCallback = Callable[[dict[str, Any]], None]
+
+
+def _emit_progress(
+    progress_callback: ProgressCallback | None,
+    event: str,
+    **payload: Any,
+) -> None:
+    """Notify progress listeners while keeping core processing resilient."""
+    if progress_callback is None:
+        return
+
+    try:
+        progress_callback({"event": event, **payload})
+    except Exception as exc:
+        logger.warning(f"Progress callback failed for {event}: {exc}")
 
 # Lazy import to avoid torch/transformers conflicts
 # 延遲導入以避免 torch/transformers 衝突
@@ -42,6 +59,7 @@ class PipelineHandlers:
         masking_processor: MaskingProcessor | None = None,
         use_rag: bool = True,
         output_manager: OutputManager | None = None,
+        progress_callback: ProgressCallback | None = None,
     ):
         """
         Initialize pipeline handlers
@@ -59,6 +77,7 @@ class PipelineHandlers:
         self.use_rag = use_rag
         self.output_manager = output_manager or get_default_output_manager()
         self.report_generator = ReportGenerator(output_manager=self.output_manager)
+        self.progress_callback = progress_callback
 
     def create_regulation_retrieval_handler(self) -> Callable:
         """
@@ -107,9 +126,18 @@ class PipelineHandlers:
             try:
                 total_phi = 0
 
-                for doc_context in context.documents:
+                total_documents = len(context.documents)
+                for doc_index, doc_context in enumerate(context.documents):
                     text = doc_context.document.content
                     language = doc_context.detected_language
+                    _emit_progress(
+                        self.progress_callback,
+                        "phi_document_started",
+                        document_id=doc_context.document_id,
+                        document_index=doc_index,
+                        total_documents=total_documents,
+                        text_length=len(text),
+                    )
 
                     # Always use PHI chain if available (RAG flag only affects regulation retrieval)
                     if self.phi_chain:
@@ -123,6 +151,7 @@ class PipelineHandlers:
                             text=text,
                             language=language.value if language else None,
                             return_entities=True,  # Get structured PHIEntity list
+                            progress_callback=self.progress_callback,
                         )
 
                         # Get structured PHI entities (List[PHIEntity])
@@ -147,6 +176,14 @@ class PipelineHandlers:
 
                         logger.info(
                             f"Found {len(phi_entities)} PHI entities in {doc_context.document_id}"
+                        )
+                        _emit_progress(
+                            self.progress_callback,
+                            "phi_document_completed",
+                            document_id=doc_context.document_id,
+                            document_index=doc_index,
+                            total_documents=total_documents,
+                            entities_found=len(phi_entities),
                         )
 
                     else:
@@ -189,13 +226,30 @@ class PipelineHandlers:
             try:
                 total_masked = 0
 
-                for doc_context in context.documents:
+                total_documents = len(context.documents)
+                for doc_index, doc_context in enumerate(context.documents):
                     # Get PHI entities (already structured PHIEntity objects)
                     phi_entities = doc_context.phi_entities
+                    _emit_progress(
+                        self.progress_callback,
+                        "masking_document_started",
+                        document_id=doc_context.document_id,
+                        document_index=doc_index,
+                        total_documents=total_documents,
+                        entities_count=len(phi_entities),
+                    )
 
                     if not phi_entities:
                         logger.info(f"No PHI found in {doc_context.document_id}")
                         doc_context.masked_content = doc_context.document.content
+                        _emit_progress(
+                            self.progress_callback,
+                            "masking_document_completed",
+                            document_id=doc_context.document_id,
+                            document_index=doc_index,
+                            total_documents=total_documents,
+                            entities_masked=0,
+                        )
                         continue
 
                     logger.info(
@@ -232,6 +286,14 @@ class PipelineHandlers:
                     total_masked += len(phi_entities)
 
                     logger.info(f"Masked {len(phi_entities)} entities in {doc_context.document_id}")
+                    _emit_progress(
+                        self.progress_callback,
+                        "masking_document_completed",
+                        document_id=doc_context.document_id,
+                        document_index=doc_index,
+                        total_documents=total_documents,
+                        entities_masked=len(phi_entities),
+                    )
 
                 result.output["total_masked_entities"] = total_masked
                 result.output["documents_masked"] = len(

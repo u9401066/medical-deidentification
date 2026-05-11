@@ -24,6 +24,7 @@ import {
 } from '@/presentation/components/ui'
 import { useResults, useResultDetail, useDownloadResult } from '@/application/hooks'
 import type { ResultItem, PHIEntity } from '@/infrastructure/api'
+import { saveBlob } from '@/lib/utils'
 
 // PHI 類型顏色映射
 const PHI_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -44,11 +45,7 @@ function getPhiColor(type: string) {
 }
 
 // Diff 高亮組件 - 加強 masked 內容的視覺效果
-function DiffCell({ original, masked, phiType }: { original: string; masked: string; phiType?: string }) {
-  if (original === masked) {
-    return <span>{String(original)}</span>
-  }
-
+function DiffCell({ masked, phiType }: { masked: string; phiType?: string }) {
   const colors = phiType ? getPhiColor(phiType) : PHI_COLORS.DEFAULT
 
   return (
@@ -56,7 +53,7 @@ function DiffCell({ original, masked, phiType }: { original: string; masked: str
       <div className="flex items-center gap-2">
         <span className="text-xs text-red-500 font-medium shrink-0">原始:</span>
         <span className={`px-1.5 py-0.5 rounded ${colors.bg} ${colors.text} line-through opacity-70`}>
-          {String(original)}
+          [已隱藏]
         </span>
       </div>
       <div className="flex items-center gap-2">
@@ -127,7 +124,13 @@ export function ResultsPanel() {
   const { results, isLoading } = useResults()
 
   // 取得選中結果的詳情
-  const { data: resultDetail } = useResultDetail(selectedResult)
+  const {
+    data: resultDetail,
+    isLoading: isDetailLoading,
+    isError: isDetailError,
+    error: resultDetailError,
+    refetch: refetchResultDetail,
+  } = useResultDetail(selectedResult)
 
   const downloadResult = useDownloadResult()
 
@@ -141,12 +144,7 @@ export function ResultsPanel() {
   const handleDownload = async (taskId: string) => {
     try {
       const blob = await downloadResult.mutateAsync({ taskId, fileType: 'result' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `result_${taskId}.xlsx`
-      a.click()
-      URL.revokeObjectURL(url)
+      saveBlob(blob, `result_${taskId}.xlsx`)
     } catch (error) {
       console.error('下載失敗:', error)
     }
@@ -192,6 +190,7 @@ export function ResultsPanel() {
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {result.files_count} 個檔案 • {result.processed_at ? new Date(result.processed_at).toLocaleString('zh-TW') : '未知時間'}
+                        {result.owner_username ? ` • owner: ${result.owner_username}` : ''}
                       </p>
                     </div>
                   </div>
@@ -221,10 +220,40 @@ export function ResultsPanel() {
 
   // 渲染詳情視圖
   const renderDetailView = () => {
+    if (isDetailError) {
+      const message = resultDetailError instanceof Error ? resultDetailError.message : '結果載入失敗'
+      return (
+        <div className="p-4 space-y-4">
+          <Button variant="ghost" onClick={handleBack} className="gap-2">
+            <ChevronLeft className="h-4 w-4" />
+            返回列表
+          </Button>
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="font-medium text-foreground">無法載入結果詳情</p>
+              <p className="text-sm mt-2">{message}</p>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => refetchResultDetail()}
+              >
+                重新嘗試
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
+
     if (!resultDetail) {
       return (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          {isDetailLoading ? (
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          ) : (
+            <p className="text-sm text-muted-foreground">找不到結果詳情</p>
+          )}
         </div>
       )
     }
@@ -322,7 +351,7 @@ export function ResultsPanel() {
                                   </Badge>
                                 </TableCell>
                                 <TableCell className="font-mono text-sm line-through text-red-600">
-                                  {phi.value}
+                                  [已隱藏]
                                 </TableCell>
                                 <TableCell className="font-mono text-sm text-green-600">
                                   {phi.masked_value}
@@ -357,32 +386,29 @@ export function ResultsPanel() {
                     <CardTitle className="text-sm">{fileResult.filename}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {fileResult.original_data && fileResult.masked_data ? (
+                    {fileResult.masked_data ? (
                       <Table>
                         <TableHeader>
                           <TableRow>
                             <TableHead className="w-12">#</TableHead>
-                            {Object.keys(fileResult.original_data[0] || {}).map((col) => (
+                            {Object.keys(fileResult.masked_data[0] || {}).map((col) => (
                               <TableHead key={col}>{col}</TableHead>
                             ))}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {fileResult.original_data.slice(0, 20).map((origRow: Record<string, unknown>, rowIdx: number) => {
-                            const maskedRow = fileResult.masked_data?.[rowIdx] || {}
+                          {fileResult.masked_data.slice(0, 20).map((maskedRow: Record<string, unknown>, rowIdx: number) => {
                             return (
                               <TableRow key={rowIdx}>
                                 <TableCell className="text-muted-foreground">{rowIdx + 1}</TableCell>
-                                {Object.keys(origRow).map((col) => {
-                                  const origVal = String(origRow[col] ?? '')
+                                {Object.keys(maskedRow).map((col) => {
                                   const maskedVal = String(maskedRow[col] ?? '')
                                   const phi = fileResult.phi_entities?.find(
-                                    (p: PHIEntity) => p.value === origVal || p.field === col
+                                    (p: PHIEntity) => p.field === col
                                   )
                                   return (
                                     <TableCell key={col}>
                                       <DiffCell 
-                                        original={origVal} 
                                         masked={maskedVal} 
                                         phiType={phi?.type}
                                       />
@@ -394,19 +420,12 @@ export function ResultsPanel() {
                           })}
                         </TableBody>
                       </Table>
-                    ) : fileResult.original_content && fileResult.masked_content ? (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <h4 className="text-sm font-medium mb-2 text-red-600">📄 原始內容</h4>
-                          <pre className="bg-red-50 p-3 rounded text-xs whitespace-pre-wrap overflow-auto max-h-64 border border-red-200">
-                            {fileResult.original_content}
-                          </pre>
-                        </div>
+                    ) : fileResult.masked_content ? (
+                      <div className="grid gap-4">
                         <div>
                           <h4 className="text-sm font-medium mb-2 text-green-600">🔒 遮罩後 <span className="text-yellow-600">(黃色標記 = PHI)</span></h4>
                           <pre className="bg-green-50 p-3 rounded text-xs whitespace-pre-wrap overflow-auto max-h-64 border border-green-200">
                             <HighlightedContent 
-                              original={fileResult.original_content} 
                               masked={fileResult.masked_content}
                               phiEntities={fileResult.phi_entities}
                             />

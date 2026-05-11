@@ -11,3 +11,5 @@ export { ResultsPanel } from './ResultsPanel';
 export { Reports } from './Reports';
 export { SettingsPanel } from './Settings';
 export { ErrorBoundary } from './ErrorBoundary';
+export { AuthGate } from './AuthGate';
+export { UsersPanel } from './UsersPanel';

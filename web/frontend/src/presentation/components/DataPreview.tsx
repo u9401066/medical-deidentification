@@ -18,24 +18,27 @@ export function DataPreview({ selectedFileId: externalFileId, onFileSelect }: Da
 
   // 取得檔案列表
   const { files } = useFiles()
+  const previewableFiles = files.filter((file) => file.previewAvailable)
+  const selectedFile = files.find((file) => file.id === selectedFileId)
+  const canPreviewSelectedFile = Boolean(selectedFile?.previewAvailable)
 
   // 取得預覽資料
   const { data: preview, isLoading: previewLoading } = useFilePreview(
-    selectedFileId ?? null,
+    canPreviewSelectedFile ? selectedFileId ?? null : null,
     { page, pageSize }
   )
 
   // 當檔案列表變化時，自動選擇第一個檔案（如果沒有外部選擇）
   useEffect(() => {
-    if (files.length > 0 && !selectedFileId) {
-      const firstFileId = files[0].id
+    if (previewableFiles.length > 0 && !selectedFileId) {
+      const firstFileId = previewableFiles[0].id
       if (onFileSelect) {
         onFileSelect(firstFileId)
       } else {
         setInternalFileId(firstFileId)
       }
     }
-  }, [files, selectedFileId, onFileSelect])
+  }, [previewableFiles, selectedFileId, onFileSelect])
 
   // 檔案選擇改變時重置頁碼
   useEffect(() => {
@@ -68,7 +71,7 @@ export function DataPreview({ selectedFileId: externalFileId, onFileSelect }: Da
             <SelectContent>
               {files.map((file) => (
                 <SelectItem key={file.id} value={file.id}>
-                  {file.filename}
+                  {file.filename}{file.previewAvailable ? '' : '（原始檔已清除）'}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -95,6 +98,12 @@ export function DataPreview({ selectedFileId: externalFileId, onFileSelect }: Da
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <FileText className="h-16 w-16 mb-4" />
             <p>請選擇檔案以預覽內容</p>
+          </div>
+        ) : selectedFile && !selectedFile.previewAvailable ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+            <FileText className="h-16 w-16 mb-4" />
+            <p>原始檔已依隱私設定從伺服器清除。</p>
+            <p className="text-sm mt-2">可到「處理結果」或「報告」查看去識別化後的輸出。</p>
           </div>
         ) : previewLoading ? (
           <div className="flex items-center justify-center h-full">

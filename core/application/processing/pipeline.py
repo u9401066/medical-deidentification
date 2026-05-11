@@ -16,6 +16,23 @@ from pydantic import BaseModel, Field
 
 from .context import ProcessingContext
 
+ProgressCallback = Callable[[dict[str, Any]], None]
+
+
+def _emit_progress(
+    progress_callback: ProgressCallback | None,
+    event: str,
+    **payload: Any,
+) -> None:
+    """Notify callers about pipeline progress without letting UI hooks break processing."""
+    if progress_callback is None:
+        return
+
+    try:
+        progress_callback({"event": event, **payload})
+    except Exception as exc:
+        logger.warning(f"Progress callback failed for {event}: {exc}")
+
 
 class PipelineStage(str, Enum):
     """處理階段 | Processing stages"""
@@ -130,7 +147,8 @@ class DeidentificationPipeline:
     def execute(
         self,
         context: ProcessingContext,
-        skip_stages: list[PipelineStage] | None = None
+        skip_stages: list[PipelineStage] | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> list[StageResult]:
         """
         Execute pipeline
@@ -138,6 +156,7 @@ class DeidentificationPipeline:
         Args:
             context: Processing context
             skip_stages: Stages to skip (optional)
+            progress_callback: Optional progress event callback
             
         Returns:
             List of stage results
@@ -160,11 +179,27 @@ class DeidentificationPipeline:
 
             # Execute stage
             logger.info(f"Executing stage: {stage.value}")
+            _emit_progress(
+                progress_callback,
+                "pipeline_stage_started",
+                stage=stage.value,
+                job_id=context.job_id,
+            )
 
             try:
                 handler = self.stage_handlers[stage]
                 stage_result = handler(context)
                 results.append(stage_result)
+                _emit_progress(
+                    progress_callback,
+                    "pipeline_stage_completed",
+                    stage=stage.value,
+                    job_id=context.job_id,
+                    success=stage_result.success,
+                    duration_seconds=stage_result.duration_seconds,
+                    output=stage_result.output,
+                    error_message=stage_result.error_message,
+                )
 
                 # Check if stage failed
                 if not stage_result.success:
@@ -196,6 +231,14 @@ class DeidentificationPipeline:
                 stage_result = StageResult(stage=stage, success=False)
                 stage_result.set_error(str(e), {"exception_type": type(e).__name__})
                 results.append(stage_result)
+                _emit_progress(
+                    progress_callback,
+                    "pipeline_stage_failed",
+                    stage=stage.value,
+                    job_id=context.job_id,
+                    error_message=str(e),
+                    exception_type=type(e).__name__,
+                )
 
                 context.add_error(
                     error_type=f"stage_exception_{stage.value}",
