@@ -90,7 +90,27 @@ MEDICAL_DEID_ALLOWED_LLM_HOSTS=localhost,127.0.0.1,192.168.1.2
 EOF
 fi
 
+ensure_env_key "VITE_API_BASE_URL" "/api"
+ensure_env_key "MEDICAL_DEID_LOG_LEVEL" "INFO"
+ensure_env_key "MEDICAL_DEID_STORE_RAW_PHI" "0"
 ensure_env_key "MEDICAL_DEID_ALLOW_PHI_REVEAL" "0"
+ensure_env_key "MEDICAL_DEID_AUTH_MODE" "anonymous_session"
+ensure_env_key "MEDICAL_DEID_ALLOW_NO_AUTH" "0"
+ensure_env_key "MEDICAL_DEID_ENABLE_PUBLIC_BOOTSTRAP" "0"
+ensure_env_key "MEDICAL_DEID_SESSION_COOKIE_SECURE" "0"
+ensure_env_key "MEDICAL_DEID_SESSION_COOKIE_SAMESITE" "lax"
+ensure_env_key "MEDICAL_DEID_DELETE_UPLOAD_AFTER_PROCESS" "1"
+ensure_env_key "MEDICAL_DEID_UPLOAD_TTL_HOURS" "2"
+ensure_env_key "MEDICAL_DEID_RESULT_TTL_HOURS" "24"
+ensure_env_key "MEDICAL_DEID_PROCESSING_WORKERS" "1"
+ensure_env_key "MEDICAL_DEID_MIN_PASSWORD_LENGTH" "8"
+ensure_env_key "MEDICAL_DEID_DATA_DIR" "/var/lib/medical-deid"
+ensure_env_key "MEDICAL_DEID_LOG_DIR" "/var/log/medical-deid"
+ensure_env_key "MEDICAL_DEID_BACKEND_HOST" "127.0.0.1"
+ensure_env_key "MEDICAL_DEID_FRONTEND_PORT" "5173"
+ensure_env_key "MEDICAL_DEID_NODE_BIN" "$NVM_NODE_PATH"
+ensure_env_key "MEDICAL_DEID_CORS_ORIGINS" "http://localhost:5173,http://127.0.0.1:5173"
+ensure_env_key "MEDICAL_DEID_ALLOWED_LLM_HOSTS" "localhost,127.0.0.1,192.168.1.2"
 
 chown root:root "$ENV_DIR" "$ENV_FILE"
 chmod 750 "$ENV_DIR"

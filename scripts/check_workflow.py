@@ -152,6 +152,34 @@ def check_step0_server(base_url: str, verbose: bool, frontend_origin: str | None
     return r
 
 
+def authenticate(base_url: str, username: str | None, password: str | None) -> CheckResult:
+    """Optional password-mode login for production smoke tests."""
+    r = CheckResult("登入/session")
+    step_header(0, "建立登入 session")
+    if not username and not password:
+        r.ok("未提供帳密，使用既有匿名 session 或 service token")
+        return r
+    if not username or not password:
+        r.fail("帳號與密碼需同時提供")
+        return r
+
+    try:
+        resp = api(
+            base_url,
+            "POST",
+            "/api/auth/login",
+            json={"username": username, "password": password},
+        )
+        if resp.status_code == 200:
+            user = resp.json().get("user", {})
+            r.ok("登入成功", f"user={user.get('username')}, role={user.get('role')}")
+        else:
+            r.fail(f"登入失敗 HTTP {resp.status_code}", resp.text[:200])
+    except Exception as e:
+        r.fail(f"登入例外: {e}")
+    return r
+
+
 def check_step1_health(base_url: str, verbose: bool) -> CheckResult:
     """步驟 1：確認 LLM 連線"""
     r = CheckResult("LLM 連線")
@@ -469,6 +497,8 @@ def main():
     parser.add_argument("--process-timeout", type=int, default=120, help="等待處理任務完成的秒數")
     parser.add_argument("--ci", action="store_true", help="CI 模式：warning 也視為失敗")
     parser.add_argument("--api-token", default=os.getenv("MEDICAL_DEID_API_TOKEN"), help="API token")
+    parser.add_argument("--username", default=os.getenv("MEDICAL_DEID_SMOKE_USERNAME"), help="password auth username")
+    parser.add_argument("--password", default=os.getenv("MEDICAL_DEID_SMOKE_PASSWORD"), help="password auth password")
     parser.add_argument(
         "--frontend-proxy",
         action="store_true",
@@ -505,6 +535,13 @@ def main():
     all_results.append(r0)
     if not r0.passed:
         print(f"\n{red('✗ 後端 server 無法連線，終止驗證。')}")
+        sys.exit(1)
+
+    # Optional login for password/RBAC production mode. Cookies are kept in API_SESSION.
+    r_auth = authenticate(base_url, args.username, args.password)
+    all_results.append(r_auth)
+    if not r_auth.passed:
+        print(f"\n{red('✗ 登入/session 建立失敗，終止驗證。')}")
         sys.exit(1)
 
     # Step 1: Health/LLM

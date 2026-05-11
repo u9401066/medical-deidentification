@@ -113,12 +113,16 @@ EOF
 chown "$APP_USER:$APP_GROUP" /var/lib/medical-deid/llm_configs/config.json
 chmod 600 /var/lib/medical-deid/llm_configs/config.json
 
+sudo -u "$APP_USER" bash -c "cd '$PROJECT_ROOT' && uv venv .venv && uv sync --frozen --no-dev && uv pip install --python .venv/bin/python -e web/backend && test -x .venv/bin/uvicorn"
+
 render_service_file "$SCRIPT_DIR/medical-deid-backend.service" /etc/systemd/system/medical-deid-backend.service
 render_service_file "$SCRIPT_DIR/medical-deid-frontend.service" /etc/systemd/system/medical-deid-frontend.service
 
 sudo -u "$APP_USER" bash -c "export PATH='$NVM_NODE_PATH':\$PATH; export VITE_API_BASE_URL=/api; cd '$PROJECT_ROOT/web/frontend' && npm ci && npm run build"
 
 systemctl daemon-reload
+systemctl enable medical-deid-backend.service
+systemctl enable medical-deid-frontend.service
 systemctl restart medical-deid-backend.service
 systemctl restart medical-deid-frontend.service
 

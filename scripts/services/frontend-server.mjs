@@ -159,7 +159,11 @@ function proxyApi(req, res) {
   headers.host = backendUrl.host;
   headers['x-forwarded-host'] = req.headers.host || '';
   headers['x-forwarded-proto'] = headerValue(req.headers['x-forwarded-proto']) || (req.socket.encrypted ? 'https' : 'http');
-  headers['x-forwarded-for'] = req.socket.remoteAddress || '';
+  const priorForwardedFor = headerValue(req.headers['x-forwarded-for']);
+  const remoteAddress = req.socket.remoteAddress || '';
+  headers['x-forwarded-for'] = priorForwardedFor
+    ? `${priorForwardedFor}, ${remoteAddress}`
+    : remoteAddress;
   headers['x-medical-deid-frontend-proxy'] = '1';
 
   const upstream = proxyRequest(

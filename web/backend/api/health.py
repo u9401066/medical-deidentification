@@ -34,8 +34,13 @@ async def health_check():
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             result = await client.get(f"{ollama_url}/api/tags")
-            if result.status_code == 200 and result.json().get("models"):
-                llm_status = "online"
+            if result.status_code == 200:
+                models = result.json().get("models") or []
+                model_names = {item.get("name") or item.get("model") for item in models}
+                if llm_config.model in model_names:
+                    llm_status = "online"
+                elif models:
+                    llm_status = "offline"
     except httpx.TimeoutException:
         llm_status = "timeout"
     except Exception:
