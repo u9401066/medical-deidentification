@@ -21,6 +21,27 @@ from services.task_service import get_task_service
 router = APIRouter()
 
 
+def _phi_rows(report: dict) -> list[list[object]]:
+    rows: list[list[object]] = []
+    for file_detail in report.get("file_details", []):
+        filename = file_detail.get("filename", "")
+        for entity in file_detail.get("phi_entities", []) or []:
+            rows.append(
+                [
+                    filename,
+                    entity.get("type", ""),
+                    entity.get("value") or "[REDACTED]",
+                    entity.get("masked_value") or "[REDACTED]",
+                    entity.get("confidence", ""),
+                ]
+            )
+    return rows
+
+
+def _escape_md_cell(value: object) -> str:
+    return str(value).replace("|", "\\|").replace("\n", " ")
+
+
 def _find_artifact(base_dir: Path, filename: str) -> Path | None:
     """Find an artifact in legacy root storage or per-user storage."""
     legacy_path = base_dir / filename
@@ -246,6 +267,10 @@ async def export_report(
                 file_detail.get("phi_found", 0),
                 file_detail.get("status", ""),
             ])
+        writer.writerow([])
+        writer.writerow(["PHI 詳細列表"])
+        writer.writerow(["檔案名稱", "PHI 類型", "原始值", "遮罩值", "信心度"])
+        writer.writerows(_phi_rows(report))
 
         content = output.getvalue()
         return Response(
@@ -287,6 +312,20 @@ async def export_report(
                 for phi_type, count in phi_by_type.items():
                     lines.append(f"  - {phi_type}: {count}")
 
+            lines.append("")
+
+        phi_rows = _phi_rows(report)
+        if phi_rows:
+            lines.extend(
+                [
+                    "## PHI 詳細列表",
+                    "",
+                    "| 檔案名稱 | PHI 類型 | 原始值 | 遮罩值 | 信心度 |",
+                    "|---|---|---|---|---|",
+                ]
+            )
+            for row in phi_rows:
+                lines.append("| " + " | ".join(_escape_md_cell(value) for value in row) + " |")
             lines.append("")
 
         content = "\n".join(lines)

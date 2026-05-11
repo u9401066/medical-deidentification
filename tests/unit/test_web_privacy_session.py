@@ -16,6 +16,7 @@ from services.auth_service import AuthService
 from services.file_service import FileService
 from services import task_service as task_module
 from services import result_sanitizer
+from services.processing_service import ProcessingService
 from security import validate_browser_origin
 
 
@@ -167,6 +168,54 @@ def test_result_sanitizer_reports_when_raw_phi_was_not_persisted(
     assert sanitized["raw_phi_available"] is False
     assert sanitized["raw_phi_revealed"] is False
     assert "沒有保留原始 PHI" in sanitized["raw_phi_notice"]
+
+
+def test_processing_result_preserves_masked_table_and_true_char_count(tmp_path: Path) -> None:
+    source = tmp_path / "sample.csv"
+    source.write_text(
+        "name,note\n王小明,Patient 王小明 visited on 2024-01-01\n",
+        encoding="utf-8",
+    )
+    long_original = source.read_text(encoding="utf-8") + ("x" * 6000)
+    result = type(
+        "Result",
+        (),
+        {
+            "documents": [
+                {
+                    "phi_entities": [
+                        {
+                            "type": "NAME",
+                            "text": "王小明",
+                            "confidence": 0.95,
+                            "start_pos": 5,
+                            "end_pos": 8,
+                            "reason": "name",
+                        }
+                    ],
+                    "original_content": long_original,
+                    "masked_content": long_original.replace("王小明", "[REDACTED]"),
+                }
+            ],
+            "summary": {},
+        },
+    )()
+
+    converted = ProcessingService()._convert_engine_result(
+        result,
+        source,
+        original_filename="sample.csv",
+    )
+
+    assert converted["total_chars"] == len(long_original)
+    assert len(converted["masked_content"]) > 5000
+    assert converted["masked_data"] == [
+        {
+            "__row": 1,
+            "name": "[REDACTED]",
+            "note": "Patient [REDACTED] visited on 2024-01-01",
+        }
+    ]
 
 
 @pytest.mark.asyncio

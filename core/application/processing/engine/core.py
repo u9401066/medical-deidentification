@@ -25,6 +25,7 @@ from ....infrastructure.rag import (
     create_embeddings_manager,
     create_regulation_retrieval_chain,
 )
+from ....infrastructure.utils.redaction import safe_exception_message
 from ..context import DocumentContext, ProcessingContext
 from ..pipeline import (
     DeidentificationPipeline,
@@ -415,10 +416,15 @@ class DeidentificationEngine:
                 )
 
             except Exception as e:
-                logger.error(f"Failed to load {file_path}: {e}")
+                safe_error = safe_exception_message(e, context="Document loading")
+                logger.error(
+                    safe_error,
+                    file_path=str(file_path),
+                    error_type=type(e).__name__,
+                )
                 context.add_error(
                     error_type="document_loading_error",
-                    message=str(e),
+                    message=safe_error,
                     details={"file_path": str(file_path)}
                 )
                 context.mark_document_processed(success=False)
@@ -429,7 +435,7 @@ class DeidentificationEngine:
                     file_index=file_index,
                     total_files=len(file_paths),
                     file_path=str(file_path),
-                    error_message=str(e),
+                    error_message=safe_error,
                 )
 
         # Initialize RAG or PHI chain
@@ -559,7 +565,7 @@ class DeidentificationEngine:
                 "phi_entities": phi_entities_serialized,  # 新增：PHI 詳細列表
                 "masked": doc_context.masked_content is not None,
                 "masked_content": doc_context.masked_content,  # 新增：遮罩後內容
-                "original_content": doc_context.document.content[:10000] if doc_context.document.content else None,  # 新增：原始內容（前 10000 字元）
+                "original_content": doc_context.document.content if doc_context.document.content else None,
                 "output_path": output_path,  # 新增：輸出路徑
                 "processing_time_seconds": doc_context.get_processing_time()
             })

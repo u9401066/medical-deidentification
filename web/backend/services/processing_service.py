@@ -20,6 +20,7 @@ if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
 from config import OLLAMA_BASE_URL, OLLAMA_MODEL, REPORTS_DIR, RESULTS_DIR, STORE_RAW_PHI
+from services.error_safety import safe_exception_message
 from services.llm_config_service import get_llm_config_service
 
 # 建立專用 logger
@@ -98,7 +99,7 @@ class ProcessingService:
             return self._convert_engine_result(result, file_path, original_filename, masking_type)
 
         except Exception as e:
-            logger.error(f"Processing error: {e}")
+            logger.error(safe_exception_message(e, context="Processing"))
             raise
 
     def _convert_engine_result(
@@ -225,19 +226,25 @@ class ProcessingService:
         log.info(
             "Final engine result",
             file_id=file_id,
-            filename=display_filename,
             phi_found=len(phi_entities),
             phi_types=[e.get("type") for e in phi_entities],
         )
 
+        total_chars = len(original_content)
         stored_entities = self._entities_for_storage(phi_entities)
+        masked_data = self._build_masked_tabular_data(file_path, phi_entities, masking_type)
         return {
             "file_id": file_id,
             "filename": display_filename,
             "phi_found": len(phi_entities),
             "phi_entities": stored_entities,
+            "total_chars": total_chars,
+            "masked_data": masked_data,
             "original_content": original_content[:5000] if (STORE_RAW_PHI and original_content) else "",
-            "masked_content": masked_content[:5000] if masked_content else "",
+            "original_content_truncated": bool(
+                STORE_RAW_PHI and original_content and len(original_content) > 5000
+            ),
+            "masked_content": masked_content if masked_content else "",
             "status": "completed",
         }
 
@@ -300,9 +307,9 @@ class ProcessingService:
             phi_type = entity.get("type", "")
             value = entity.get("value", "")
 
-            # Rule 1: AGE_OVER_89 和 AGE 類型必須 >= 89 才保留
-            # LLM 有時會把任意數字誤判為年齡
-            if phi_type in ("AGE_OVER_89", "AGE_OVER_90", "AGE"):
+            # Rule 1: AGE_OVER_* 類型必須 >= 89 才保留。
+            # Generic AGE is a separate benchmark/configurable PHI type and is kept.
+            if phi_type in ("AGE_OVER_89", "AGE_OVER_90"):
                 age = self._extract_age_number(value)
                 if age is not None and age < 89:
                     corrections.append(f"Removed {phi_type} candidate (age={age} < 89)")
@@ -414,6 +421,93 @@ class ProcessingService:
 
         return masked_text
 
+    def _build_masked_tabular_data(
+        self,
+        file_path: Path,
+        phi_entities: list[dict[str, Any]],
+        masking_type: str,
+    ) -> list[dict[str, Any]] | None:
+        """Build structured masked rows for CSV/Excel downloads.
+
+        The core engine works on flattened document text. For user downloads we
+        reconstruct a safe tabular view from the original spreadsheet and apply
+        detected entity replacements cell-by-cell, preserving row/column shape.
+        """
+        suffix = file_path.suffix.lower()
+        if suffix not in {".csv", ".xlsx", ".xls"}:
+            return None
+
+        replacements = self._replacement_pairs(phi_entities, masking_type)
+        if not replacements:
+            replacements = []
+
+        try:
+            import pandas as pd
+
+            if suffix == ".csv":
+                dataframe = pd.read_csv(file_path, dtype=str, keep_default_na=False)
+                return self._mask_dataframe(dataframe, replacements)
+
+            excel = pd.ExcelFile(file_path)
+            rows: list[dict[str, Any]] = []
+            include_sheet = len(excel.sheet_names) > 1
+            for sheet_name in excel.sheet_names:
+                dataframe = pd.read_excel(
+                    excel,
+                    sheet_name=sheet_name,
+                    dtype=str,
+                    keep_default_na=False,
+                )
+                sheet_rows = self._mask_dataframe(dataframe, replacements)
+                if include_sheet:
+                    sheet_rows = [{"__sheet": sheet_name, **row} for row in sheet_rows]
+                rows.extend(sheet_rows)
+            return rows
+        except Exception as exc:
+            log.warning(
+                "Could not build structured masked data",
+                file_id=file_path.stem[:8],
+                error_type=type(exc).__name__,
+            )
+            return None
+
+    def _replacement_pairs(
+        self,
+        phi_entities: list[dict[str, Any]],
+        masking_type: str,
+    ) -> list[tuple[str, str]]:
+        pairs: dict[str, str] = {}
+        for entity in phi_entities:
+            value = str(entity.get("value") or "")
+            if not value or value == "[REDACTED]":
+                continue
+            pairs[value] = self._compute_masked_value(
+                value,
+                str(entity.get("type") or "UNKNOWN"),
+                masking_type,
+            )
+        return sorted(pairs.items(), key=lambda item: len(item[0]), reverse=True)
+
+    def _mask_dataframe(
+        self,
+        dataframe: Any,
+        replacements: list[tuple[str, str]],
+    ) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        for row_index, row in dataframe.fillna("").astype(str).iterrows():
+            output_row: dict[str, Any] = {"__row": int(row_index) + 1}
+            for column, value in row.items():
+                output_row[str(column)] = self._mask_cell(str(value), replacements)
+            rows.append(output_row)
+        return rows
+
+    def _mask_cell(self, value: str, replacements: list[tuple[str, str]]) -> str:
+        masked = value
+        for original, replacement in replacements:
+            if original in masked:
+                masked = masked.replace(original, replacement)
+        return masked
+
     def _simulate_processing(
         self, file_path: Path, original_filename: str | None = None
     ) -> dict[str, Any]:
@@ -429,6 +523,8 @@ class ProcessingService:
             "filename": display_filename,
             "phi_found": 0,
             "phi_entities": [],
+            "total_chars": 0,
+            "masked_data": None,
             "original_content": "[Simulated - Engine not available]",
             "masked_content": "[Simulated - Engine not available]",
             "status": "completed",
@@ -502,7 +598,7 @@ class ProcessingService:
     ) -> Path:
         """生成並儲存報告"""
         total_phi = sum(r.get("phi_found", 0) for r in file_results)
-        total_chars = sum(len(r.get("original_content") or "") for r in file_results)
+        total_chars = sum(int(r.get("total_chars") or 0) for r in file_results)
 
         # 建立檔案名稱清單 (用於顯示)
         filenames = [r.get("filename", "") for r in file_results if r.get("filename")]
@@ -538,9 +634,10 @@ class ProcessingService:
                     "file_id": r.get("file_id"),
                     "filename": r.get("filename"),
                     "phi_found": r.get("phi_found", 0),
+                    "total_chars": r.get("total_chars", 0),
                     "phi_by_type": self._count_phi_types(r.get("phi_entities", [])),
                     "status": r.get("status", "completed"),
-                    "phi_entities": r.get("phi_entities", [])[:100],  # 限制數量
+                    "phi_entities": r.get("phi_entities", []),
                 }
                 for r in file_results
             ],

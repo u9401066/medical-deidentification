@@ -253,5 +253,9 @@ async def download_single_file_result(
             reveal_phi=reveal_phi,
         )
 
-    df = _result_dataframe({"task_id": task_id, "results": matching_results}, only_file_id=file_id)
+    safe_data = sanitize_payload(
+        {"task_id": task_id, "results": matching_results},
+        reveal_phi=reveal_phi,
+    )
+    df = _result_dataframe(safe_data, only_file_id=file_id)
     return _stream_dataframe(df, f"{task_id}_{file_id}_result.{format}", format)

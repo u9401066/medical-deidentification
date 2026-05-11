@@ -32,6 +32,7 @@ from models.auth import AuthUser
 from models.task import ProcessRequest, TaskStatus
 from security import get_current_user
 from services.file_service import get_file_service
+from services.error_safety import safe_exception_message
 from services.processing_service import get_processing_service
 from services.task_service import get_task_service
 
@@ -560,8 +561,7 @@ def process_phi_task(task_id: str):
                 results.append(result)
 
                 # 更新字數統計
-                original_content = result.get("original_content") or ""
-                content_len = len(original_content)
+                content_len = int(result.get("total_chars") or 0)
                 total_chars += content_len
                 processed_chars += content_len
                 task_service.update_file_result(
@@ -573,23 +573,28 @@ def process_phi_task(task_id: str):
                 )
 
             except Exception as e:
+                safe_error = safe_exception_message(e, context="File processing")
                 if heartbeat_stop:
                     heartbeat_stop.set()
                 if heartbeat_thread:
                     heartbeat_thread.join(timeout=1.0)
-                logger.error(f"Error processing {file_id}: {e}")
+                logger.error(
+                    safe_error,
+                    file_id=file_id,
+                    error_type=type(e).__name__,
+                )
                 task_service.update_file_result(
                     task_id,
                     file_id,
                     status="error",
-                    error=str(e),
+                    error=safe_error,
                 )
                 results.append(
                     {
                         "file_id": file_id,
                         "filename": display_filename,
                         "status": "error",
-                        "error": str(e),
+                        "error": safe_error,
                     }
                 )
             finally:
@@ -688,12 +693,17 @@ def process_phi_task(task_id: str):
         )
 
     except Exception as e:
-        logger.error(f"❌ Task {task_id} failed: {e}")
+        safe_error = safe_exception_message(e, context="Task processing")
+        logger.error(
+            safe_error,
+            task_id=task_id,
+            error_type=type(e).__name__,
+        )
         task_service.update_task(
             task_id,
             status="failed",
-            message=f"處理失敗: {e!s}",
-            error=str(e),
+            message=f"處理失敗: {safe_error}",
+            error=safe_error,
             phase="failed",
             phase_label="處理失敗",
         )

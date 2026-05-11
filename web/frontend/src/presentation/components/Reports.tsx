@@ -4,6 +4,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Badge, ScrollArea, Se
 import { useReports, useReportDetail, useExportReport } from '@/application/hooks'
 import type { Report, ReportExportFormat } from '@/infrastructure/api'
 import { formatDate, saveBlob } from '@/lib/utils'
+import { toast } from 'sonner'
 
 export function Reports() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
@@ -15,7 +16,11 @@ export function Reports() {
   const { reports, isLoading: reportsLoading } = useReports()
 
   // 取得報告詳情
-  const { data: reportDetail, isLoading: detailLoading } = useReportDetail(selectedReportId, revealPhi)
+  const {
+    data: reportDetail,
+    isLoading: detailLoading,
+    isError: detailError,
+  } = useReportDetail(selectedReportId, revealPhi)
 
   // 匯出報告功能
   const exportMutation = useExportReport()
@@ -39,8 +44,10 @@ export function Reports() {
       const filename = `report_${selectedReportId}.${extensions[exportFormat]}`
       
       saveBlob(blob, filename)
+      toast.success('報告已匯出')
     } catch (error) {
       console.error('匯出報告失敗:', error)
+      toast.error('匯出報告失敗，請確認報告尚未過期且您有權限存取')
     } finally {
       setIsExporting(false)
     }
@@ -126,6 +133,14 @@ export function Reports() {
           <div className="flex items-center justify-center h-full">
             <p className="text-muted-foreground">載入報告中...</p>
           </div>
+        ) : detailError ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="font-medium text-foreground">無法載入報告</p>
+              <p className="text-sm mt-2">報告可能已過期、被清理，或目前 session 無權限存取。</p>
+            </CardContent>
+          </Card>
         ) : reportDetail ? (
           <div className="space-y-6">
             {(reportDetail.raw_phi_notice || revealPhi) && (
