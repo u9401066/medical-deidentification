@@ -32,6 +32,8 @@ except ImportError:
 STRICT_WARNINGS = False
 API_HEADERS: dict[str, str] = {}
 API_SESSION = requests.Session()
+API_FRONTEND_ORIGIN: str | None = None
+UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 def green(s: str) -> str:
     return f"\033[32m{s}\033[0m"
@@ -91,6 +93,8 @@ def api(base_url: str, method: str, path: str, **kwargs) -> requests.Response:
     kwargs.setdefault("timeout", 30)
     headers = dict(API_HEADERS)
     headers.update(kwargs.pop("headers", {}) or {})
+    if API_FRONTEND_ORIGIN and method.upper() in UNSAFE_METHODS and "Origin" not in headers:
+        headers["Origin"] = API_FRONTEND_ORIGIN
     if headers:
         kwargs["headers"] = headers
     return API_SESSION.request(method, url, **kwargs)
@@ -540,8 +544,9 @@ def main():
 
     base_url = args.url.rstrip("/")
     frontend_origin = args.frontend_origin or default_frontend_origin(base_url, args.frontend_proxy)
-    global STRICT_WARNINGS, API_HEADERS
+    global STRICT_WARNINGS, API_HEADERS, API_FRONTEND_ORIGIN
     STRICT_WARNINGS = args.ci
+    API_FRONTEND_ORIGIN = frontend_origin
     if args.api_token:
         API_HEADERS = {"Authorization": f"Bearer {args.api_token}"}
 
