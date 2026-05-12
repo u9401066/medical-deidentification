@@ -14,6 +14,7 @@ test.describe('主頁面佈局', () => {
     // 側邊欄
     await expect(page.getByText('PHI 去識別化工具')).toBeVisible()
     // 主內容區應有標籤列
+    await expect(page.getByRole('tab', { name: /使用說明/ })).toBeVisible()
     await expect(page.getByRole('tab', { name: /資料預覽/ })).toBeVisible()
     await expect(page.getByRole('tab', { name: /處理任務/ })).toBeVisible()
     await expect(page.getByRole('tab', { name: /處理結果/ })).toBeVisible()
@@ -21,9 +22,9 @@ test.describe('主頁面佈局', () => {
     await expect(page.getByRole('tab', { name: /設定/ })).toBeVisible()
   })
 
-  test('預設顯示「資料預覽」標籤', async ({ page }) => {
-    const previewTab = page.getByRole('tab', { name: /資料預覽/ })
-    await expect(previewTab).toHaveAttribute('data-state', 'active')
+  test('預設顯示「使用說明」標籤', async ({ page }) => {
+    const guideTab = page.getByRole('tab', { name: /使用說明/ })
+    await expect(guideTab).toHaveAttribute('data-state', 'active')
   })
 
   test('點擊標籤可切換內容', async ({ page }) => {
@@ -38,8 +39,8 @@ test.describe('主頁面佈局', () => {
     await expect(settingsTab).toHaveAttribute('data-state', 'active')
   })
 
-  test('所有五個標籤都可切換', async ({ page }) => {
-    const tabs = ['資料預覽', '處理任務', '處理結果', '報告', '設定']
+  test('主要工作流標籤都可切換', async ({ page }) => {
+    const tabs = ['使用說明', '資料預覽', '處理任務', '處理結果', '報告', '設定']
     for (const tabName of tabs) {
       await page.getByRole('tab', { name: new RegExp(tabName) }).click()
       const tab = page.getByRole('tab', { name: new RegExp(tabName) })
@@ -52,7 +53,7 @@ test.describe('頁面基本可用性', () => {
   test('頁面在 3 秒內完成載入', async ({ page }) => {
     const start = Date.now()
     await page.goto('/')
-    await page.getByRole('tab', { name: /資料預覽/ }).waitFor()
+    await page.getByRole('tab', { name: /使用說明/ }).waitFor()
     const elapsed = Date.now() - start
     expect(elapsed).toBeLessThan(3000)
   })

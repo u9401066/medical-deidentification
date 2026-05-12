@@ -65,4 +65,48 @@ describe('Sidebar', () => {
       expect(countBadge).toBeInTheDocument();
     });
   });
+
+  it('should ask users to confirm PHI settings before processing', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Sidebar />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/test_patient_data.csv/i)).toBeInTheDocument();
+    });
+
+    const fileItem = screen
+      .getByText(/test_patient_data.csv/i)
+      .closest('div');
+    expect(fileItem).not.toBeNull();
+    await user.click(fileItem!);
+
+    await user.click(screen.getByRole('button', { name: /開始處理/i }));
+
+    expect(
+      screen.getByRole('dialog', { name: /開始前確認 PHI 設定/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/目前 PHI 設定摘要/i)).toBeInTheDocument();
+    expect(screen.getByText(/即將處理 1 個檔案/i)).toBeInTheDocument();
+  });
+
+  it('should let users return to PHI settings from processing confirmation', async () => {
+    const user = userEvent.setup();
+    const onOpenSettings = vi.fn();
+    renderWithProviders(<Sidebar onOpenSettings={onOpenSettings} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/test_patient_data.csv/i)).toBeInTheDocument();
+    });
+
+    const fileItem = screen
+      .getByText(/test_patient_data.csv/i)
+      .closest('div');
+    expect(fileItem).not.toBeNull();
+    await user.click(fileItem!);
+
+    await user.click(screen.getByRole('button', { name: /開始處理/i }));
+    await user.click(screen.getByRole('button', { name: /返回 PHI 設定/i }));
+
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
+  });
 });

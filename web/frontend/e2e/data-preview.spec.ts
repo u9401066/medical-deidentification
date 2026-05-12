@@ -7,10 +7,11 @@ import { setupMockRoutes, mockFiles } from './fixtures'
 test.beforeEach(async ({ page }) => {
   await setupMockRoutes(page)
   await page.goto('/')
+  await page.getByRole('tab', { name: /資料預覽/ }).click()
 })
 
 test.describe('資料預覽面板', () => {
-  test('預設為資料預覽標籤', async ({ page }) => {
+  test('切換後為資料預覽標籤', async ({ page }) => {
     const tab = page.getByRole('tab', { name: /資料預覽/ })
     await expect(tab).toHaveAttribute('data-state', 'active')
   })
@@ -33,9 +34,8 @@ test.describe('資料預覽面板', () => {
     ).toBeVisible({ timeout: 10000 })
   })
 
-  test('未選取檔案時應提示選擇', async ({ page }) => {
-    await expect(
-      page.getByText(/選擇|選取|請選|點擊/i)
-    ).toBeVisible()
+  test('進入資料預覽時會自動選取第一個可預覽檔案', async ({ page }) => {
+    await expect(page.getByText(mockFiles[0].filename).first()).toBeVisible()
+    await expect(page.getByText('John Smith').first()).toBeVisible({ timeout: 10000 })
   })
 })

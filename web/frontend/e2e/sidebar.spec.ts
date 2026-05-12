@@ -27,7 +27,7 @@ test.describe('側邊欄 - 檔案管理', () => {
   })
 
   test('應顯示 LLM 狀態指示器', async ({ page }) => {
-    await expect(page.getByText(/在線|qwen2\.5/)).toBeVisible()
+    await expect(page.getByText(/^在線 \(qwen2\.5:1\.5b\)$/)).toBeVisible()
   })
 
   test('點擊檔案可選取', async ({ page }) => {

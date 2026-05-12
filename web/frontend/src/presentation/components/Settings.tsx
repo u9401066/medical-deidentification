@@ -4,9 +4,19 @@ import { Settings2, Upload, Shield, FileText, Save, Plus, ChevronUp, Eye, Cpu, R
 import { Button, Card, CardContent, CardHeader, CardTitle, Badge, ScrollArea, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Input } from '@/presentation/components/ui'
 import api, { PHIType, MaskingType, PHIConfig, RegulationRule, getLLMStatus, getLLMConfig, updateLLMConfig, setLLMModel, testLLMConnection, getLLMProviders } from '@/infrastructure/api'
 
-export function SettingsPanel() {
+interface SettingsPanelProps {
+  canEdit?: boolean
+}
+
+export function SettingsPanel({ canEdit = true }: SettingsPanelProps) {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'phi' | 'regulations' | 'llm'>('phi')
+
+  useEffect(() => {
+    if (!canEdit && activeTab !== 'phi') {
+      setActiveTab('phi')
+    }
+  }, [activeTab, canEdit])
 
   // 取得 PHI 類型
   const { data: phiTypes = [] } = useQuery({
@@ -24,6 +34,7 @@ export function SettingsPanel() {
   const { data: regulations = [] } = useQuery({
     queryKey: ['regulations'],
     queryFn: api.listRegulations,
+    enabled: canEdit,
   })
 
   // 更新設定 mutation
@@ -57,47 +68,62 @@ export function SettingsPanel() {
           <Shield className="h-4 w-4 inline mr-2" />
           PHI 設定
         </button>
-        <button
-          className={`px-6 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'regulations'
-              ? 'border-b-2 border-primary text-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-          onClick={() => setActiveTab('regulations')}
-        >
-          <FileText className="h-4 w-4 inline mr-2" />
-          法規管理
-        </button>
-        <button
-          className={`px-6 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'llm'
-              ? 'border-b-2 border-primary text-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-          onClick={() => setActiveTab('llm')}
-        >
-          <Cpu className="h-4 w-4 inline mr-2" />
-          LLM 設定
-        </button>
+        {canEdit && (
+          <>
+            <button
+              className={`px-6 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'regulations'
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => setActiveTab('regulations')}
+            >
+              <FileText className="h-4 w-4 inline mr-2" />
+              法規管理
+            </button>
+            <button
+              className={`px-6 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'llm'
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => setActiveTab('llm')}
+            >
+              <Cpu className="h-4 w-4 inline mr-2" />
+              LLM 設定
+            </button>
+          </>
+        )}
       </div>
 
       {/* 內容區域 */}
       <div className="flex-1 overflow-auto p-4">
+        {!canEdit && (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-100">
+            目前為一般使用者模式，可在開始處理前檢視 PHI 設定；若需調整偵測類型、遮蔽方式或 LLM 設定，請由管理員修改。
+          </div>
+        )}
         {activeTab === 'phi' ? (
           <PHISettings
             phiTypes={phiTypes}
             config={config}
-            onUpdateConfig={(updates) => updateConfigMutation.mutate(updates)}
+            canEdit={canEdit}
+            onUpdateConfig={(updates) => {
+              if (canEdit) {
+                updateConfigMutation.mutate(updates)
+              }
+            }}
             isUpdating={updateConfigMutation.isPending}
           />
         ) : activeTab === 'regulations' ? (
           <RegulationsSettings
             regulations={regulations}
+            canEdit={canEdit}
             onUpload={(file) => uploadRegulationMutation.mutate(file)}
             isUploading={uploadRegulationMutation.isPending}
           />
         ) : (
-          <LLMSettings />
+          <LLMSettings canEdit={canEdit} />
         )}
       </div>
     </div>
@@ -108,11 +134,13 @@ export function SettingsPanel() {
 function PHISettings({
   phiTypes,
   config,
+  canEdit,
   onUpdateConfig,
   isUpdating,
 }: {
   phiTypes: PHIType[]
   config?: PHIConfig
+  canEdit: boolean
   onUpdateConfig: (updates: Partial<PHIConfig>) => void
   isUpdating: boolean
 }) {
@@ -125,6 +153,7 @@ function PHISettings({
   }, [config])
 
   const handleSave = () => {
+    if (!canEdit) return
     onUpdateConfig(localConfig)
   }
 
@@ -150,6 +179,7 @@ function PHISettings({
             </div>
             <Switch
               checked={localConfig.enabled ?? true}
+              disabled={!canEdit}
               onCheckedChange={(checked: boolean) =>
                 setLocalConfig((prev) => ({ ...prev, enabled: checked }))
               }
@@ -165,6 +195,7 @@ function PHISettings({
             </div>
             <Switch
               checked={localConfig.strict_mode ?? false}
+              disabled={!canEdit}
               onCheckedChange={(checked: boolean) =>
                 setLocalConfig((prev) => ({ ...prev, strict_mode: checked }))
               }
@@ -175,6 +206,7 @@ function PHISettings({
             <p className="font-medium">預設遮蔽方式</p>
             <Select
               value={localConfig.default_masking || 'mask'}
+              disabled={!canEdit}
               onValueChange={(value: MaskingType) =>
                 setLocalConfig((prev) => ({ ...prev, default_masking: value }))
               }
@@ -200,9 +232,9 @@ function PHISettings({
             </Select>
           </div>
 
-          <Button onClick={handleSave} disabled={isUpdating}>
+          <Button onClick={handleSave} disabled={!canEdit || isUpdating}>
             <Save className="h-4 w-4 mr-2" />
-            儲存設定
+            {canEdit ? '儲存設定' : '僅可檢視'}
           </Button>
         </CardContent>
       </Card>
@@ -233,6 +265,7 @@ function PHISettings({
                         checked={
                           localConfig.phi_types?.[phiType.type]?.enabled ?? true
                         }
+                        disabled={!canEdit}
                         onCheckedChange={(checked: boolean) =>
                           setLocalConfig((prev) => ({
                             ...prev,
@@ -260,6 +293,7 @@ function PHISettings({
                           phiType.default_masking ||
                           'mask'
                         }
+                        disabled={!canEdit}
                         onValueChange={(value: MaskingType) =>
                           setLocalConfig((prev) => ({
                             ...prev,
@@ -299,6 +333,7 @@ function PHISettings({
                           type="text"
                           placeholder="輸入替換詞"
                           className="w-28 px-2 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          disabled={!canEdit}
                           value={
                             localConfig.phi_types?.[phiType.type]?.replace_with || ''
                           }
@@ -331,10 +366,12 @@ function PHISettings({
 // 法規管理子元件
 function RegulationsSettings({
   regulations,
+  canEdit,
   onUpload,
   isUploading,
 }: {
   regulations: RegulationRule[]
+  canEdit: boolean
   onUpload: (file: File) => void
   isUploading: boolean
 }) {
@@ -345,7 +382,7 @@ function RegulationsSettings({
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
+    if (file && canEdit) {
       onUpload(file)
       e.target.value = ''
     }
@@ -388,12 +425,13 @@ function RegulationsSettings({
               type="file"
               accept=".md,.txt,.pdf"
               onChange={handleFileChange}
+              disabled={!canEdit}
               className="hidden"
             />
             <Button
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
+              disabled={!canEdit || isUploading}
             >
               <Plus className="h-4 w-4 mr-2" />
               選擇檔案
@@ -483,6 +521,7 @@ function RegulationsSettings({
                     <div className="flex items-center gap-2 mt-2">
                       <Switch
                         checked={reg.enabled}
+                        disabled={!canEdit}
                         onCheckedChange={() => {
                           // TODO: 更新法規啟用狀態
                         }}
@@ -503,7 +542,7 @@ function RegulationsSettings({
 }
 
 // LLM 設定子元件
-function LLMSettings() {
+function LLMSettings({ canEdit = true }: { canEdit?: boolean }) {
   const queryClient = useQueryClient()
   const [isTesting, setIsTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
@@ -568,6 +607,7 @@ function LLMSettings() {
 
   // 測試連線
   const handleTestConnection = async () => {
+    if (!canEdit) return
     setIsTesting(true)
     setTestResult(null)
     try {
@@ -651,7 +691,7 @@ function LLMSettings() {
           <div className="flex items-center gap-2">
             <Button
               onClick={handleTestConnection}
-              disabled={isTesting}
+              disabled={!canEdit || isTesting}
             >
               {isTesting ? (
                 <>
@@ -684,7 +724,7 @@ function LLMSettings() {
                 <Select
                   value={llmConfig?.model || ''}
                   onValueChange={(model) => setModelMutation.mutate(model)}
-                  disabled={setModelMutation.isPending}
+                  disabled={!canEdit || setModelMutation.isPending}
                 >
                   <SelectTrigger className="w-64">
                     <SelectValue placeholder="選擇模型" />
@@ -727,7 +767,9 @@ function LLMSettings() {
               <label className="text-sm font-medium">服務提供者</label>
               <Select
                 value={llmConfig?.provider || 'ollama'}
+                disabled={!canEdit}
                 onValueChange={(provider) => {
+                  if (!canEdit) return
                   const selectedProvider = providers.find(p => p.id === provider)
                   updateMutation.mutate({
                     provider,
@@ -752,10 +794,12 @@ function LLMSettings() {
               <label className="text-sm font-medium">API 端點</label>
               <Input
                 value={llmDraft.base_url}
+                disabled={!canEdit}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setLlmDraft((draft) => ({ ...draft, base_url: e.target.value }))
                 }
                 onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                  if (!canEdit) return
                   if (e.target.value !== llmConfig?.base_url) {
                     updateMutation.mutate({ base_url: e.target.value })
                   }
@@ -771,10 +815,12 @@ function LLMSettings() {
               <Input
                 type="password"
                 value={llmDraft.api_key}
+                disabled={!canEdit}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setLlmDraft((draft) => ({ ...draft, api_key: e.target.value }))
                 }
                 onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                  if (!canEdit) return
                   if (e.target.value) {
                     updateMutation.mutate({ api_key: e.target.value })
                     setLlmDraft((draft) => ({ ...draft, api_key: '' }))
@@ -794,10 +840,12 @@ function LLMSettings() {
                 min="0"
                 max="2"
                 value={llmDraft.temperature}
+                disabled={!canEdit}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setLlmDraft((draft) => ({ ...draft, temperature: e.target.value }))
                 }
                 onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                  if (!canEdit) return
                   const value = parseFloat(e.target.value)
                   if (!isNaN(value) && value !== llmConfig?.temperature) {
                     updateMutation.mutate({ temperature: value })
@@ -813,10 +861,12 @@ function LLMSettings() {
                 min="1"
                 max="32000"
                 value={llmDraft.max_tokens}
+                disabled={!canEdit}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setLlmDraft((draft) => ({ ...draft, max_tokens: e.target.value }))
                 }
                 onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                  if (!canEdit) return
                   const value = parseInt(e.target.value)
                   if (!isNaN(value) && value !== llmConfig?.max_tokens) {
                     updateMutation.mutate({ max_tokens: value })
@@ -832,10 +882,12 @@ function LLMSettings() {
                 min="10"
                 max="600"
                 value={llmDraft.timeout}
+                disabled={!canEdit}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setLlmDraft((draft) => ({ ...draft, timeout: e.target.value }))
                 }
                 onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                  if (!canEdit) return
                   const value = parseInt(e.target.value)
                   if (!isNaN(value) && value !== llmConfig?.timeout) {
                     updateMutation.mutate({ timeout: value })

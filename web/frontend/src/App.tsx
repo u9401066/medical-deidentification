@@ -14,10 +14,18 @@ function WorkspaceApp({ user, onLogout }: { user: AuthUser, onLogout: () => void
     setActiveTab('preview')
   }
 
+  const handleOpenSettings = () => {
+    setActiveTab('settings')
+  }
+
   return (
     <div className="flex h-screen bg-background">
       {/* 側邊欄 */}
-      <Sidebar onFileSelect={handleFileSelect} selectedFileId={selectedFileId} />
+      <Sidebar
+        onFileSelect={handleFileSelect}
+        onOpenSettings={handleOpenSettings}
+        selectedFileId={selectedFileId}
+      />
 
       {/* 主內容區 */}
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -46,17 +54,15 @@ function WorkspaceApp({ user, onLogout }: { user: AuthUser, onLogout: () => void
                 <FileBarChart className="h-4 w-4" />
                 報告
               </TabsTrigger>
+              <TabsTrigger value="settings" className="gap-2">
+                <Settings className="h-4 w-4" />
+                設定
+              </TabsTrigger>
               {user.role === 'admin' && (
-                <>
-                <TabsTrigger value="settings" className="gap-2">
-                  <Settings className="h-4 w-4" />
-                  設定
-                </TabsTrigger>
                 <TabsTrigger value="users" className="gap-2">
                   <Users className="h-4 w-4" />
                   使用者
                 </TabsTrigger>
-                </>
               )}
             </TabsList>
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -85,15 +91,13 @@ function WorkspaceApp({ user, onLogout }: { user: AuthUser, onLogout: () => void
           <TabsContent value="reports" className="flex-1 m-0">
             <Reports />
           </TabsContent>
+          <TabsContent value="settings" className="flex-1 m-0">
+            <SettingsPanel canEdit={user.role === 'admin'} />
+          </TabsContent>
           {user.role === 'admin' && (
-            <>
-              <TabsContent value="settings" className="flex-1 m-0">
-                <SettingsPanel />
-              </TabsContent>
-              <TabsContent value="users" className="flex-1 m-0">
-                <UsersPanel currentUser={user} />
-              </TabsContent>
-            </>
+            <TabsContent value="users" className="flex-1 m-0">
+              <UsersPanel currentUser={user} />
+            </TabsContent>
           )}
         </Tabs>
       </main>

@@ -35,6 +35,14 @@ export const mockFiles = [
   },
 ]
 
+export const mockAdminUser = {
+  user_id: 'test-admin',
+  username: 'admin',
+  role: 'admin',
+  created_at: '2026-01-01T00:00:00Z',
+  last_login_at: '2026-01-01T00:00:00Z',
+}
+
 export const mockTasks = [
   {
     task_id: 'task-001',
@@ -220,6 +228,20 @@ export const mockLLMProviders = [
  * 為 Playwright page 設定所有 API mock 路由
  */
 export async function setupMockRoutes(page: Page) {
+  // Auth
+  await page.route('**/api/auth/me', (route) =>
+    route.fulfill({ json: { user: mockAdminUser } })
+  )
+  await page.route('**/api/auth/setup-required', (route) =>
+    route.fulfill({ json: { setup_required: false } })
+  )
+  await page.route('**/api/auth/login', (route) =>
+    route.fulfill({ json: { user: mockAdminUser } })
+  )
+  await page.route('**/api/auth/logout', (route) =>
+    route.fulfill({ json: { message: 'Logged out' } })
+  )
+
   // Health
   await page.route('**/api/health', (route) =>
     route.fulfill({ json: mockHealth })
