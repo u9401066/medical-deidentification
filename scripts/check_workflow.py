@@ -540,15 +540,30 @@ def main():
         default=None,
         help="用於 CORS preflight 的前端 Origin，預設由 --url 推導為同 host 的 5173 port",
     )
+    parser.add_argument(
+        "--host-header",
+        default=None,
+        help="覆寫 HTTP Host header，用於模擬 LAN/reverse proxy 瀏覽器來源",
+    )
+    parser.add_argument(
+        "--forwarded-for",
+        default=None,
+        help="加入 X-Forwarded-For header，用於模擬 reverse proxy/LAN client IP",
+    )
     args = parser.parse_args()
 
     base_url = args.url.rstrip("/")
     frontend_origin = args.frontend_origin or default_frontend_origin(base_url, args.frontend_proxy)
+    cors_frontend_origin = None if args.frontend_proxy else frontend_origin
     global STRICT_WARNINGS, API_HEADERS, API_FRONTEND_ORIGIN
     STRICT_WARNINGS = args.ci
     API_FRONTEND_ORIGIN = frontend_origin
     if args.api_token:
         API_HEADERS = {"Authorization": f"Bearer {args.api_token}"}
+    if args.host_header:
+        API_HEADERS["Host"] = args.host_header
+    if args.forwarded_for:
+        API_HEADERS["X-Forwarded-For"] = args.forwarded_for
 
     print(bold("\n╔══════════════════════════════════════════════════╗"))
     print(bold("║  PHI 去識別化工具 — 功能驗證                        ║"))
@@ -556,6 +571,8 @@ def main():
     print(f"  目標: {bold(base_url)}")
     if frontend_origin:
         print(f"  前端 Origin: {bold(frontend_origin)}")
+    if args.frontend_proxy:
+        print(f"  模式: {bold('frontend same-origin proxy')}")
     print(f"  時間: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
     all_results: list[CheckResult] = []
@@ -563,7 +580,7 @@ def main():
     task_id: str | None = None
 
     # Step 0: Server 可連線
-    r0 = check_step0_server(base_url, args.verbose, frontend_origin)
+    r0 = check_step0_server(base_url, args.verbose, cors_frontend_origin)
     all_results.append(r0)
     if not r0.passed:
         print(f"\n{red('✗ 後端 server 無法連線，終止驗證。')}")

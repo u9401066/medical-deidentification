@@ -10,6 +10,10 @@ import axios, {
 import { logger } from '../logging';
 import { API_BASE, ensureApiResponse } from './base';
 
+function isFormDataBody(value: unknown): value is FormData {
+  return typeof FormData !== 'undefined' && value instanceof FormData;
+}
+
 /**
  * 創建 Axios 實例
  */
@@ -25,6 +29,11 @@ export const apiClient: AxiosInstance = axios.create({
 // 請求攔截器
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    if (isFormDataBody(config.data)) {
+      config.headers.delete?.('Content-Type');
+      delete config.headers['Content-Type'];
+      delete config.headers['content-type'];
+    }
     logger.debug('API Request', {
       method: config.method?.toUpperCase(),
       url: config.url,

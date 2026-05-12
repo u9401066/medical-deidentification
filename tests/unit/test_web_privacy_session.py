@@ -95,6 +95,25 @@ def test_browser_origin_guard_allows_local_frontend_proxy() -> None:
     validate_browser_origin(request)
 
 
+def test_browser_origin_guard_allows_loopback_frontend_proxy_with_forwarded_client() -> None:
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/upload",
+            "headers": [
+                (b"cookie", b"medical_deid_session=abc"),
+                (b"x-medical-deid-frontend-proxy", b"1"),
+                (b"x-forwarded-host", b"192.168.1.201:5173"),
+                (b"x-forwarded-for", b"192.168.1.55"),
+            ],
+            "client": ("192.168.1.55", 0),
+        }
+    )
+
+    validate_browser_origin(request)
+
+
 def test_result_sanitizer_hides_raw_phi_by_default() -> None:
     payload = {
         "task_id": "task-1",

@@ -3,9 +3,8 @@
 import secrets
 from urllib.parse import urlparse
 
+from config import API_TOKEN, AUTH_MODE, BACKEND_HOST, CORS_ORIGINS, SESSION_COOKIE_NAME
 from fastapi import Header, HTTPException, Request, status
-
-from config import API_TOKEN, AUTH_MODE, CORS_ORIGINS, SESSION_COOKIE_NAME
 from models.auth import AuthUser
 from services.auth_service import get_auth_service
 
@@ -37,8 +36,20 @@ def _origin_base(value: str | None) -> str | None:
 
 def _is_trusted_frontend_proxy(request: Request) -> bool:
     forwarded_by_frontend = request.headers.get("x-medical-deid-frontend-proxy") == "1"
+    if not forwarded_by_frontend:
+        return False
+
     client_host = request.client.host if request.client else ""
-    return forwarded_by_frontend and client_host in {"127.0.0.1", "::1", "localhost"}
+    if client_host in {"127.0.0.1", "::1", "localhost"}:
+        return True
+
+    # Uvicorn may rewrite request.client from X-Forwarded-For when the local
+    # frontend proxy forwards a LAN browser request. If the backend itself is
+    # loopback-bound, only local processes can reach it, so the proxy marker is
+    # still trustworthy even though request.client now shows the browser IP.
+    return BACKEND_HOST in {"127.0.0.1", "::1", "localhost"} and bool(
+        request.headers.get("x-forwarded-host")
+    )
 
 
 def validate_browser_origin(

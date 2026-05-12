@@ -42,9 +42,7 @@ export async function uploadFile(file: File): Promise<UploadedFile> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await apiClient.post<FileResponse>('/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const response = await apiClient.post<FileResponse>('/upload', formData);
 
   const uploadedFile = createUploadedFile(response.data);
   logger.info('File uploaded successfully', {

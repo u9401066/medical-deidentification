@@ -407,9 +407,7 @@ export const updateUser = async (
 export const uploadFile = async (file: File): Promise<UploadedFile> => {
   const formData = new FormData();
   formData.append('file', file);
-  const response = await apiClient.post('/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const response = await apiClient.post('/upload', formData);
   return response.data;
 };
 
@@ -575,9 +573,7 @@ export const uploadRegulation = async (
 ): Promise<{ message: string; rules: RegulationRule[] }> => {
   const formData = new FormData();
   formData.append('file', file);
-  const response = await apiClient.post('/regulations/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const response = await apiClient.post('/regulations/upload', formData);
   return response.data;
 };
 
