@@ -250,6 +250,7 @@ medical-deidentification/
 | [Architecture](docs/ARCHITECTURE.md) | 系統設計與 DDD 架構 |
 | [Deployment](docs/DEPLOYMENT.md) | 安裝與配置指南 |
 | [Format Preservation](docs/FORMAT_PRESERVATION.md) | 去識別化原檔輸出與 asset-aware 銜接策略 |
+| [De-id Repo Landscape](docs/DEID_REPO_LANDSCAPE_REVIEW.md) | 開源/官方去識別化專案比較與改進 backlog |
 | [LLM Benchmark](docs/llm-benchmark-results.md) | 模型效能測試報告 |
 | [Ollama Setup](docs/ollama-setup.md) | 本地 LLM 設定 |
 | [Batch Processing](docs/batch-processing.md) | 批次處理指南 |
