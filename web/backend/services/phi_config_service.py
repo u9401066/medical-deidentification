@@ -4,6 +4,7 @@ PHI 類型設定服務 - 獨立管理 PHI 設定的持久化與導入導出
 """
 
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -23,6 +24,7 @@ from models.config import PHIConfig, PHITypeConfig
 PHI_CONFIG_DIR = DATA_DIR / "phi_configs"
 DEFAULT_CONFIG_FILE = PHI_CONFIG_DIR / "current_config.json"
 PRESETS_DIR = PHI_CONFIG_DIR / "presets"
+USER_CONFIGS_DIR = PHI_CONFIG_DIR / "users"
 
 
 class PHIConfigService:
@@ -37,6 +39,7 @@ class PHIConfigService:
         """確保設定目錄存在"""
         PHI_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         PRESETS_DIR.mkdir(parents=True, exist_ok=True)
+        USER_CONFIGS_DIR.mkdir(parents=True, exist_ok=True)
 
         # 建立預設 preset 如果不存在
         self._create_default_presets()
@@ -134,6 +137,21 @@ class PHIConfigService:
                 json.dump(self._config.model_dump(), f, ensure_ascii=False, indent=2)
             logger.info("💾 Saved PHI config to file")
 
+    def _safe_user_id(self, user_id: str) -> str:
+        """Convert user IDs to stable filenames without allowing path traversal."""
+        safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", user_id).strip("._")
+        return safe or "unknown"
+
+    def _user_config_file(self, user_id: str) -> Path:
+        return USER_CONFIGS_DIR / f"{self._safe_user_id(user_id)}.json"
+
+    def _save_user_config(self, user_id: str, config: PHIConfig) -> None:
+        config_file = self._user_config_file(user_id)
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(config_file, "w", encoding="utf-8") as f:
+            json.dump(config.model_dump(), f, ensure_ascii=False, indent=2)
+        logger.info(f"💾 Saved PHI config for user: {self._safe_user_id(user_id)}")
+
     # === 基本操作 ===
 
     def get_config(self) -> PHIConfig:
@@ -142,12 +160,37 @@ class PHIConfigService:
             self._config = PHIConfig()
         return self._config
 
+    def get_config_for_user(self, user_id: str | None) -> PHIConfig:
+        """Get a user's PHI config, falling back to the system default."""
+        if not user_id:
+            return self.get_config()
+
+        config_file = self._user_config_file(user_id)
+        if not config_file.exists():
+            return self.get_config().model_copy(deep=True)
+
+        try:
+            with open(config_file, encoding="utf-8") as f:
+                data = json.load(f)
+            return PHIConfig(**data)
+        except Exception as e:
+            logger.warning(
+                f"Failed to load user PHI config for {self._safe_user_id(user_id)}: {e}; using defaults"
+            )
+            return self.get_config().model_copy(deep=True)
+
     def update_config(self, config: PHIConfig) -> PHIConfig:
         """更新 PHI 設定"""
         self._config = config
         self._save_config()
         logger.info("✅ PHI config updated")
         return self._config
+
+    def update_user_config(self, user_id: str, config: PHIConfig) -> PHIConfig:
+        """Update the PHI config for a single user without changing global defaults."""
+        self._save_user_config(user_id, config)
+        logger.info(f"✅ User PHI config updated: {self._safe_user_id(user_id)}")
+        return config
 
     def reset_to_default(self) -> PHIConfig:
         """重置為預設設定
@@ -167,6 +210,15 @@ class PHIConfigService:
     def get_phi_type_config(self, phi_type: str) -> PHITypeConfig | None:
         """取得單一 PHI 類型的設定"""
         config = self.get_config()
+        if isinstance(config.phi_types, dict):
+            return config.phi_types.get(phi_type)
+        return None
+
+    def get_phi_type_config_for_user(
+        self, user_id: str | None, phi_type: str
+    ) -> PHITypeConfig | None:
+        """Get a single PHI type config for a user."""
+        config = self.get_config_for_user(user_id)
         if isinstance(config.phi_types, dict):
             return config.phi_types.get(phi_type)
         return None
@@ -202,6 +254,34 @@ class PHIConfigService:
         self._config = config
         self._save_config()
 
+        return type_config
+
+    def update_user_phi_type_config(
+        self,
+        user_id: str,
+        phi_type: str,
+        enabled: bool | None = None,
+        masking: str | None = None,
+        replace_with: str | None = None,
+    ) -> PHITypeConfig:
+        """Update a single PHI type for one user."""
+        config = self.get_config_for_user(user_id)
+
+        if isinstance(config.phi_types, list):
+            config.phi_types = {
+                t: PHITypeConfig(enabled=True, masking="mask") for t in config.phi_types
+            }
+
+        type_config = config.phi_types.get(phi_type, PHITypeConfig())
+        if enabled is not None:
+            type_config.enabled = enabled
+        if masking is not None:
+            type_config.masking = masking
+        if replace_with is not None:
+            type_config.replace_with = replace_with
+
+        config.phi_types[phi_type] = type_config
+        self._save_user_config(user_id, config)
         return type_config
 
     # === 導入/導出 ===

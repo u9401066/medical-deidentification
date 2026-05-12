@@ -4,7 +4,7 @@
  * 不可變的配置物件
  */
 
-export type MaskingType = 'mask' | 'hash' | 'replace' | 'delete' | 'keep';
+export type MaskingType = 'mask' | 'hash' | 'replace' | 'delete' | 'keep' | 'generalize';
 
 export interface PHITypeConfig {
   readonly enabled?: boolean;

@@ -2,21 +2,84 @@ import { useState, useRef, useEffect, ChangeEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Settings2, Upload, Shield, FileText, Save, Plus, ChevronUp, Eye, Cpu, RefreshCw, CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Badge, ScrollArea, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Input } from '@/presentation/components/ui'
-import api, { PHIType, MaskingType, PHIConfig, RegulationRule, getLLMStatus, getLLMConfig, updateLLMConfig, setLLMModel, testLLMConnection, getLLMProviders } from '@/infrastructure/api'
+import api, { PHIType, PHITypeConfig, MaskingType, PHIConfig, RegulationRule, getLLMStatus, getLLMConfig, updateLLMConfig, setLLMModel, testLLMConnection, getLLMProviders } from '@/infrastructure/api'
 
 interface SettingsPanelProps {
   canEdit?: boolean
+  canEditSystem?: boolean
 }
 
-export function SettingsPanel({ canEdit = true }: SettingsPanelProps) {
+type EditablePHIConfig = Omit<PHIConfig, 'phi_types'> & {
+  phi_types?: Record<string, PHITypeConfig>
+}
+
+function toMaskingType(value?: string): MaskingType {
+  if (
+    value === 'hash' ||
+    value === 'replace' ||
+    value === 'delete' ||
+    value === 'keep' ||
+    value === 'generalize'
+  ) {
+    return value
+  }
+  return 'mask'
+}
+
+function normalizePHIConfig(
+  config: PHIConfig | undefined,
+  phiTypes: PHIType[]
+): EditablePHIConfig {
+  const phiTypeConfig: Record<string, PHITypeConfig> = {}
+  const rawPhiTypes = config?.phi_types
+
+  if (Array.isArray(rawPhiTypes)) {
+    rawPhiTypes.forEach((type) => {
+      phiTypeConfig[type] = {
+        enabled: true,
+      }
+    })
+  } else if (rawPhiTypes && typeof rawPhiTypes === 'object') {
+    Object.entries(rawPhiTypes).forEach(([type, typeConfig]) => {
+      if (/^\d+$/.test(type)) return
+      phiTypeConfig[type] = {
+        enabled: typeConfig.enabled ?? true,
+        masking: toMaskingType(typeConfig.masking || config?.default_masking),
+        replace_with: typeConfig.replace_with,
+      }
+    })
+  }
+
+  phiTypes.forEach((phiType) => {
+    phiTypeConfig[phiType.type] = {
+      enabled: phiTypeConfig[phiType.type]?.enabled ?? true,
+      masking: toMaskingType(
+        phiTypeConfig[phiType.type]?.masking ||
+        phiType.default_masking ||
+        config?.default_masking
+      ),
+      replace_with: phiTypeConfig[phiType.type]?.replace_with,
+    }
+  })
+
+  return {
+    ...config,
+    enabled: config?.enabled ?? true,
+    strict_mode: config?.strict_mode ?? false,
+    default_masking: toMaskingType(config?.default_masking),
+    phi_types: phiTypeConfig,
+  }
+}
+
+export function SettingsPanel({ canEdit = true, canEditSystem = true }: SettingsPanelProps) {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'phi' | 'regulations' | 'llm'>('phi')
 
   useEffect(() => {
-    if (!canEdit && activeTab !== 'phi') {
+    if (!canEditSystem && activeTab !== 'phi') {
       setActiveTab('phi')
     }
-  }, [activeTab, canEdit])
+  }, [activeTab, canEditSystem])
 
   // 取得 PHI 類型
   const { data: phiTypes = [] } = useQuery({
@@ -34,7 +97,7 @@ export function SettingsPanel({ canEdit = true }: SettingsPanelProps) {
   const { data: regulations = [] } = useQuery({
     queryKey: ['regulations'],
     queryFn: api.listRegulations,
-    enabled: canEdit,
+    enabled: canEditSystem,
   })
 
   // 更新設定 mutation
@@ -68,7 +131,7 @@ export function SettingsPanel({ canEdit = true }: SettingsPanelProps) {
           <Shield className="h-4 w-4 inline mr-2" />
           PHI 設定
         </button>
-        {canEdit && (
+        {canEditSystem && (
           <>
             <button
               className={`px-6 py-3 text-sm font-medium transition-colors ${
@@ -103,6 +166,11 @@ export function SettingsPanel({ canEdit = true }: SettingsPanelProps) {
             目前為一般使用者模式，可在開始處理前檢視 PHI 設定；若需調整偵測類型、遮蔽方式或 LLM 設定，請由管理員修改。
           </div>
         )}
+        {canEdit && !canEditSystem && (
+          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
+            你可以自行調整本帳號的 PHI 偵測類型與遮蔽方式；法規與 LLM 連線設定仍由管理員維護。
+          </div>
+        )}
         {activeTab === 'phi' ? (
           <PHISettings
             phiTypes={phiTypes}
@@ -118,12 +186,12 @@ export function SettingsPanel({ canEdit = true }: SettingsPanelProps) {
         ) : activeTab === 'regulations' ? (
           <RegulationsSettings
             regulations={regulations}
-            canEdit={canEdit}
+            canEdit={canEditSystem}
             onUpload={(file) => uploadRegulationMutation.mutate(file)}
             isUploading={uploadRegulationMutation.isPending}
           />
         ) : (
-          <LLMSettings canEdit={canEdit} />
+          <LLMSettings canEdit={canEditSystem} />
         )}
       </div>
     </div>
@@ -144,20 +212,20 @@ function PHISettings({
   onUpdateConfig: (updates: Partial<PHIConfig>) => void
   isUpdating: boolean
 }) {
-  const [localConfig, setLocalConfig] = useState<Partial<PHIConfig>>(config || {})
+  const [localConfig, setLocalConfig] = useState<EditablePHIConfig>(() =>
+    normalizePHIConfig(config, phiTypes)
+  )
 
   useEffect(() => {
-    if (config) {
-      setLocalConfig(config)
-    }
-  }, [config])
+    setLocalConfig(normalizePHIConfig(config, phiTypes))
+  }, [config, phiTypes])
 
   const handleSave = () => {
     if (!canEdit) return
     onUpdateConfig(localConfig)
   }
 
-  const maskingTypes: MaskingType[] = ['mask', 'hash', 'replace', 'delete', 'keep']
+  const maskingTypes: MaskingType[] = ['mask', 'hash', 'replace', 'delete', 'keep', 'generalize']
 
   return (
     <div className="space-y-6">
@@ -225,6 +293,8 @@ function PHISettings({
                       ? '替換'
                       : type === 'delete'
                       ? '刪除'
+                      : type === 'generalize'
+                      ? '泛化'
                       : '保留'}
                   </SelectItem>
                 ))}
@@ -290,7 +360,7 @@ function PHISettings({
                       <Select
                         value={
                           localConfig.phi_types?.[phiType.type]?.masking ||
-                          phiType.default_masking ||
+                          toMaskingType(phiType.default_masking) ||
                           'mask'
                         }
                         disabled={!canEdit}
@@ -319,9 +389,11 @@ function PHISettings({
                                 ? '雜湊'
                                 : type === 'replace'
                                 ? '替換'
-                                : type === 'delete'
-                                ? '刪除'
-                                : '保留'}
+                              : type === 'delete'
+                              ? '刪除'
+                              : type === 'generalize'
+                              ? '泛化'
+                              : '保留'}
                             </SelectItem>
                           ))}
                         </SelectContent>

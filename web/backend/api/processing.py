@@ -3,11 +3,11 @@ Processing API Router
 PHI 處理 API
 """
 
+import asyncio
 import sys
+import threading
 import time
 import uuid
-import asyncio
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -31,8 +31,9 @@ from config import (
 from models.auth import AuthUser
 from models.task import ProcessRequest, TaskStatus
 from security import get_current_user
-from services.file_service import get_file_service
 from services.error_safety import safe_exception_message
+from services.file_service import get_file_service
+from services.phi_config_service import get_phi_config_service
 from services.processing_service import get_processing_service
 from services.task_service import get_task_service
 
@@ -401,10 +402,13 @@ async def start_processing(
 
     # 建立任務
     task_id = str(uuid.uuid4())
+    effective_config = request.config or get_phi_config_service().get_config_for_user(
+        current_user.user_id
+    )
     task = task_service.create_task(
         task_id=task_id,
         file_ids=request.file_ids,
-        config=request.config.model_dump(),
+        config=effective_config.model_dump(),
         owner_user_id=current_user.user_id,
         owner_role=current_user.role,
         owner_username=current_user.username,

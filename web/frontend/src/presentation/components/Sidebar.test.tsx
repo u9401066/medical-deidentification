@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { renderWithProviders, userEvent } from '@/test/test-utils';
+import { server } from '@/test/mocks/server';
 import { Sidebar } from './Sidebar';
 
 describe('Sidebar', () => {
@@ -108,5 +110,52 @@ describe('Sidebar', () => {
     await user.click(screen.getByRole('button', { name: /返回 PHI 設定/i }));
 
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('should include current PHI config when confirming processing', async () => {
+    const user = userEvent.setup();
+    let processPayload: Record<string, unknown> | undefined;
+
+    server.use(
+      http.post('*/api/process', async ({ request }) => {
+        processPayload = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({
+          task_id: 'task-with-config',
+          status: 'pending',
+          progress: 0,
+          message: '任務已建立',
+          file_ids: ['file-001'],
+          created_at: new Date().toISOString(),
+        });
+      })
+    );
+
+    renderWithProviders(<Sidebar />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/test_patient_data.csv/i)).toBeInTheDocument();
+    });
+
+    const fileItem = screen
+      .getByText(/test_patient_data.csv/i)
+      .closest('div');
+    expect(fileItem).not.toBeNull();
+    await user.click(fileItem!);
+
+    await user.click(screen.getByRole('button', { name: /開始處理/i }));
+    await user.click(screen.getByRole('button', { name: /確認開始/i }));
+
+    await waitFor(() => {
+      expect(processPayload).toEqual(
+        expect.objectContaining({
+          file_ids: ['file-001'],
+          config: expect.objectContaining({
+            enabled: true,
+            default_masking: 'mask',
+            preserve_format: true,
+          }),
+        })
+      );
+    });
   });
 });

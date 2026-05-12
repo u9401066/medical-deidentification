@@ -20,6 +20,7 @@ if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
 from config import OLLAMA_BASE_URL, OLLAMA_MODEL, REPORTS_DIR, RESULTS_DIR, STORE_RAW_PHI
+
 from services.error_safety import safe_exception_message
 from services.llm_config_service import get_llm_config_service
 
@@ -103,6 +104,7 @@ class ProcessingService:
                 file_path,
                 original_filename,
                 masking_type,
+                config=config,
                 artifact_dir=artifact_dir,
             )
 
@@ -116,6 +118,7 @@ class ProcessingService:
         file_path: Path,
         original_filename: str | None = None,
         masking_type: str = "redact",
+        config: dict[str, Any] | None = None,
         artifact_dir: Path | None = None,
     ) -> dict[str, Any]:
         """轉換引擎結果為標準格式
@@ -125,8 +128,10 @@ class ProcessingService:
             file_path: 檔案路徑 (含 file_id)
             original_filename: 原始檔名 (用於報告顯示)
             masking_type: 遮罩類型 (redact/hash/generalize)
+            config: 完整 PHI 設定，用於類型過濾與逐類型遮蔽策略
             artifact_dir: Optional directory for format-preserving output artifacts
         """
+        config = config or {}
         # 從 ProcessingResult 提取資料
         phi_entities = []
         original_content = ""
@@ -158,7 +163,8 @@ class ProcessingService:
                         masked_value = self._compute_masked_value(
                             original_text,
                             entity.get("type", "UNKNOWN"),
-                            masking_type,
+                            self._masking_for_phi_type(entity.get("type", "UNKNOWN"), config, masking_type),
+                            self._replace_text_for_phi_type(entity.get("type", "UNKNOWN"), config),
                         )
                         phi_entities.append(
                             {
@@ -190,7 +196,8 @@ class ProcessingService:
                     masked_value = self._compute_masked_value(
                         original_text,
                         entity.get("type", "UNKNOWN"),
-                        masking_type,
+                        self._masking_for_phi_type(entity.get("type", "UNKNOWN"), config, masking_type),
+                        self._replace_text_for_phi_type(entity.get("type", "UNKNOWN"), config),
                     )
                     phi_entities.append(
                         {
@@ -218,6 +225,8 @@ class ProcessingService:
 
         # 套用 hard rules 後處理 (修正 LLM 常見錯誤)
         phi_entities, corrections = self._apply_hard_rules(phi_entities)
+        phi_entities, config_filters = self._apply_phi_config(phi_entities, config, masking_type)
+        corrections.extend(config_filters)
         if corrections:
             log.warning(
                 "Hard rules applied",
@@ -225,13 +234,12 @@ class ProcessingService:
                 removed_count=entities_before_rules - len(phi_entities),
             )
 
-            # 如果有 entities 被移除，需要重新生成 masked_content
-            # 因為 Engine 返回的 masked_content 是用所有 entities 生成的
-            if entities_before_rules != len(phi_entities) and original_content:
-                log.info("Regenerating masked_content after hard rules filtering")
-                masked_content = self._regenerate_masked_content(
-                    original_content, phi_entities, masking_type
-                )
+        # 永遠以使用者設定重新套遮罩，避免 engine 預設遮掉使用者未勾選的 PHI 類型。
+        if original_content:
+            log.info("Regenerating masked_content from effective PHI settings")
+            masked_content = self._regenerate_masked_content(
+                original_content, phi_entities, masking_type
+            )
 
         log.info(
             "Final engine result",
@@ -299,7 +307,13 @@ class ProcessingService:
             )
         return safe_entities
 
-    def _compute_masked_value(self, original_text: str, phi_type: str, masking_type: str) -> str:
+    def _compute_masked_value(
+        self,
+        original_text: str,
+        phi_type: str,
+        masking_type: str,
+        replace_with: str | None = None,
+    ) -> str:
         """計算遮罩後的值"""
         if not original_text:
             return "[REDACTED]"
@@ -320,11 +334,95 @@ class ProcessingService:
                 hashlib.sha256,
             ).hexdigest()[:12]
             return f"[{phi_type}_{hash_val}]"
+        elif masking_type == "replace":
+            return replace_with or f"[{phi_type}]"
+        elif masking_type == "delete":
+            return ""
+        elif masking_type == "keep":
+            return original_text
         elif masking_type == "generalize":
             # 泛化: 保留類型標籤
             return f"[{phi_type}]"
         else:  # redact (預設)
             return "[REDACTED]"
+
+    def _default_masking_from_config(self, config: dict[str, Any], fallback: str) -> str:
+        masking = config.get("default_masking") or fallback
+        if masking == "redact":
+            return "mask"
+        if masking == "pseudonymize":
+            return "hash"
+        return str(masking)
+
+    def _phi_type_config(self, phi_type: str, config: dict[str, Any]) -> dict[str, Any]:
+        phi_types = config.get("phi_types")
+        if isinstance(phi_types, dict):
+            raw_config = phi_types.get(phi_type)
+            if isinstance(raw_config, dict):
+                return raw_config
+            if hasattr(raw_config, "model_dump"):
+                return raw_config.model_dump()
+        return {}
+
+    def _masking_for_phi_type(
+        self,
+        phi_type: str,
+        config: dict[str, Any],
+        fallback: str,
+    ) -> str:
+        type_config = self._phi_type_config(phi_type, config)
+        return str(type_config.get("masking") or self._default_masking_from_config(config, fallback))
+
+    def _replace_text_for_phi_type(self, phi_type: str, config: dict[str, Any]) -> str | None:
+        replace_with = self._phi_type_config(phi_type, config).get("replace_with")
+        return str(replace_with) if replace_with else None
+
+    def _apply_phi_config(
+        self,
+        phi_entities: list[dict[str, Any]],
+        config: dict[str, Any],
+        fallback_masking: str,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Apply enabled/disabled PHI type selections and per-type masking."""
+        if config.get("enabled") is False:
+            return [], ["PHI detection disabled by user config"]
+
+        phi_types = config.get("phi_types")
+        enabled_types: set[str] | None = None
+        if isinstance(phi_types, list):
+            enabled_types = {str(item) for item in phi_types}
+        elif isinstance(phi_types, dict):
+            enabled_types = {
+                str(phi_type)
+                for phi_type, type_config in phi_types.items()
+                if (
+                    type_config.get("enabled", True)
+                    if isinstance(type_config, dict)
+                    else getattr(type_config, "enabled", True)
+                )
+            }
+
+        filtered: list[dict[str, Any]] = []
+        filters: list[str] = []
+        for entity in phi_entities:
+            phi_type = str(entity.get("type") or "UNKNOWN")
+            if enabled_types is not None and phi_type not in enabled_types:
+                filters.append(f"Removed disabled PHI type: {phi_type}")
+                continue
+
+            masking = self._masking_for_phi_type(phi_type, config, fallback_masking)
+            updated_entity = {
+                **entity,
+                "masked_value": self._compute_masked_value(
+                    str(entity.get("value") or ""),
+                    phi_type,
+                    masking,
+                    self._replace_text_for_phi_type(phi_type, config),
+                ),
+            }
+            filtered.append(updated_entity)
+
+        return filtered, filters
 
     def _apply_hard_rules(
         self, phi_entities: list[dict[str, Any]]
@@ -423,7 +521,9 @@ class ProcessingService:
 
             if start_pos is None or end_pos is None:
                 # 沒有位置信息，嘗試搜索替換
-                masked_value = self._compute_masked_value(value, phi_type, masking_type)
+                masked_value = entity.get("masked_value") or self._compute_masked_value(
+                    value, phi_type, masking_type
+                )
                 masked_text = masked_text.replace(value, masked_value, 1)
                 log.debug(
                     "Replaced entity by search",
@@ -431,7 +531,9 @@ class ProcessingService:
                 )
             else:
                 # 使用位置替換
-                masked_value = self._compute_masked_value(value, phi_type, masking_type)
+                masked_value = entity.get("masked_value") or self._compute_masked_value(
+                    value, phi_type, masking_type
+                )
 
                 # 驗證位置是否匹配
                 if start_pos < len(masked_text) and masked_text[start_pos:end_pos] == value:
@@ -548,10 +650,14 @@ class ProcessingService:
             value = str(entity.get("value") or "")
             if not value or value == "[REDACTED]":
                 continue
-            pairs[value] = self._compute_masked_value(
-                value,
-                str(entity.get("type") or "UNKNOWN"),
-                masking_type,
+            pairs[value] = str(
+                entity.get("masked_value")
+                if entity.get("masked_value") is not None
+                else self._compute_masked_value(
+                    value,
+                    str(entity.get("type") or "UNKNOWN"),
+                    masking_type,
+                )
             )
         return sorted(pairs.items(), key=lambda item: len(item[0]), reverse=True)
 

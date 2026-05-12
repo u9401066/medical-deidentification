@@ -15,7 +15,10 @@ class ProcessRequest(BaseModel):
     """處理請求"""
 
     file_ids: list[str] = Field(..., description="要處理的檔案 ID 列表")
-    config: PHIConfig = Field(default_factory=PHIConfig)
+    config: PHIConfig | None = Field(
+        default=None,
+        description="本次任務的 PHI 設定；未提供時使用目前使用者已儲存的設定",
+    )
     job_name: str | None = Field(default=None, description="任務名稱")
 
 

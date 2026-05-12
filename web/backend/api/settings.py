@@ -102,20 +102,20 @@ def _get_phi_description(phi_type: str) -> str:
 
 
 @router.get("/settings/config")
-async def get_config(_: AuthUser = Depends(get_current_user)) -> dict[str, Any]:
-    """取得目前的 PHI 設定"""
+async def get_config(current_user: AuthUser = Depends(get_current_user)) -> dict[str, Any]:
+    """取得目前使用者的 PHI 設定"""
     phi_config_service = get_phi_config_service()
-    return phi_config_service.get_config().model_dump()
+    return phi_config_service.get_config_for_user(current_user.user_id).model_dump()
 
 
 @router.put("/settings/config")
 async def update_config(
     config: PHIConfig,
-    _: AuthUser = Depends(require_admin_user),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """更新 PHI 設定"""
+    """更新目前使用者的 PHI 設定"""
     phi_config_service = get_phi_config_service()
-    updated = phi_config_service.update_config(config)
+    updated = phi_config_service.update_user_config(current_user.user_id, config)
     return {"message": "設定已更新", "config": updated.model_dump()}
 
 
@@ -133,11 +133,13 @@ class PHITypeUpdateRequest(BaseModel):
 @router.get("/settings/phi-types/{phi_type}")
 async def get_phi_type_config(
     phi_type: str,
-    _: AuthUser = Depends(get_current_user),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """取得單一 PHI 類型的設定"""
+    """取得目前使用者的單一 PHI 類型設定"""
     phi_config_service = get_phi_config_service()
-    type_config = phi_config_service.get_phi_type_config(phi_type)
+    type_config = phi_config_service.get_phi_type_config_for_user(
+        current_user.user_id, phi_type
+    )
     if type_config is None:
         return {"type": phi_type, "enabled": True, "masking": "mask", "replace_with": None}
     return {"type": phi_type, **type_config.model_dump()}
@@ -147,11 +149,12 @@ async def get_phi_type_config(
 async def update_phi_type_config(
     phi_type: str,
     request: PHITypeUpdateRequest,
-    _: AuthUser = Depends(require_admin_user),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """更新單一 PHI 類型的設定"""
+    """更新目前使用者的單一 PHI 類型設定"""
     phi_config_service = get_phi_config_service()
-    updated = phi_config_service.update_phi_type_config(
+    updated = phi_config_service.update_user_phi_type_config(
+        current_user.user_id,
         phi_type,
         enabled=request.enabled,
         masking=request.masking,

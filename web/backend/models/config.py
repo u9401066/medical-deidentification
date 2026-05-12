@@ -10,13 +10,18 @@ class PHITypeConfig(BaseModel):
     """單一 PHI 類型配置"""
 
     enabled: bool = True
-    masking: str = "mask"  # mask, hash, replace, delete, keep
+    masking: str = "mask"  # mask, hash, replace, delete, keep, generalize
     replace_with: str | None = None  # 自訂替換詞，當 masking 為 'replace' 時使用
 
 
 class PHIConfig(BaseModel):
     """PHI 處理配置"""
 
+    enabled: bool = Field(default=True, description="是否啟用 PHI 偵測與遮蔽")
+    strict_mode: bool = Field(default=False, description="是否使用更嚴格的偵測設定")
+    default_masking: str = Field(
+        default="mask", description="mask, hash, replace, delete, keep, generalize"
+    )
     masking_type: str = Field(default="redact", description="redact, hash, pseudonymize")
     phi_types: list[str] | dict[str, PHITypeConfig] = Field(
         default_factory=lambda: [

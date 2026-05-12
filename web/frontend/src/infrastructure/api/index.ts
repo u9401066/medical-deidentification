@@ -90,7 +90,7 @@ export interface PHIConfig {
   strict_mode?: boolean;
   default_masking?: MaskingType;
   masking_type?: string;
-  phi_types?: Record<string, PHITypeConfig>;
+  phi_types?: Record<string, PHITypeConfig> | string[];
   preserve_format?: boolean;
   custom_patterns?: Record<string, string>;
 }
@@ -163,7 +163,7 @@ export interface PHIType {
   default_masking?: string;
 }
 
-export type MaskingType = 'mask' | 'hash' | 'replace' | 'delete' | 'keep';
+export type MaskingType = 'mask' | 'hash' | 'replace' | 'delete' | 'keep' | 'generalize';
 
 export interface RegulationRule {
   id: string;

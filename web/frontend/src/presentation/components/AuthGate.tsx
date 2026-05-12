@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { ShieldCheck } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Badge } from '@/presentation/components/ui'
 import api, { AuthUser } from '@/infrastructure/api'
@@ -11,6 +12,7 @@ interface AuthGateProps {
 }
 
 export function AuthGate({ children }: AuthGateProps) {
+  const queryClient = useQueryClient()
   const [user, setUser] = useState<AuthUser | null>(null)
   const [setupRequired, setSetupRequired] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -58,6 +60,7 @@ export function AuthGate({ children }: AuthGateProps) {
       const status = (event as CustomEvent<{ status?: number }>).detail?.status
       if (status === 401) {
         if (user) toast.error('登入已過期，請重新登入')
+        queryClient.clear()
         setUser(null)
         setPassword('')
         return
@@ -65,9 +68,11 @@ export function AuthGate({ children }: AuthGateProps) {
       if (status === 403 && user) {
         try {
           const me = await api.getCurrentUser()
+          queryClient.clear()
           setUser(me.user)
           toast.error('權限不足，已重新同步使用者角色')
         } catch {
+          queryClient.clear()
           setUser(null)
         }
       }
@@ -75,7 +80,7 @@ export function AuthGate({ children }: AuthGateProps) {
 
     window.addEventListener('medical-deid-auth-error', handleAuthError)
     return () => window.removeEventListener('medical-deid-auth-error', handleAuthError)
-  }, [user])
+  }, [queryClient, user])
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -84,6 +89,7 @@ export function AuthGate({ children }: AuthGateProps) {
       const response = setupRequired
         ? await api.bootstrapAdmin(username, password)
         : await api.login(username, password)
+      queryClient.clear()
       setUser(response.user)
       toast.success(setupRequired ? '管理員已建立' : '登入成功')
     } catch {
@@ -98,6 +104,7 @@ export function AuthGate({ children }: AuthGateProps) {
     if (!loggedOut) {
       toast.error('本機已登出，但伺服器 session 未確認清除')
     }
+    queryClient.clear()
     setUser(null)
     setPassword('')
   }

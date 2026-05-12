@@ -20,7 +20,9 @@ if str(BACKEND_DIR) not in sys.path:
 
 from api import files as files_api
 from api.files import _result_export
+from models.config import PHIConfig, PHITypeConfig
 from security import validate_browser_origin
+from services import phi_config_service as phi_config_module
 from services import result_sanitizer
 from services import task_service as task_module
 from services.auth_service import AuthService
@@ -243,6 +245,88 @@ def test_processing_result_preserves_masked_table_and_true_char_count(tmp_path: 
             "note": "Patient [REDACTED] visited on 2024-01-01",
         }
     ]
+
+
+def test_processing_result_respects_disabled_phi_types(tmp_path: Path) -> None:
+    source = tmp_path / "sample.txt"
+    source.write_text("Patient 王小明 visited on 2024-01-01", encoding="utf-8")
+    original_content = source.read_text(encoding="utf-8")
+    result = type(
+        "Result",
+        (),
+        {
+            "documents": [
+                {
+                    "phi_entities": [
+                        {"type": "NAME", "text": "王小明", "confidence": 0.95},
+                        {"type": "DATE", "text": "2024-01-01", "confidence": 0.95},
+                    ],
+                    "original_content": original_content,
+                    "masked_content": "Patient [REDACTED] visited on [REDACTED]",
+                }
+            ],
+            "summary": {},
+        },
+    )()
+
+    converted = ProcessingService()._convert_engine_result(
+        result,
+        source,
+        original_filename="sample.txt",
+        config={
+            "enabled": True,
+            "default_masking": "mask",
+            "phi_types": {
+                "NAME": {"enabled": True, "masking": "mask"},
+                "DATE": {"enabled": False, "masking": "keep"},
+            },
+        },
+    )
+
+    assert converted["phi_found"] == 1
+    assert converted["phi_entities"][0]["type"] == "NAME"
+    assert converted["masked_content"] == "Patient [REDACTED] visited on 2024-01-01"
+
+
+def test_phi_config_service_keeps_user_configs_isolated(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_dir = tmp_path / "phi_configs"
+    monkeypatch.setattr(phi_config_module, "PHI_CONFIG_DIR", config_dir)
+    monkeypatch.setattr(phi_config_module, "DEFAULT_CONFIG_FILE", config_dir / "current.json")
+    monkeypatch.setattr(phi_config_module, "PRESETS_DIR", config_dir / "presets")
+    monkeypatch.setattr(phi_config_module, "USER_CONFIGS_DIR", config_dir / "users")
+
+    service = phi_config_module.PHIConfigService()
+    service.update_config(
+        PHIConfig(
+            phi_types={
+                "NAME": PHITypeConfig(enabled=True, masking="mask"),
+                "DATE": PHITypeConfig(enabled=True, masking="mask"),
+            }
+        )
+    )
+    service.update_user_config(
+        "user/a",
+        PHIConfig(
+            phi_types={
+                "NAME": PHITypeConfig(enabled=True, masking="hash"),
+                "DATE": PHITypeConfig(enabled=False, masking="keep"),
+            }
+        ),
+    )
+
+    user_config = service.get_config_for_user("user/a")
+    other_config = service.get_config_for_user("user/b")
+
+    assert isinstance(user_config.phi_types, dict)
+    assert isinstance(other_config.phi_types, dict)
+    assert user_config.phi_types["NAME"].masking == "hash"
+    assert user_config.phi_types["DATE"].enabled is False
+    assert other_config.phi_types["NAME"].masking == "mask"
+    assert other_config.phi_types["DATE"].enabled is True
+    assert (config_dir / "users" / "user_a.json").exists()
 
 
 def test_processing_result_exports_original_table_when_no_phi(tmp_path: Path) -> None:

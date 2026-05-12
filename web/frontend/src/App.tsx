@@ -92,7 +92,7 @@ function WorkspaceApp({ user, onLogout }: { user: AuthUser, onLogout: () => void
             <Reports />
           </TabsContent>
           <TabsContent value="settings" className="flex-1 m-0">
-            <SettingsPanel canEdit={user.role === 'admin'} />
+            <SettingsPanel canEdit canEditSystem={user.role === 'admin'} />
           </TabsContent>
           {user.role === 'admin' && (
             <TabsContent value="users" className="flex-1 m-0">

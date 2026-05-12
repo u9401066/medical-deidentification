@@ -113,6 +113,8 @@ export function Sidebar({ onFileSelect, onOpenSettings, selectedFileId }: Sideba
         return '刪除'
       case 'keep':
         return '保留'
+      case 'generalize':
+        return '泛化'
       case 'mask':
       default:
         return '遮蔽'
@@ -123,8 +125,16 @@ export function Sidebar({ onFileSelect, onOpenSettings, selectedFileId }: Sideba
     .map((fileId) => files.find((file) => file.id === fileId))
     .filter((file): file is NonNullable<typeof file> => Boolean(file))
 
+  const isPhiTypeEnabled = (phiType: string) => {
+    const configuredTypes = phiConfig?.phi_types
+    if (Array.isArray(configuredTypes)) {
+      return configuredTypes.includes(phiType)
+    }
+    return configuredTypes?.[phiType]?.enabled ?? true
+  }
+
   const enabledPhiTypeLabels = phiTypes
-    .filter((phiType) => phiConfig?.phi_types?.[phiType.type]?.enabled ?? true)
+    .filter((phiType) => isPhiTypeEnabled(phiType.type))
     .map((phiType) => phiType.display_name || phiType.type)
 
   const phiDetectionEnabled = phiConfig?.enabled ?? true
@@ -137,7 +147,10 @@ export function Sidebar({ onFileSelect, onOpenSettings, selectedFileId }: Sideba
     setIsProcessing(true)
     setShowProcessConfirm(false)
     try {
-      await startProcessing({ file_ids: fileIdsToProcess })
+      await startProcessing({
+        file_ids: fileIdsToProcess,
+        ...(phiConfig ? { config: phiConfig } : {}),
+      })
       // 立即刷新任務和檔案列表
       await queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY })
       await queryClient.invalidateQueries({ queryKey: ['files'] })
