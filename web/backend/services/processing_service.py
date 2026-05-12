@@ -66,6 +66,7 @@ class ProcessingService:
         file_path: Path,
         config: dict[str, Any],
         original_filename: str | None = None,
+        artifact_dir: Path | None = None,
         progress_callback: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
         """處理單一檔案
@@ -74,6 +75,7 @@ class ProcessingService:
             file_path: 檔案路徑
             config: 處理配置
             original_filename: 原始檔名 (用於報告顯示)
+            artifact_dir: Optional directory for format-preserving output artifacts
             progress_callback: Optional core engine progress event callback
         """
         if not self._engine_available:
@@ -96,7 +98,13 @@ class ProcessingService:
             result = engine.process_file(file_path, progress_callback=progress_callback)
 
             masking_type = config.get("masking_type", "redact")
-            return self._convert_engine_result(result, file_path, original_filename, masking_type)
+            return self._convert_engine_result(
+                result,
+                file_path,
+                original_filename,
+                masking_type,
+                artifact_dir=artifact_dir,
+            )
 
         except Exception as e:
             logger.error(safe_exception_message(e, context="Processing"))
@@ -108,6 +116,7 @@ class ProcessingService:
         file_path: Path,
         original_filename: str | None = None,
         masking_type: str = "redact",
+        artifact_dir: Path | None = None,
     ) -> dict[str, Any]:
         """轉換引擎結果為標準格式
 
@@ -116,6 +125,7 @@ class ProcessingService:
             file_path: 檔案路徑 (含 file_id)
             original_filename: 原始檔名 (用於報告顯示)
             masking_type: 遮罩類型 (redact/hash/generalize)
+            artifact_dir: Optional directory for format-preserving output artifacts
         """
         # 從 ProcessingResult 提取資料
         phi_entities = []
@@ -237,7 +247,14 @@ class ProcessingService:
             phi_entities,
             masking_type,
         )
-        return {
+        artifact = self._build_deidentified_artifact(
+            file_path,
+            display_filename,
+            phi_entities,
+            masking_type,
+            artifact_dir,
+        )
+        payload = {
             "file_id": file_id,
             "filename": display_filename,
             "source_extension": file_path.suffix.lower(),
@@ -253,6 +270,18 @@ class ProcessingService:
             "masked_content": masked_content if masked_content else "",
             "status": "completed",
         }
+        if artifact:
+            payload.update(
+                {
+                    "artifact_path": str(artifact.path.resolve()),
+                    "artifact_filename": artifact.filename,
+                    "artifact_media_type": artifact.media_type,
+                    "artifact_format_preserved": artifact.format_preserved,
+                    "artifact_engine": artifact.engine,
+                    "artifact_warnings": artifact.warnings,
+                }
+            )
+        return payload
 
     def _entities_for_storage(self, phi_entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Return PHI entities safe for persistence/API responses by default."""
@@ -479,6 +508,36 @@ class ProcessingService:
             )
             return None, None
 
+    def _build_deidentified_artifact(
+        self,
+        file_path: Path,
+        original_filename: str,
+        phi_entities: list[dict[str, Any]],
+        masking_type: str,
+        artifact_dir: Path | None,
+    ) -> Any | None:
+        """Generate a format-preserving artifact before raw upload purge."""
+        if artifact_dir is None:
+            return None
+
+        try:
+            from core.infrastructure.format_preservation import build_deidentified_artifact
+
+            replacements = self._replacement_pairs(phi_entities, masking_type)
+            return build_deidentified_artifact(
+                file_path,
+                original_filename,
+                replacements,
+                artifact_dir,
+            )
+        except Exception as exc:
+            log.warning(
+                "Could not build deidentified artifact",
+                file_id=file_path.stem[:8],
+                error_type=type(exc).__name__,
+            )
+            return None
+
     def _replacement_pairs(
         self,
         phi_entities: list[dict[str, Any]],
@@ -547,6 +606,12 @@ class ProcessingService:
         output_dir = base_dir / "users" / owner_user_id
         output_dir.mkdir(parents=True, exist_ok=True)
         return output_dir
+
+    def get_task_artifact_dir(self, task_id: str, owner_user_id: str | None = None) -> Path:
+        """Return the per-task directory used for generated de-identified files."""
+        artifact_dir = self._owned_output_dir(self.results_dir, owner_user_id) / "artifacts" / task_id
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        return artifact_dir
 
     def cleanup_expired_outputs(self, max_age_hours: float) -> dict[str, int]:
         """Delete generated result/report artifacts older than the configured TTL."""

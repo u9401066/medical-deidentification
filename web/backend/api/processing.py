@@ -541,6 +541,10 @@ def process_phi_task(task_id: str):
                     file_path,
                     config,
                     original_filename=display_filename,
+                    artifact_dir=processing_service.get_task_artifact_dir(
+                        task_id,
+                        owner_user_id,
+                    ),
                     progress_callback=core_progress_callback,
                 )
                 if heartbeat_stop:

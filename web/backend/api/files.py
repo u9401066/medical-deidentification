@@ -116,8 +116,30 @@ def _write_csv(result: dict) -> bytes:
     return df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
 
 
+def _artifact_export(result: dict) -> tuple[bytes, str, str] | None:
+    artifact_path = result.get("artifact_path")
+    if not artifact_path:
+        return None
+
+    path = Path(str(artifact_path)).resolve()
+    results_root = RESULTS_DIR.resolve()
+    if not path.is_relative_to(results_root) or not path.is_file():
+        return None
+
+    filename = _safe_download_name(
+        result.get("artifact_filename") or path.name,
+        fallback="deidentified",
+    )
+    media_type = result.get("artifact_media_type") or "application/octet-stream"
+    return path.read_bytes(), filename, media_type
+
+
 def _result_export(result: dict) -> tuple[bytes, str, str]:
     """Create the de-identified original file, not the PHI audit list."""
+    artifact = _artifact_export(result)
+    if artifact:
+        return artifact
+
     original_name = result.get("filename") or result.get("file_id") or "result"
     original_path = Path(original_name)
     stem = _safe_download_name(original_path.stem or result.get("file_id") or "result")

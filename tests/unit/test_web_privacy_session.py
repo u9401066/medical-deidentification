@@ -1,5 +1,7 @@
 """Regression tests for web session isolation and raw-upload retention."""
 
+# ruff: noqa: E402
+
 import json
 import sys
 from io import BytesIO
@@ -8,19 +10,22 @@ from pathlib import Path
 import pandas as pd
 import pytest
 from fastapi import HTTPException
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import PatternFill
 from starlette.requests import Request
 
 BACKEND_DIR = Path(__file__).resolve().parents[2] / "web" / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from services.auth_service import AuthService
-from services.file_service import FileService
-from services import task_service as task_module
-from services import result_sanitizer
-from services.processing_service import ProcessingService
+from api import files as files_api
 from api.files import _result_export
 from security import validate_browser_origin
+from services import result_sanitizer
+from services import task_service as task_module
+from services.auth_service import AuthService
+from services.file_service import FileService
+from services.processing_service import ProcessingService
 
 
 def _request(
@@ -255,6 +260,105 @@ def test_processing_result_exports_original_table_when_no_phi(tmp_path: Path) ->
     assert dataframe.loc[0, "note"] == "無個資"
 
 
+def test_processing_result_writes_format_preserving_xlsx_artifact(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(files_api, "RESULTS_DIR", tmp_path)
+    source = tmp_path / "styled.xlsx"
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "病例"
+    worksheet.column_dimensions["A"].width = 28
+    worksheet["A1"] = "姓名"
+    worksheet["B1"] = "備註"
+    worksheet["A2"] = "王小明"
+    worksheet["B2"] = "需要追蹤"
+    worksheet["A2"].fill = PatternFill("solid", fgColor="FFFF0000")
+    workbook.save(source)
+
+    result = type(
+        "Result",
+        (),
+        {
+            "documents": [
+                {
+                    "phi_entities": [
+                        {
+                            "type": "NAME",
+                            "text": "王小明",
+                            "confidence": 0.95,
+                        }
+                    ],
+                    "original_content": "姓名: 王小明, 備註: 需要追蹤",
+                    "masked_content": "姓名: [REDACTED], 備註: 需要追蹤",
+                }
+            ],
+            "summary": {},
+        },
+    )()
+
+    converted = ProcessingService()._convert_engine_result(
+        result,
+        source,
+        original_filename="styled.xlsx",
+        artifact_dir=tmp_path / "artifacts",
+    )
+    content, filename, media_type = _result_export(converted)
+    downloaded = tmp_path / "downloaded.xlsx"
+    downloaded.write_bytes(content)
+    patched = load_workbook(downloaded)
+    patched_sheet = patched["病例"]
+
+    assert filename == "styled_deidentified.xlsx"
+    assert "spreadsheetml" in media_type
+    assert converted["artifact_format_preserved"] is True
+    assert patched_sheet["A2"].value == "[REDACTED]"
+    assert patched_sheet["A2"].fill.fgColor.rgb == "FFFF0000"
+    assert patched_sheet.column_dimensions["A"].width == 28
+
+
+def test_processing_result_writes_csv_artifact_with_dialect(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(files_api, "RESULTS_DIR", tmp_path)
+    source = tmp_path / "patients.csv"
+    source.write_text("姓名;電話\n王小明;0912-345-678\n", encoding="utf-8")
+    result = type(
+        "Result",
+        (),
+        {
+            "documents": [
+                {
+                    "phi_entities": [
+                        {"type": "NAME", "text": "王小明", "confidence": 0.95},
+                    ],
+                    "original_content": "姓名: 王小明, 電話: 0912-345-678",
+                    "masked_content": "姓名: [REDACTED], 電話: 0912-345-678",
+                }
+            ],
+            "summary": {},
+        },
+    )()
+
+    converted = ProcessingService()._convert_engine_result(
+        result,
+        source,
+        original_filename="patients.csv",
+        artifact_dir=tmp_path / "artifacts",
+    )
+    content, filename, media_type = _result_export(converted)
+    text = content.decode("utf-8-sig")
+
+    assert filename == "patients_deidentified.csv"
+    assert media_type.startswith("text/csv")
+    assert converted["artifact_format_preserved"] is True
+    assert "姓名;電話" in text
+    assert "[REDACTED];0912-345-678" in text
+    assert "PHI 類型" not in text
+
+
 def test_result_export_returns_deidentified_csv_not_phi_audit_list() -> None:
     content, filename, media_type = _result_export(
         {
@@ -310,7 +414,7 @@ async def test_purge_file_content_keeps_metadata_but_removes_raw_file(tmp_path: 
     file_service = FileService(tmp_path / "uploads")
     uploaded = await file_service.upload(
         "synthetic_phi.csv",
-        "姓名,電話\n王小明,0912-345-678\n".encode("utf-8"),
+        "姓名,電話\n王小明,0912-345-678\n".encode(),
         owner_user_id="user-a",
         owner_username="guest-a",
     )

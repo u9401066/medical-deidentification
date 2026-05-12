@@ -24,6 +24,7 @@
 🔐 隱私優先        100% 本地運行，資料不離開你的設備
 🌏 多語言          繁中/簡中/英/日/韓 等 10+ 語言
 ⚡ 高效混合        SpaCy + Regex + LLM 三層策略
+📦 格式保真輸出    CSV/XLSX 下載保留原始欄位、sheet 與樣式
 ```
 
 ---
@@ -248,6 +249,7 @@ medical-deidentification/
 |------|------|
 | [Architecture](docs/ARCHITECTURE.md) | 系統設計與 DDD 架構 |
 | [Deployment](docs/DEPLOYMENT.md) | 安裝與配置指南 |
+| [Format Preservation](docs/FORMAT_PRESERVATION.md) | 去識別化原檔輸出與 asset-aware 銜接策略 |
 | [LLM Benchmark](docs/llm-benchmark-results.md) | 模型效能測試報告 |
 | [Ollama Setup](docs/ollama-setup.md) | 本地 LLM 設定 |
 | [Batch Processing](docs/batch-processing.md) | 批次處理指南 |
