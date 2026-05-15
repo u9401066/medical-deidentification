@@ -8,8 +8,7 @@ User=__SERVICE_USER__
 Group=__SERVICE_GROUP__
 WorkingDirectory=__PROJECT_ROOT__/web/backend
 Environment="PATH=__PROJECT_ROOT__/.venv/bin:/usr/local/bin:/usr/bin:/bin"
-Environment="OLLAMA_BASE_URL=http://192.168.1.2:30133"
-Environment="OLLAMA_MODEL=gemma3:27b"
+EnvironmentFile=-/etc/medical-deid/medical-deid.env
 ExecStart=__PROJECT_ROOT__/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=5
