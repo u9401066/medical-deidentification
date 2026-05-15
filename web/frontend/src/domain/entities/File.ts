@@ -14,6 +14,7 @@ export interface UploadedFile {
   readonly fileType: string;
   readonly previewAvailable: boolean;
   readonly status: FileStatusType;
+  readonly taskId?: string | null;
 }
 
 /**
@@ -28,6 +29,7 @@ export function createUploadedFile(data: {
   file_type: string;
   preview_available: boolean;
   status?: string;
+  task_id?: string | null;
 }): UploadedFile {
   return {
     id: data.file_id || data.id || '',
@@ -37,6 +39,7 @@ export function createUploadedFile(data: {
     fileType: data.file_type,
     previewAvailable: data.preview_available,
     status: (data.status as FileStatusType) || 'pending',
+    taskId: data.task_id ?? null,
   };
 }
 

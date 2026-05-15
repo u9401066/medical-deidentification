@@ -13,6 +13,7 @@ if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
 
 from utils.safe_paths import (  # noqa: E402
+    content_disposition_header,
     is_safe_identifier,
     safe_join,
     sanitize_filename,
@@ -79,3 +80,16 @@ def test_sanitize_filename_falls_back_when_empty() -> None:
 
 def test_sanitize_filename_preserves_alphanumeric() -> None:
     assert sanitize_filename("report_abc-123.csv") == "report_abc-123.csv"
+
+
+def test_content_disposition_header_supports_utf8_filename() -> None:
+    header = content_disposition_header("報告_abc.xlsx")
+    assert 'filename="報告_abc.xlsx"' in header
+    assert "filename*=UTF-8''%E5%A0%B1%E5%91%8A_abc.xlsx" in header
+
+
+def test_content_disposition_header_strips_crlf() -> None:
+    header = content_disposition_header('evil"\r\nx.csv')
+    assert "\r" not in header
+    assert "\n" not in header
+    assert "filename*=UTF-8''" in header

@@ -200,7 +200,7 @@ class ProcessingService:
         )
 
         # 套用 hard rules 後處理 (修正 LLM 常見錯誤)
-        phi_entities, corrections = self._apply_hard_rules(phi_entities)
+        phi_entities, corrections = self._apply_hard_rules(phi_entities, original_content)
         if corrections:
             log.warning(
                 "Hard rules applied",
@@ -251,7 +251,7 @@ class ProcessingService:
             return "[REDACTED]"
 
     def _apply_hard_rules(
-        self, phi_entities: list[dict[str, Any]]
+        self, phi_entities: list[dict[str, Any]], original_content: str = ""
     ) -> tuple[list[dict[str, Any]], list[str]]:
         """
         套用 hard rules 後處理，修正 LLM 常見錯誤
@@ -265,6 +265,22 @@ class ProcessingService:
         for entity in phi_entities:
             phi_type = entity.get("type", "")
             value = entity.get("value", "")
+
+            # Rule 0: position bounds must be valid when provided.
+            start_pos = entity.get("start_pos")
+            end_pos = entity.get("end_pos")
+            if start_pos is not None or end_pos is not None:
+                if (
+                    not isinstance(start_pos, int)
+                    or not isinstance(end_pos, int)
+                    or start_pos < 0
+                    or end_pos <= start_pos
+                    or (original_content and end_pos > len(original_content))
+                ):
+                    corrections.append(
+                        f"Removed {phi_type} '{value}' (invalid position {start_pos}-{end_pos})"
+                    )
+                    continue
 
             # Rule 1: AGE_OVER_89 和 AGE 類型必須 >= 89 才保留
             # LLM 有時會把任意數字誤判為年齡
@@ -280,11 +296,33 @@ class ProcessingService:
                     # 無法解析數字，移除（保守策略：不確定就不要遮罩）
                     corrections.append(f"Removed {phi_type} '{value}' (unable to parse age)")
                     continue
+            elif phi_type == "EMAIL" and not self._looks_like_email(value):
+                corrections.append(f"Removed EMAIL '{value}' (invalid email format)")
+                continue
+            elif phi_type in ("PHONE", "FAX", "CONTACT") and not self._looks_like_phone(value):
+                corrections.append(f"Removed {phi_type} '{value}' (invalid phone/contact format)")
+                continue
             else:
                 # 其他類型直接保留
                 filtered.append(entity)
 
         return filtered, corrections
+
+    def _looks_like_email(self, text: str) -> bool:
+        """Validate common email shape to filter LLM hallucinations."""
+        if not text:
+            return False
+        return bool(re.fullmatch(
+            r"[A-Za-z0-9]+(?:[._%+-][A-Za-z0-9]+)*@"
+            r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"
+            r"(?:\.[A-Za-z]{2,})+",
+            text.strip(),
+        ))
+
+    def _looks_like_phone(self, text: str) -> bool:
+        """Validate phone/contact values have a plausible number of digits."""
+        digits = re.sub(r"\D", "", text or "")
+        return 7 <= len(digits) <= 15
 
     def _extract_age_number(self, text: str) -> int | None:
         """

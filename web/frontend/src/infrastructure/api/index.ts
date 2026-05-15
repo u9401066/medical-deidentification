@@ -313,11 +313,11 @@ export const deleteFile = async (fileId: string): Promise<void> => {
 };
 
 export const downloadResult = async (
-  fileId: string,
+  taskId: string,
   fileType: 'result' | 'report' = 'result',
   format: 'xlsx' | 'csv' | 'json' = 'xlsx'
 ): Promise<Blob> => {
-  const response = await apiClient.get(`/download/${fileId}`, {
+  const response = await apiClient.get(`/download/${taskId}`, {
     params: { file_type: fileType, format },
     responseType: 'blob',
   });

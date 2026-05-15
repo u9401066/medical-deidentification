@@ -70,7 +70,7 @@ class PhoneTool(BasePHITool):
                 pattern=re.compile(r'\b[2-9]\d{3}[-\s]?\d{4}\b'),
                 phone_type="LANDLINE",
                 region="TW",
-                confidence=0.70,  # Lower confidence without area code
+                confidence=0.50,  # Very broad without area code; require corroboration
             ),
             # International format: +886-X-XXXX-XXXX
             PhonePattern(
@@ -127,6 +127,7 @@ class PhoneTool(BasePHITool):
         """
         results = []
         found_positions = set()  # Track found positions to avoid duplicates
+        found_normalized_phones = set()  # Avoid duplicates with different separators
 
         for phone_pattern in self._patterns:
             for match in phone_pattern.pattern.finditer(text):
@@ -135,6 +136,12 @@ class PhoneTool(BasePHITool):
                     continue
 
                 phone_number = match.group(0)
+                normalized_phone = self._normalize_phone(phone_number)
+
+                # Skip if same phone was already found in a different format,
+                # e.g. "0912-345-678" and "0912345678".
+                if normalized_phone in found_normalized_phones:
+                    continue
 
                 # Skip if matches exclusion pattern
                 if self._should_exclude(phone_number):
@@ -158,13 +165,14 @@ class PhoneTool(BasePHITool):
                     metadata={
                         "phone_type": phone_pattern.phone_type,
                         "region": phone_pattern.region,
-                        "normalized": self._normalize_phone(phone_number),
+                        "normalized": normalized_phone,
                     }
                 ))
 
                 # Mark this position as found
                 for pos in range(match.start(), match.end()):
                     found_positions.add(pos)
+                found_normalized_phones.add(normalized_phone)
 
         return results
 

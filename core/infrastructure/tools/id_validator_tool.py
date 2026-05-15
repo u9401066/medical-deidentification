@@ -198,15 +198,18 @@ class IDValidatorTool(BasePHITool):
             letter1 = arc_number[0].upper()
             letter2 = arc_number[1].upper()
 
-            if letter1 not in self.TW_ID_LETTER_MAP or letter2 not in self.TW_ID_LETTER_MAP:
+            valid_arc_second_letters = {"A", "B", "C", "D"}
+            if (
+                letter1 not in self.TW_ID_LETTER_MAP
+                or letter2 not in valid_arc_second_letters
+            ):
                 return False
 
-            # ARC uses different validation rules depending on issue date
-            # For simplicity, we do basic format validation
-            # More complex validation would require knowing the issue date
-
-            # Basic validation: first letter is valid region code
-            return letter1 in self.TW_ID_LETTER_MAP
+            # ARC uses different validation rules depending on issue date.
+            # Full checksum validation can require issue-date-specific rules, so
+            # keep this as a conservative basic validation. Both letters must be
+            # valid codes; previously only the first letter was checked.
+            return letter1 in self.TW_ID_LETTER_MAP and letter2 in valid_arc_second_letters
 
         except (ValueError, IndexError):
             return False

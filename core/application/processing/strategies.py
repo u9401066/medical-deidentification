@@ -106,13 +106,13 @@ class GeneralizationStrategy(MaskingStrategy):
     
     Examples:
         >>> strategy = GeneralizationStrategy()
-        >>> # Age over 89 → "≥90歲"
+        >>> # Age 89 or older → "≥89歲"
         >>> masked = strategy.mask(entity)
     """
 
     # Generalization rules
     _GENERALIZATION_RULES = {
-        PHIType.AGE_OVER_89: lambda age: "≥90 years" if "year" in age.lower() else "≥90歲",
+        PHIType.AGE_OVER_89: lambda age: "≥89 years" if "year" in age.lower() else "≥89歲",
         PHIType.AGE_OVER_90: lambda age: ">90 years" if "year" in age.lower() else ">90歲",
         PHIType.DATE: lambda date: date[:4] if len(date) >= 4 else "[DATE]",  # Keep year only
         PHIType.LOCATION: lambda loc: "[地區]" if any(c >= '\u4e00' and c <= '\u9fff' for c in loc) else "[LOCATION]",

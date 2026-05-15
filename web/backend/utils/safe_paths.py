@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from urllib.parse import quote
 
 # Task / file / preset identifiers are generated from UUIDs (see e.g.
 # ``services.file_service.FileService.upload``) but may also include
@@ -61,8 +62,20 @@ def sanitize_filename(filename: str, fallback: str = "download") -> str:
     return cleaned or fallback
 
 
+def content_disposition_header(filename: str, fallback: str = "download") -> str:
+    """Return a safe attachment Content-Disposition value.
+
+    Includes both a quoted ``filename`` and RFC 5987 ``filename*`` so browsers
+    can correctly download non-ASCII filenames such as Chinese report names.
+    """
+    safe_name = sanitize_filename(filename, fallback=fallback)
+    encoded_name = quote(safe_name)
+    return f'attachment; filename="{safe_name}"; filename*=UTF-8\'\'{encoded_name}'
+
+
 __all__ = [
     "is_safe_identifier",
     "safe_join",
     "sanitize_filename",
+    "content_disposition_header",
 ]

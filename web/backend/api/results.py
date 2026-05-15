@@ -16,7 +16,7 @@ if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
 from config import REPORTS_DIR, RESULTS_DIR
-from utils.safe_paths import is_safe_identifier, safe_join, sanitize_filename
+from utils.safe_paths import content_disposition_header, is_safe_identifier, safe_join
 
 router = APIRouter()
 
@@ -165,11 +165,14 @@ async def export_report(task_id: str, format: str = "json"):
     if format == "json":
         # 直接返回 JSON 供下載
         content = json.dumps(report, ensure_ascii=False, indent=2)
-        safe_name = sanitize_filename(f"report_{task_id}.json", fallback="report.json")
         return Response(
             content=content,
             media_type="application/json",
-            headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+            headers={
+                "Content-Disposition": content_disposition_header(
+                    f"report_{task_id}.json", fallback="report.json"
+                )
+            },
         )
     elif format == "csv":
         # 導出為 CSV
@@ -199,11 +202,14 @@ async def export_report(task_id: str, format: str = "json"):
             ])
 
         content = output.getvalue()
-        safe_name = sanitize_filename(f"report_{task_id}.csv", fallback="report.csv")
         return Response(
             content=content,
             media_type="text/csv",
-            headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+            headers={
+                "Content-Disposition": content_disposition_header(
+                    f"report_{task_id}.csv", fallback="report.csv"
+                )
+            },
         )
     elif format == "markdown" or format == "md":
         # 導出為 Markdown
@@ -242,9 +248,12 @@ async def export_report(task_id: str, format: str = "json"):
             lines.append("")
 
         content = "\n".join(lines)
-        safe_name = sanitize_filename(f"report_{task_id}.md", fallback="report.md")
         return Response(
             content=content,
             media_type="text/markdown",
-            headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+            headers={
+                "Content-Disposition": content_disposition_header(
+                    f"report_{task_id}.md", fallback="report.md"
+                )
+            },
         )

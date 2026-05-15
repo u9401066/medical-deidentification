@@ -4,7 +4,6 @@ File Service
 """
 
 import json
-import re
 import sys
 import uuid
 from datetime import datetime
@@ -20,6 +19,7 @@ if str(_backend_dir) not in sys.path:
 
 from config import MAX_FILE_SIZE, UPLOAD_DIR
 from models.file import UploadedFile
+from utils.safe_paths import is_safe_identifier, safe_join
 
 from services.task_service import get_task_service
 
@@ -34,7 +34,7 @@ class FileService:
     @staticmethod
     def sanitize_path(file_id: str) -> bool:
         """驗證 file_id 格式，防止路徑穿越攻擊"""
-        return bool(re.match(r"^[a-zA-Z0-9-]+$", file_id))
+        return is_safe_identifier(file_id)
 
     async def upload(self, filename: str, content: bytes) -> UploadedFile:
         """上傳檔案"""
@@ -118,18 +118,32 @@ class FileService:
 
     def get_file_path(self, file_id: str) -> Path | None:
         """取得檔案路徑"""
-        meta_file = self.upload_dir / f"{file_id}.meta.json"
+        if not self.sanitize_path(file_id):
+            return None
+        try:
+            meta_file = safe_join(self.upload_dir, f"{file_id}.meta.json")
+        except ValueError:
+            return None
         if not meta_file.exists():
             return None
 
         with open(meta_file) as f:
             meta = json.load(f)
 
-        return Path(meta["path"])
+        try:
+            return safe_join(self.upload_dir, Path(meta["path"]).name)
+        except ValueError:
+            logger.warning(f"⚠️ Invalid stored upload path blocked: {file_id}")
+            return None
 
     def get_file_metadata(self, file_id: str) -> dict[str, Any] | None:
         """取得檔案元數據"""
-        meta_file = self.upload_dir / f"{file_id}.meta.json"
+        if not self.sanitize_path(file_id):
+            return None
+        try:
+            meta_file = safe_join(self.upload_dir, f"{file_id}.meta.json")
+        except ValueError:
+            return None
         if not meta_file.exists():
             return None
 

@@ -294,15 +294,15 @@ export function Sidebar({ onFileSelect, selectedFileId }: SidebarProps) {
             selectedFiles.length === 0 ||
             !files.some(
               (f) =>
-                selectedFiles.includes(f.id) && f.status === 'completed'
+                selectedFiles.includes(f.id) && f.status === 'completed' && f.taskId
             )
           }
           onClick={async () => {
             for (const fileId of selectedFiles) {
               const file = files.find((f) => f.id === fileId)
-              if (file?.status === 'completed') {
+              if (file?.status === 'completed' && file.taskId) {
                 try {
-                  await downloadResultMutation.mutateAsync({ taskId: fileId })
+                  await downloadResultMutation.mutateAsync({ taskId: file.taskId })
                 } catch (err) {
                   console.error('下載失敗:', err)
                 }

@@ -90,7 +90,7 @@ INSTRUCTIONS (指示)
    - reason: Explanation of why this is PHI
 
 3. Special rules:
-   - Ages over 89 years ONLY (ages 89 and below are NOT PHI)
+   - Ages 89 years or older ONLY (ages below 89 are NOT PHI)
    - Rare diseases (prevalence <1:2000) that could identify individuals
    - Common diseases like diabetes, hypertension, cancer do NOT need redaction
 
@@ -112,7 +112,7 @@ Medical Text to Analyze:
 
 Task: Extract ALL identifiable information that should be redacted, including:
 1. Personal names
-2. Ages ONLY if >90 years (ages 90 and below should NOT be identified)
+2. Ages ONLY if 89 years or older (ages below 89 should NOT be identified)
 3. Geographic locations smaller than state level
 4. Contact information (phone, email, address)
 5. ID numbers and account numbers
@@ -157,7 +157,7 @@ Medical Text:
 Instructions:
 1. Identify ALL PHI entities according to regulations
 2. Pay special attention to:
-   - Ages over 90 years ONLY (ages 90 and below are NOT PHI)
+   - Ages 89 years or older ONLY (ages below 89 are NOT PHI)
    - Rare diseases (prevalence <1:2000) that could identify individuals
    - Common diseases like diabetes, hypertension, cancer do NOT need redaction
    - Genetic information
@@ -198,7 +198,7 @@ PHI_IDENTIFICATION_PROMPT_ZH_TW = """您是一位醫療去識別化專家。根�
    - reason: 根據法規為何這被視為 PHI 的解釋
 
 3. 特別注意：
-   - 只有超過 90 歲的年齡才需要去識別化（90 歲及以下不需要）
+   - 只有 89 歲（含）以上的年齡才需要去識別化（低於 89 歲不需要）
    - 罕見疾病（發生率 <1:2000）才需要去識別化（常見疾病如糖尿病、高血壓、癌症不需要）
    - 遺傳資訊
    - 小型地理區域

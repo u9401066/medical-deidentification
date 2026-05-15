@@ -46,7 +46,14 @@ class RegexPHITool(BasePHITool):
 
         # Email addresses
         PHIType.EMAIL: [
-            (re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'), 0.95),
+            (
+                re.compile(
+                    r'\b[A-Za-z0-9]+(?:[._%+-][A-Za-z0-9]+)*@'
+                    r'[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?'
+                    r'(?:\.[A-Za-z]{2,})+\b'
+                ),
+                0.95,
+            ),
         ],
 
         # URLs
@@ -67,11 +74,11 @@ class RegexPHITool(BasePHITool):
         # 日期 - 多種格式
         PHIType.DATE: [
             # YYYY-MM-DD, YYYY/MM/DD
-            (re.compile(r'\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b'), 0.90),
+            (re.compile(r'\b\d{4}[-/](?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12]\d|3[01])\b'), 0.90),
             # MM-DD-YYYY, MM/DD/YYYY
-            (re.compile(r'\b\d{1,2}[-/]\d{1,2}[-/]\d{4}\b'), 0.85),
+            (re.compile(r'\b(?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12]\d|3[01])[-/]\d{4}\b'), 0.85),
             # Chinese date: 民國112年3月5日, 2024年3月5日
-            (re.compile(r'(?:民國)?\d{2,4}年\d{1,2}月\d{1,2}日'), 0.90),
+            (re.compile(r'(?:民國|西元)?\d{2,4}年(?:0?[1-9]|1[0-2])月(?:0?[1-9]|[12]\d|3[01])日'), 0.90),
             # English date: March 5, 2024
             (re.compile(r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b', re.IGNORECASE), 0.85),
         ],
@@ -80,7 +87,7 @@ class RegexPHITool(BasePHITool):
         # 病歷號 (常見格式)
         PHIType.MEDICAL_RECORD_NUMBER: [
             # Common hospital MRN formats: 12345678, H12345678
-            (re.compile(r'\b[A-Z]?\d{7,10}\b'), 0.70),  # Lower confidence - too general
+            (re.compile(r'\b[A-Z]?\d{7,10}\b'), 0.55),  # Very broad; require corroboration
         ],
 
         # Account numbers
@@ -88,12 +95,12 @@ class RegexPHITool(BasePHITool):
             # Bank account patterns (Taiwan)
             (re.compile(r'\b\d{3}-\d{2}-\d{6,7}-\d\b'), 0.85),
             # General account number
-            (re.compile(r'\b\d{10,16}\b'), 0.60),  # Very low confidence - could be many things
+            (re.compile(r'\b\d{10,16}\b'), 0.50),  # Very broad; require corroboration
         ],
 
         # Fax numbers (same patterns as phone but with fax keywords nearby)
         PHIType.FAX: [
-            (re.compile(r'(?:傳真|fax)[^\d]*(\d{2,4}[-\s]?\d{3,4}[-\s]?\d{3,4})', re.IGNORECASE), 0.90),
+            (re.compile(r'(?:傳真|fax)[^\d]*\d{2,4}[-\s]?\d{3,4}[-\s]?\d{3,4}', re.IGNORECASE), 0.90),
         ],
 
         # Location patterns (simplified)
@@ -125,6 +132,16 @@ class RegexPHITool(BasePHITool):
     def name(self) -> str:
         return "regex_phi_tool"
 
+    @staticmethod
+    def _match_span(match: re.Match) -> tuple[str, int, int]:
+        """Return the first non-empty capture span, otherwise the full match."""
+        if match.lastindex:
+            for index in range(1, match.lastindex + 1):
+                value = match.group(index)
+                if value is not None:
+                    return value, match.start(index), match.end(index)
+        return match.group(0), match.start(), match.end()
+
     @property
     def supported_types(self) -> list[PHIType]:
         return list(self._patterns.keys())
@@ -145,10 +162,7 @@ class RegexPHITool(BasePHITool):
         for phi_type, patterns in self._patterns.items():
             for pattern, confidence in patterns:
                 for match in pattern.finditer(text):
-                    # For patterns with groups, use the first group if available
-                    matched_text = match.group(1) if match.groups() else match.group(0)
-                    start = match.start(1) if match.groups() else match.start()
-                    end = match.end(1) if match.groups() else match.end()
+                    matched_text, start, end = self._match_span(match)
 
                     results.append(ToolResult(
                         text=matched_text,
@@ -183,9 +197,7 @@ class RegexPHITool(BasePHITool):
 
         for pattern, confidence in self._patterns[phi_type]:
             for match in pattern.finditer(text):
-                matched_text = match.group(1) if match.groups() else match.group(0)
-                start = match.start(1) if match.groups() else match.start()
-                end = match.end(1) if match.groups() else match.end()
+                matched_text, start, end = self._match_span(match)
 
                 results.append(ToolResult(
                     text=matched_text,

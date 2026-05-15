@@ -15,6 +15,7 @@ interface FileResponse {
   file_type: string;
   preview_available: boolean;
   status?: string;
+  task_id?: string | null;
 }
 
 export interface PreviewData {
@@ -64,6 +65,7 @@ export async function listFiles(): Promise<UploadedFile[]> {
       ...f,
       id: f.file_id || f.id,
       status: f.status || 'pending',
+      task_id: f.task_id ?? null,
     })
   );
 }
@@ -81,12 +83,13 @@ export async function deleteFile(fileId: string): Promise<void> {
  * 下載結果
  */
 export async function downloadResult(
-  fileId: string,
-  fileType: 'result' | 'report' = 'result'
+  taskId: string,
+  fileType: 'result' | 'report' = 'result',
+  format: 'xlsx' | 'csv' | 'json' = 'xlsx'
 ): Promise<Blob> {
-  logger.info('Downloading result', { fileId, fileType });
-  const response = await apiClient.get(`/download/${fileId}`, {
-    params: { file_type: fileType },
+  logger.info('Downloading result', { taskId, fileType, format });
+  const response = await apiClient.get(`/download/${taskId}`, {
+    params: { file_type: fileType, format },
     responseType: 'blob',
   });
   return response.data;
