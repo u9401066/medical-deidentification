@@ -7,8 +7,10 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
-# NVM 路徑 (用於 npm/node)
-NVM_NODE_PATH="/home/eric/.nvm/versions/node/v20.19.6/bin"
+# Service 使用者與 NVM 路徑 (可用環境變數覆蓋)
+SERVICE_USER="${SERVICE_USER:-${SUDO_USER:-$USER}}"
+SERVICE_GROUP="${SERVICE_GROUP:-$(id -gn "$SERVICE_USER")}"
+NVM_NODE_PATH="${NVM_NODE_PATH:-/home/$SERVICE_USER/.nvm/versions/node/v20.19.6/bin}"
 
 echo "🏥 Medical De-identification 系統服務安裝"
 echo "========================================"
@@ -24,19 +26,29 @@ fi
 # 確認前端已建置
 if [ ! -d "$PROJECT_ROOT/web/frontend/dist" ]; then
     echo "⚠️  前端尚未建置，正在建置..."
-    sudo -u eric bash -c "export PATH=$NVM_NODE_PATH:\$PATH && cd $PROJECT_ROOT/web/frontend && npm run build"
+    sudo -u "$SERVICE_USER" bash -c "export PATH=$NVM_NODE_PATH:\$PATH && cd $PROJECT_ROOT/web/frontend && npm run build"
 fi
 
 # 安裝 serve (如果沒有)
 if [ ! -f "$NVM_NODE_PATH/serve" ]; then
     echo "📦 安裝 serve..."
-    sudo -u eric bash -c "export PATH=$NVM_NODE_PATH:\$PATH && npm install -g serve"
+    sudo -u "$SERVICE_USER" bash -c "export PATH=$NVM_NODE_PATH:\$PATH && npm install -g serve"
 fi
 
 # 複製 service 檔案
 echo "📋 複製 systemd service 檔案..."
-cp "$SCRIPT_DIR/medical-deid-backend.service" /etc/systemd/system/
-cp "$SCRIPT_DIR/medical-deid-frontend.service" /etc/systemd/system/
+sed \
+    -e "s#__PROJECT_ROOT__#$PROJECT_ROOT#g" \
+    -e "s#__SERVICE_USER__#$SERVICE_USER#g" \
+    -e "s#__SERVICE_GROUP__#$SERVICE_GROUP#g" \
+    -e "s#__NVM_NODE_PATH__#$NVM_NODE_PATH#g" \
+    "$SCRIPT_DIR/medical-deid-backend.service" > /etc/systemd/system/medical-deid-backend.service
+sed \
+    -e "s#__PROJECT_ROOT__#$PROJECT_ROOT#g" \
+    -e "s#__SERVICE_USER__#$SERVICE_USER#g" \
+    -e "s#__SERVICE_GROUP__#$SERVICE_GROUP#g" \
+    -e "s#__NVM_NODE_PATH__#$NVM_NODE_PATH#g" \
+    "$SCRIPT_DIR/medical-deid-frontend.service" > /etc/systemd/system/medical-deid-frontend.service
 
 # 重新載入 systemd
 echo "🔄 重新載入 systemd..."

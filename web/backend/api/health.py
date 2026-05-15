@@ -3,8 +3,10 @@ Health API Router
 健康檢查 API
 """
 
-import subprocess
+import json
 import sys
+from urllib.error import URLError
+from urllib.request import urlopen
 from pathlib import Path
 
 from fastapi import APIRouter
@@ -32,25 +34,13 @@ async def health_check():
     ollama_url = llm_config.base_url.rstrip("/")
 
     try:
-        result = subprocess.run(
-            ["curl", "-s", f"{ollama_url}/api/tags"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode == 0:
-            import json
-
-            try:
-                data = json.loads(result.stdout)
-                if data.get("models"):
-                    llm_status = "online"
-            except json.JSONDecodeError:
-                pass
-    except subprocess.TimeoutExpired:
+        with urlopen(f"{ollama_url}/api/tags", timeout=5) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            if data.get("models"):
+                llm_status = "online"
+    except TimeoutError:
         llm_status = "timeout"
-    except Exception:
+    except (URLError, json.JSONDecodeError, ValueError):
         pass
 
     # 檢查引擎狀態

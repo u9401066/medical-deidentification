@@ -11,8 +11,8 @@ from pathlib import Path
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://192.168.1.2:30133")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:27b")
 
-# 資料目錄
-DATA_DIR = Path(__file__).parent / "data"
+# 資料目錄（可用環境變數覆蓋，避免 production 寫入原始碼目錄）
+DATA_DIR = Path(os.getenv("MEDICAL_DEID_DATA_DIR", Path(__file__).parent / "data")).expanduser()
 UPLOAD_DIR = DATA_DIR / "uploads"
 RESULTS_DIR = DATA_DIR / "results"
 REPORTS_DIR = DATA_DIR / "reports"

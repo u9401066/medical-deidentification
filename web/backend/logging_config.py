@@ -9,6 +9,7 @@ Logging Configuration
 """
 
 import sys
+import os
 from pathlib import Path
 
 from typing import Any
@@ -16,8 +17,8 @@ from typing import Any
 from loguru import logger
 
 # 日誌目錄
-LOG_DIR = Path(__file__).parent / "logs"
-LOG_DIR.mkdir(exist_ok=True)
+LOG_DIR = Path(os.getenv("MEDICAL_DEID_LOG_DIR", Path(__file__).parent / "logs")).expanduser()
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def configure_logging(

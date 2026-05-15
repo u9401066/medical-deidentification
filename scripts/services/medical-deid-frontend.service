@@ -5,11 +5,11 @@ Wants=medical-deid-backend.service
 
 [Service]
 Type=simple
-User=eric
-Group=eric
-WorkingDirectory=/home/eric/workspace260113/medical-deidentification/web/frontend
-Environment="PATH=/home/eric/.nvm/versions/node/v20.19.6/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/home/eric/.nvm/versions/node/v20.19.6/bin/serve -s dist -l 5173
+User=__SERVICE_USER__
+Group=__SERVICE_GROUP__
+WorkingDirectory=__PROJECT_ROOT__/web/frontend
+Environment="PATH=__NVM_NODE_PATH__:/usr/local/bin:/usr/bin:/bin"
+ExecStart=__NVM_NODE_PATH__/serve -s dist -l 127.0.0.1:5173
 Restart=always
 RestartSec=5
 StandardOutput=journal
